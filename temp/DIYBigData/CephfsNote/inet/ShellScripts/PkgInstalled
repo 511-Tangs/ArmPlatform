@@ -1,0 +1,4 @@
+#!/bin/bash
+# This script examines all installed packages and write 
+# them to /tmp/dpkg.selections.txt
+dpkg --get-selections |grep "\binstall$" | tee  /tmp/dpkg.selections.txt

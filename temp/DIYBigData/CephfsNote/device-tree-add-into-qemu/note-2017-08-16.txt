@@ -1,0 +1,534 @@
+# 1
+Find file
+include/sysemu/device_tree.h <- device tree header on qemu
+
+hw/arm/virt.c <- virt board device tree
+
+# 2
+How qemu add device tree into machine
+
+1. using fdt add into memory
+2. using function add device tree
+
+How many functions in virt.c
+
+qemu_fdt_setprop
+qemu_fdt_setprop_string
+qemu_fdt_setprop_cell
+qemu_fdt_setprop_u64
+qemu_fdt_setprop_phandel
+
+Find Timer problem
+
+Line 330 to 362
+
+static void fdt_add_timer_nodes(const VirtBoardInfo *vbi, int gictype)
+{
+    /* Note that on A15 h/w these interrupts are level-triggered,
+     * but for the GIC implementation provided by both QEMU and KVM
+     * they are edge-triggered.
+     */
+    ARMCPU *armcpu;
+    uint32_t irqflags = GIC_FDT_IRQ_FLAGS_EDGE_LO_HI;
+
+    if (gictype == 2) {
+        irqflags = deposit32(irqflags, GIC_FDT_IRQ_PPI_CPU_START,
+                             GIC_FDT_IRQ_PPI_CPU_WIDTH,
+                             (1 << vbi->smp_cpus) - 1);
+    }
+
+    qemu_fdt_add_subnode(vbi->fdt, "/timer");
+
+    armcpu = ARM_CPU(qemu_get_cpu(0));
+    if (arm_feature(&armcpu->env, ARM_FEATURE_V8)) {
+        const char compat[] = "arm,armv8-timer\0arm,armv7-timer";
+        qemu_fdt_setprop(vbi->fdt, "/timer", "compatible",
+                         compat, sizeof(compat));
+    } else {
+        qemu_fdt_setprop_string(vbi->fdt, "/timer", "compatible",
+                                "arm,armv7-timer");
+    }
+    qemu_fdt_setprop(vbi->fdt, "/timer", "always-on", NULL, 0);
+    qemu_fdt_setprop_cells(vbi->fdt, "/timer", "interrupts",
+                       GIC_FDT_IRQ_TYPE_PPI, ARCH_TIMER_S_EL1_IRQ, irqflags,
+                       GIC_FDT_IRQ_TYPE_PPI, ARCH_TIMER_NS_EL1_IRQ, irqflags,
+                       GIC_FDT_IRQ_TYPE_PPI, ARCH_TIMER_VIRT_IRQ, irqflags,
+                       GIC_FDT_IRQ_TYPE_PPI, ARCH_TIMER_NS_EL2_IRQ, irqflags);
+}
+
+
+#3 Check timer
+
+Timer has compatible, armv7-timer irq no freq
+
+Check what diff for 
+qemu_fdt_setprop,  qemu_fdt_setprop_cells,  qemu_fdt_setprop_string
+
+in device_tree.h
+int qemu_fdt_setprop(void *fdt, const char *node_path,
+                     const char *property, const void *val, int size);
+int qemu_fdt_setprop_cell(void *fdt, const char *node_path,
+                          const char *property, uint32_t val);
+int qemu_fdt_setprop_u64(void *fdt, const char *node_path,
+                         const char *property, uint64_t val);
+int qemu_fdt_setprop_string(void *fdt, const char *node_path,
+                            const char *property, const char *string);
+int qemu_fdt_setprop_phandle(void *fdt, const char *node_path,
+                             const char *property,
+                             const char *target_node_path);
+/**
+
+in odroidxu4 timer
+	      timer {
+                compatible = "arm,cortex-a15-timer",
+                             "arm,armv7-timer";
+                interrupts = <1 13 0xf08>,
+                             <1 14 0xf08>,
+                             <1 11 0xf08>,
+                             <1 10 0xf08>;
+                clock-frequency = <24000000>;
+        };
+
+Clock-freq using <> like interrupts
+Add this line after interrupt
+qemu_fdt_setprop_cells(vbi->fdt, "/timer", "clock-frequency",24000000);
+
+# Compiler new qemu version
+sudo rm -rf rootfs/*
+sudo tar -zxvf /src/CrossCompiler/ownbuild/odroidxu4-rootfs.tgz -C rootfs/
+sudo cp /usr/bin/qemu-arm-static rootfs/usr/bin/qemu-arm-static 
+sudo cp  devuan-qemu/qemu-2.8+dfsg.tgz rootfs/tmp/
+cat chroot_armv7l.sh 
+#!/bin/bash
+### Function table
+function prt_err() {
+    echo -e "\e[1;49;91m$1\e[m"
+    exit 1
+}
+
+function prt_help() {
+    echo -e "\e[1;49;92m/*
+ * This script is used to chroot into qemu arm rootfs
+ * Please check you has install qemu-user-static. 
+ * In this script you will mount /proc /sys /dev /dev/pts for rootfs
+ * You can using this command line to run this script :
+ * $0 start/stop ROOTFS_PATH  
+ */\e[m"
+}
+### Main script
+unset SUDO ROOTFS mount_point DIR
+###check value 
+if [  $# -ne 2  ];then
+    prt_help
+    prt_err "Wrong value"
+fi
+###Check root 
+if [ $EUID -ne 0 ]
+then echo  "Super User passwd, please:"
+     SUDO="sudo"
+     ${SUDO} echo ""
+     if [ $? -ne 0 ]; then
+	 prt_err "Sorry, need su privilege!"
+           
+     fi
+else
+    SUDO=''
+fi
+ROOTFS=$2
+### Check Rootfs
+if [ -d ${ROOTFS} ]; then
+    echo  "Found rootfs check there has /bin/bash"
+    if [ -f ${ROOTFS}/bin/bash ]; then
+	echo  "Found /bin/bash,mount proc sys dev for chroot"
+    else
+	prt_err "Not found any /bin/bash files, is \"${ROOTFS}\" an rootfs ?"
+    fi
+else
+    prt_err "The value : \"${ROOTFS}\" is not a directory, exit script."
+fi
+
+### Start chroot 
+case $1 in
+    "start")
+	cat<<EOF| ${SUDO} chroot ${ROOTFS}
+mount -t proc proc /proc
+mount -t sysfs sys /sys
+mount -o bind /dev /dev
+mount -o bind /dev/pts /dev/pts
+EOF
+	${SUDO} chroot ${ROOTFS}
+	echo -e "\e[1;49;97mlogout rootfs, you may run : $0 stop ${ROOTFS} to clean up \e[m"
+	;;
+    "stop")
+	for mount_point in /dev/pts /dev /proc /sys; do
+	    ${SUDO} chroot ${ROOTFS} umount ${mount_point}
+	    if [ "$?" -eq "0" ]; then
+		echo "umount ${mount_point} : success"
+	    else
+		DIR="$(realpath ${ROOTFS})${mount_point}"
+		echo "umount ${mount_point} : failed"
+		echo "Please using \"lsof\" or \"fuser\" to check \"${DIR}\"" 
+	    fi
+	done
+esac
+
+./chroot_armv7l.sh start rootfs/
+cd tmp/
+mkdir qemu 
+tar -zxvf qemu-2.8+dfsg.tgz -C qemu
+cd qemu/qemu-2.8+dfsg/
+apt-get update
+apt-get install libaio-dev libbluetooth-dev libbrlapi-dev libbz2-dev libcap-dev libcap-ng-dev libcurl4-gnutls-dev libgtk-3-dev libibverbs-dev libjpeg62-turbo-dev libncurses5-dev librbd-dev librdmacm-dev libsasl2-dev libsdl1.2-dev libseccomp-dev libsnappy-dev libssh2-1-dev libvde-dev libvdeplug-dev libvte-2.90-dev libxen-dev liblzo2-dev valgrind xfslibs-dev libnfs-dev libiscsi-dev ncurses-base libncursesw5-dev libfdt-dev 
+apt-get build-dep qemu
+cd qemu-2.8.0
+mkdir arm-build;cd arm-build
+../configure  --target-list=arm-softmmu  --audio-drv-list=""  --enable-fdt --enable-sdl --enable-kvm --enable-curses
+make -j3
+ln -s ../debian/ .
+dpkg-buildpackage 
+
+
+# Retry
+wget http://download.qemu-project.org/qemu-2.8.1.1.tar.xz 
+tar -Jxvf qemu-2.8.1.1.tar.xz
+cd qemu-2.8.1.1
+mkdir arm-build;cd arm-build
+emacs ../hw/arm/virt.c
+goto line 361 add this line
+qemu_fdt_setprop_cells(vbi->fdt, "/timer", "clock-frequency",24000000);
+save
+../configure  --target-list=arm-softmmu  --audio-drv-list=""  --enable-fdt --enable-sdl --enable-kvm --enable-curses
+make -j3
+make install
+
+# Lost many functions retry
+../configure  --target-list=arm-softmmu  --audio-drv-list=""  --enable-fdt --enable-sdl --enable-kvm --enable-curses --enable-vhost-net --enable-vde  --enable-libnfs --enable-libiscsi --enable-guest-agent
+
+# Try 2.9.0
+wget http://download.qemu-project.org/qemu-2.9.0.tar.xz
+tar -Jxvf qemu-2.9.0.tar.xz 
+ emacs qemu-2.9.0/hw/arm/virt.c
+Find timer on line 334
+add
+qemu_fdt_setprop_cells(vbi->fdt, "/timer", "clock-frequency",24000000);
+ mv ./qemu-2.9.0/hw/arm/virt.c~ ./qemu-2.9.0/hw/arm/virt.c.orig
+ diff ./qemu-2.9.0/hw/arm/virt.c.orig ./qemu-2.9.0/hw/arm/virt.c
+334a335
+>     qemu_fdt_setprop_cells(vbi->fdt, "/timer", "clock-frequency",24000000);
+tar -cvzf qemu-2.9.0.tgz qemu-2.9.0
+cd ../
+cp qemu-2.9.0/qemu-2.9.0.tgz rootfs/tmp/
+cp /src/fs/script/clearInstall.sh rootfs/tmp/
+ ./chroot_armv7l.sh start rootfs/
+cd /tmp/
+./clearInstall.sh --yes-i-really-clear
+following this page https://wiki.qemu.org/Hosts/Linux#Building_QEMU_for_Linux
+apt-get update
+apt-get install git libglib2.0-dev libfdt-dev libpixman-1-dev zlib1g-dev
+apt-get install git-email
+apt-get install libaio-dev libbluetooth-dev libbrlapi-dev libbz2-dev
+apt-get install libcap-dev libcap-ng-dev libcurl4-gnutls-dev libgtk-3-dev
+# apt-get install libibverbs-dev libjpeg8-dev libncurses5-dev libnuma-dev
+apt-get install libibverbs-dev libjpeg62-turbo-dev libncurses5-dev
+apt-get install librbd-dev librdmacm-dev
+apt-get install libsasl2-dev libsdl1.2-dev libseccomp-dev libsnappy-dev libssh2-1-dev
+apt-get install libvde-dev libvdeplug-dev libvte-2.90-dev libxen-dev liblzo2-dev
+apt-get install valgrind xfslibs-dev texinfo
+apt-get install libnfs-dev libiscsi-dev libncursesw5-dev
+apt-get upgrade
+apt-get clean
+tar -zxvf qemu-2.9.0.tgz 
+cd qemu-2.9.0
+mkdir armbuild ;cd armbuild 
+../configure --help 
+Usage: configure [options]
+Options: [defaults in brackets after descriptions]
+
+Standard options:
+  --help                   print this message
+  --prefix=PREFIX          install in PREFIX [/usr/local]
+  --interp-prefix=PREFIX   where to find shared libraries, etc.
+                           use %M for cpu name [/usr/gnemul/qemu-%M]
+  --target-list=LIST       set target list (default: build everything)
+                           Available targets: aarch64-softmmu alpha-softmmu 
+                           arm-softmmu cris-softmmu i386-softmmu lm32-softmmu 
+                           m68k-softmmu microblaze-softmmu microblazeel-softmmu 
+                           mips-softmmu mips64-softmmu mips64el-softmmu 
+                           mipsel-softmmu moxie-softmmu nios2-softmmu 
+                           or1k-softmmu ppc-softmmu ppc64-softmmu 
+                           ppcemb-softmmu s390x-softmmu sh4-softmmu 
+                           sh4eb-softmmu sparc-softmmu sparc64-softmmu 
+                           tricore-softmmu unicore32-softmmu x86_64-softmmu 
+                           xtensa-softmmu xtensaeb-softmmu aarch64-linux-user 
+                           alpha-linux-user arm-linux-user armeb-linux-user 
+                           cris-linux-user hppa-linux-user i386-linux-user 
+                           m68k-linux-user microblaze-linux-user 
+                           microblazeel-linux-user mips-linux-user 
+                           mips64-linux-user mips64el-linux-user 
+                           mipsel-linux-user mipsn32-linux-user 
+                           mipsn32el-linux-user nios2-linux-user 
+                           or1k-linux-user ppc-linux-user ppc64-linux-user 
+                           ppc64abi32-linux-user ppc64le-linux-user 
+                           s390x-linux-user sh4-linux-user sh4eb-linux-user 
+                           sparc-linux-user sparc32plus-linux-user 
+                           sparc64-linux-user tilegx-linux-user 
+                           x86_64-linux-user
+
+Advanced options (experts only):
+  --source-path=PATH       path of source code [/tmp/qemu-2.9.0]
+  --cross-prefix=PREFIX    use PREFIX for compile tools []
+  --cc=CC                  use C compiler CC [cc]
+  --iasl=IASL              use ACPI compiler IASL [iasl]
+  --host-cc=CC             use C compiler CC [cc] for code run at
+                           build time
+  --cxx=CXX                use C++ compiler CXX [c++]
+  --objcc=OBJCC            use Objective-C compiler OBJCC [cc]
+  --extra-cflags=CFLAGS    append extra C compiler flags QEMU_CFLAGS
+  --extra-ldflags=LDFLAGS  append extra linker flags LDFLAGS
+  --make=MAKE              use specified make [make]
+  --install=INSTALL        use specified install [install]
+  --python=PYTHON          use specified python [python -B]
+  --smbd=SMBD              use specified smbd [/usr/sbin/smbd]
+  --static                 enable static build [no]
+  --mandir=PATH            install man pages in PATH
+  --datadir=PATH           install firmware in PATH/qemu
+  --docdir=PATH            install documentation in PATH/qemu
+  --bindir=PATH            install binaries in PATH
+  --libdir=PATH            install libraries in PATH
+  --sysconfdir=PATH        install config in PATH/qemu
+  --localstatedir=PATH     install local state in PATH (set at runtime on win32)
+  --with-confsuffix=SUFFIX suffix for QEMU data inside datadir/libdir/sysconfdir [/qemu]
+  --enable-debug           enable common debug build options
+  --disable-strip          disable stripping binaries
+  --disable-werror         disable compilation abort on warning
+  --disable-stack-protector disable compiler-provided stack protection
+  --audio-drv-list=LIST    set audio drivers list:
+                           Available drivers: oss alsa sdl pa
+  --block-drv-whitelist=L  Same as --block-drv-rw-whitelist=L
+  --block-drv-rw-whitelist=L
+                           set block driver read-write whitelist
+                           (affects only QEMU, not qemu-img)
+  --block-drv-ro-whitelist=L
+                           set block driver read-only whitelist
+                           (affects only QEMU, not qemu-img)
+  --enable-trace-backends=B Set trace backend
+                           Available backends: nop, dtrace, ftrace, log, simple, syslog, ust
+  --with-trace-file=NAME   Full PATH,NAME of file to store traces
+                           Default:trace-<pid>
+  --disable-slirp          disable SLIRP userspace network connectivity
+  --enable-tcg-interpreter enable TCG with bytecode interpreter (TCI)
+  --oss-lib                path to OSS library
+  --cpu=CPU                Build for host CPU [arm]
+  --with-coroutine=BACKEND coroutine backend. Supported options:
+                           gthread, ucontext, sigaltstack, windows
+  --enable-gcov            enable test coverage analysis with gcov
+  --gcov=GCOV              use specified gcov [gcov]
+  --disable-blobs          disable installing provided firmware blobs
+  --with-vss-sdk=SDK-path  enable Windows VSS support in QEMU Guest Agent
+  --with-win-sdk=SDK-path  path to Windows Platform SDK (to build VSS .tlb)
+  --tls-priority           default TLS protocol/cipher priority string
+  --enable-gprof           QEMU profiling with gprof
+  --enable-profiler        profiler support
+  --enable-xen-pv-domain-build
+                           xen pv domain builder
+  --enable-debug-stack-usage
+                           track the maximum stack usage of stacks created by qemu_alloc_stack
+
+Optional features, enabled with --enable-FEATURE and
+disabled with --disable-FEATURE, default is enabled if available:
+
+  system          all system emulation targets
+  user            supported user emulation targets
+  linux-user      all linux usermode emulation targets
+  bsd-user        all BSD usermode emulation targets
+  docs            build documentation
+  guest-agent     build the QEMU Guest Agent
+  guest-agent-msi build guest agent Windows MSI installation package
+  pie             Position Independent Executables
+  modules         modules support
+  debug-tcg       TCG debugging (default is disabled)
+  debug-info      debugging information
+  sparse          sparse checker
+
+  gnutls          GNUTLS cryptography support
+  nettle          nettle cryptography support
+  gcrypt          libgcrypt cryptography support
+  sdl             SDL UI
+  --with-sdlabi     select preferred SDL ABI 1.2 or 2.0
+  gtk             gtk UI
+  --with-gtkabi     select preferred GTK ABI 2.0 or 3.0
+  vte             vte support for the gtk UI
+  curses          curses UI
+  vnc             VNC UI support
+  vnc-sasl        SASL encryption for VNC server
+  vnc-jpeg        JPEG lossy compression for VNC server
+  vnc-png         PNG compression for VNC server
+  cocoa           Cocoa UI (Mac OS X only)
+  virtfs          VirtFS
+  xen             xen backend driver support
+  xen-pci-passthrough
+  brlapi          BrlAPI (Braile)
+  curl            curl connectivity
+  fdt             fdt device tree
+  bluez           bluez stack connectivity
+  kvm             KVM acceleration support
+  hax             HAX acceleration support
+  rdma            RDMA-based migration support
+  vde             support for vde network
+  netmap          support for netmap network
+  linux-aio       Linux AIO support
+  cap-ng          libcap-ng support
+  attr            attr and xattr support
+  vhost-net       vhost-net acceleration support
+  spice           spice
+  rbd             rados block device (rbd)
+  libiscsi        iscsi support
+  libnfs          nfs support
+  smartcard       smartcard support (libcacard)
+  libusb          libusb (for usb passthrough)
+  usb-redir       usb network redirection support
+  lzo             support of lzo compression library
+  snappy          support of snappy compression library
+  bzip2           support of bzip2 compression library
+                  (for reading bzip2-compressed dmg images)
+  seccomp         seccomp support
+  coroutine-pool  coroutine freelist (better performance)
+  glusterfs       GlusterFS backend
+  tpm             TPM support
+  libssh2         ssh block device support
+  numa            libnuma support
+  tcmalloc        tcmalloc support
+  jemalloc        jemalloc support
+  replication     replication support
+  vhost-vsock     virtio sockets device support
+  opengl          opengl support
+  virglrenderer   virgl rendering support
+  xfsctl          xfsctl support
+  qom-cast-debug  cast debugging support
+  tools           build qemu-io, qemu-nbd and qemu-image tools
+
+NOTE: The object files are built at the place where configure is launched
+
+
+../configure  --target-list=arm-softmmu  --audio-drv-list=""  --enable-fdt --enable-sdl --enable-kvm --enable-curses --enable-vhost-net --enable-vhost-vsock --enable-vde  --enable-libnfs --enable-libiscsi --enable-guest-agent --enable-modules --enable-docs --disable-glusterfs
+
+Install prefix    /usr/local
+BIOS directory    /usr/local/share/qemu
+binary directory  /usr/local/bin
+library directory /usr/local/lib
+module directory  /usr/local/lib/qemu
+libexec directory /usr/local/libexec
+include directory /usr/local/include
+config directory  /usr/local/etc
+local state directory   /usr/local/var
+Manual directory  /usr/local/share/man
+ELF interp prefix /usr/gnemul/qemu-%M
+Source path       /tmp/qemu-2.9.0
+C compiler        cc
+Host C compiler   cc
+C++ compiler      c++
+Objective-C compiler cc
+ARFLAGS           rv
+CFLAGS            -O2 -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2 -g 
+QEMU_CFLAGS       -I/usr/include/pixman-1  -I$(SRC_PATH)/dtc/libfdt -pthread -I/usr/include/glib-2.0 -I/usr/lib/arm-linux-gnueabihf/glib-2.0/include  -pthread -I/usr/include/glib-2.0 -I/usr/lib/arm-linux-gnueabihf/glib-2.0/include  -I/usr/include/ncursesw   -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -fwrapv  -Wendif-labels -Wno-missing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Wold-style-declaration -Wold-style-definition -Wtype-limits -fstack-protector-strong    -I/usr/include/libpng12 
+LDFLAGS           -Wl,--warn-common -g 
+make              make
+install           install
+python            python -B
+smbd              /usr/sbin/smbd
+module support    yes
+host CPU          arm
+host big endian   no
+target list       arm-softmmu
+tcg debug enabled no
+gprof enabled     no
+sparse enabled    no
+strip binaries    yes
+profiler          no
+static build      no
+pixman            system
+SDL support       yes (1.2.15)
+GTK support       yes (3.14.5)
+GTK GL support    no
+VTE support       yes (0.36.3)
+TLS priority      NORMAL
+GNUTLS support    no
+GNUTLS rnd        no
+libgcrypt         yes
+libgcrypt kdf     yes
+nettle            no 
+nettle kdf        no
+libtasn1          no
+curses support    yes
+virgl support     no
+curl support      yes
+mingw32 support   no
+Audio drivers     
+Block whitelist (rw) 
+Block whitelist (ro) 
+VirtFS support    yes
+VNC support       yes
+VNC SASL support  yes
+VNC JPEG support  yes
+VNC PNG support   yes
+xen support       yes
+xen ctrl version  420
+pv dom build      no
+brlapi support    yes
+bluez  support    yes
+Documentation     yes
+PIE               no
+vde support       yes
+netmap support    no
+Linux AIO support yes
+ATTR/XATTR support yes
+Install blobs     yes
+KVM support       yes
+HAX support       no
+RDMA support      yes
+TCG interpreter   no
+fdt support       yes
+preadv support    yes
+fdatasync         yes
+madvise           yes
+posix_madvise     yes
+libcap-ng support yes
+vhost-net support yes
+vhost-scsi support yes
+vhost-vsock support yes
+Trace backends    log
+spice support     no 
+rbd support       yes
+xfsctl support    yes
+smartcard support no
+libusb            no
+usb net redir     no
+OpenGL support    no
+OpenGL dmabufs    no
+libiscsi support  yes
+libnfs support    yes
+build guest agent yes
+QGA VSS support   no
+QGA w32 disk info no
+QGA MSI support   no
+seccomp support   no
+coroutine backend ucontext
+coroutine pool    yes
+debug stack usage no
+GlusterFS support no
+gcov              gcov
+gcov enabled      no
+TPM support       yes
+libssh2 support   yes
+TPM passthrough   no
+QOM debugging     yes
+lzo support       yes
+snappy support    yes
+bzip2 support     yes
+NUMA host support no
+tcmalloc support  no
+jemalloc support  no
+avx2 optimization no
+replication support yes
+
+make -j3

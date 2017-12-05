@@ -1,0 +1,1355 @@
+<h4>Table of Contents</h4>
+
+<OL>
+  <LI><a href="#Vde2ForArmhf">Vde2 for Armhf</a>
+  <LI><a href="#KVM-on-ARMVirtualizationGuiles">A set of virtualization KVM-on-
+  <LI><a href="#KVMPortOnARM15">KVM port on ARM Cortex-A15 Fast Models</a>
+  <LI><a href="#KVM-on-ARMVirtualizationGuiles">A set of virtualization KVM-on-ARM 
+            guides</a>
+  <LI><a href="#KVMOnARMArchitecture">Supporting KVM on the ARM architecture</a>
+  <LI><a href="#"></a>
+</OL>
+
+<a name="Vde2ForArmhf"></a>
+<h3>
+<a href="https://packages.debian.org/sid/armhf/net/vde2" target="_b">vde2 for 
+armhf</a></h3>
+
+<a name="KVMPortOnARM15"></a>
+<h3>KVM port on ARM Cortex-A15 Fast Models 
+<a href="http://www.virtualopensystems.com/en/solutions/guides/kvm-on-arm/" 
+target="_b">(Source Origin)</a></h3>
+
+<h3>A step by step guide for linux kvm virtualization on embedded systems</h3>
+
+<p>This KVM-on-ARM guide is a step by step tutorial to showcase linux KVM virtualization 
+on embedded systems and ARM based servers, starting with KVM porting on ARM Cortex-A15 
+and big.LITTLE Fast Models. It helps to discover how to setup the development environment
+ for KVM development on embedded multi-core architecture processors. This guide is part 
+of the Virtual Open Systems collection of <a href="#KVM-on-ARMVirtualizationGuiles" 
+target="_b">virtualization technical guides</a>.</p>
+
+
+<h3>Introduction</h3>
+
+<p>In the last decade virtualization has been established as a very powerful tool, 
+expanding the capabilities of servers and enabling disruptive technologies like cloud 
+computing. At the same time, virtualization has also been proven as a powerful tool 
+for end users, system administrators, security researchers, and system developers. 
+Virtualization has only started to show its capabilities on mobile and embedded 
+platforms, however likewise to the desktop and server world, a very wide range of new 
+use cases can be supported.</p>
+
+<p>The Linux Kernel Virtual Machine (Linux KVM) is one of the most successful and 
+powerful <a href="http://www.virtualopensystems.com/en/virtualization" 
+target="_b">Virtualization solutions</a> available, enabling the Linux kernel to boot 
+guest Operating Systems under a process. Linux KVM has been designed to be portable, 
+and has proven itself in a number of architectures, like Intel VT-x, AMD SVM, PowerPC 
+and IA64, and is now implemented for the ARM Cortex-A15 and Cortex-A7 platforms.</p>
+
+<p>This document describes how to set up a development environment for KVM/ARM on 
+Cortex-A15. A working recent Linux system is assumed to be used by the user for 
+development. The instructions provided assume an installation of a recent version of 
+Ubuntu (13.10 at the time of this writing), but could be adjusted for other modern 
+distributions. After following this guide the user will be able to boot a Cortex-A15 
+simulation platform, with a working KVM virtualization setup able to boot a Linux 
+guest.</p>
+
+<p>This document will guide the reader through a number of steps in order to setup the 
+development environment for KVM development on Cortex-A15:</p>
+
+<OL>
+  <LI><strong>Installation and setup of the simulation platform.</strong> We will use 
+      the ARM Fast Models platform to generate a Cortex-A15 environment.</p>
+
+  <LI><strong>Setup of a host ARM Linux system.</strong> We will compile an ARM Linux 
+      kernel which we can boot on our simulation platform; we will use a basic file 
+      system image to boot a working system.</p>
+
+  <LI><strong>Build KVM and QEMU on our setup.</strong> We will enable KVM support in 
+      the host Linux kernel, and built QEMU with KVM/ARM support in order to boot a 
+      guest system.</p>
+
+  <LI><strong>Boot a guest VM.</strong> Using the already prepared host kernel and 
+      filesystem, we will start a guest OS under KVM/ARM.**</p>
+</OL>
+
+<p>The final system, running with a guest under our host Linux system, can be 
+illustrated as follows:</p>
+
+<img src="http://www.virtualopensystems.com/static/vosapp/images/guides/kvm_on_arm/images/guide_fig.png">
+
+<p>For more information on the hardware architecture see the ARM Architecture Reference 
+Manual for v7-a processors. Other related documentation includes the Virtualization 
+Extensions documentation as well as the Large Physical Address Extensions (LPAE). These 
+can be found on <a target="_blank" href="http://infocenter.arm.com/">the ARM 
+Infocenter</a>.</p>
+
+<h3>Simulation platform</h3>
+
+<p>Since hardware access to a newer ARM platform cannot be assumed for everyone, we can 
+use the Fast Models simulator instead. An evaluation version is available from <a 
+target="_blank" href="http://www.arm.com/products/tools/models/fast-models.php">ARM's 
+web site</a>. Click the <em>Download now</em> button and proceed to find the <em>Fast 
+Models Evaluation Linux</em>. A registration with ARM is necessary to be able to proceed 
+with the download of the software.</p>
+
+<P><b>Note: (02/18/2017)</b> 
+<a href="https://developer.arm.com/products/system-design/fixed-virtual-platforms" 
+target="_b">Cortex-A15+Cortex-A7 FVP</a>
+
+<p>The latest version of the platform at the time of this writing is 8.3. When 
+downloading the software one can also receive a license file for a 45 day evaluation. 
+Unpack the software and read the installation instructions in 
+<em>Installation_Guide.txt</em>. The official instructions claim support for 
+<em>gcc 4.1.2</em> or <em>gcc 4.4.4</em>, however in our experience more recent versions 
+offered by modern distributions usually tend to work better.</p>
+
+<p>At this point we need to make sure the system has installed all the standard 
+development tools. If not, we can install them using the distribution's package 
+management tools, e.g. on Debian and Ubuntu:</p>
+
+<pre>
+$ sudo apt-get install build-essential xutils xutils-dev
+</pre>
+
+<p>Run <em>./setup.bin</em> and choose an installation directory and the location of the 
+license file; e.g. <em>/home/user/ARM/</em>. It is also advised to edit the current 
+user's <em>.bashrc</em> file and add a line like this:</p>
+
+<pre>
+$ source ~/ARM/FastModelsTools_8.3/source_all.sh
+</pre>
+
+<p>In the opposite case this command will need to be run manually each time we need to 
+use the Fast Models simulation platform.</p>
+
+
+<p>Tip</p>
+
+<p><strong>Network interface</strong></p>
+
+<p>In some distributions the license manager might not find <em>eth0</em> or assume a 
+<em>HOSTID</em> of <em>000000000000</em>. In that case we need to configure the Linux 
+system used to name the first network interface <em>eth0</em>; check the distribution's 
+documentation, or see the <a target="_blank" href="http://fedoraproject.org/wiki/Features/ConsistentNetworkDeviceNaming">instructions for Fedora</a>.</p>
+
+
+<h4>Building a simulation platform</h4>
+
+<p class="firstparlev1">After installing and setting up Fast Models, we may run <cite>sgcanvas</cite>
+ in order to start the Fast Models tool used to design and compile a 
+simulation platform. We will use a Cortex-A15 based model provided by 
+ARM; open the project located at <em>FastModelsPortfolio_8.3/examples/FVP_VE/Build_Cortex-A15x1/FVP_VE_Cortex-A15x1.sgproj</em>. Alternatively, using one of the available multicore Cortex-A15 model is possible as well.</p>
+
+
+<p>Tip</p>
+
+<p><strong>On missing lstdc++</strong></p>
+
+<p>If the build fails on a 64 bit system, complaining that lstdc++ cannot be found, then try the following:</p>
+
+<pre>
+$ sudo ln -s /usr/lib/i386-linux-gnu/libstdc++.so.6 /usr/lib32/libstdc++.so
+</pre>
+
+<p>We can now compile the model by going to <em>Project &gt; Build System</em>. If the System Canvas complains about GCC, make sure to press the settings button and change the compiler combobox to plain <em>gcc</em>. Afterwards, use a terminal to navigate to the project directory and run the model:</p>
+
+<pre>
+$ cd FastModelsPortfolio_8.3/examples/FVP_VE/Build_Cortex-A15x1/Linux-Release-GCC-4.1/
+$ model_shell cadi_system_Linux-Release-GCC-4.1.so
+</pre>
+
+<p>The simulation of the platform should start; however we have 
+provided no software for it, therefore nothing interesting can happen 
+yet.</p>
+
+
+<p>Tip</p>
+
+<p><strong>64 bit systems</strong></p>
+
+<p>You can use model_shell64 instead of model_shell on 64 
+bit systems, though we advise against it due to minor performance 
+degradation.</p>
+
+
+<h3>The host Linux system</h3>
+
+<p>Having a working simulation platform of an ARM Cortex-A15 with 
+hardware virtualization support, we can now build the Linux system that 
+will serve as the host. We will need the following:</p>
+
+<UL>
+  <li><strong>Cross compiler to build our kernel</strong>
+
+  <li><strong>Host Linux kernel</strong>
+
+  <li><strong>Device tree blob</strong>
+
+  <li><strong>Bootloader</strong>
+
+  <li><strong>File system</strong>
+</UL>
+
+
+<h4>Cross Compiler</h4>
+
+<p>We will need a GCC 4.8 based cross compiler with binutils minimum 
+version 2.23, which includes support for Cortex-A15 and its 
+Virtualization Extensions. Fortunately Ubuntu already includes a capable
+ cross compiler for this task.</p>
+
+<pre>
+$ sudo apt-get install binutils-arm-linux-gnueabihf \
+               libc6-armhf-cross linux-libc-dev-armhf-cross libncurses5-dev \
+               gcc-arm-linux-gnueabihf libc6-dev-armhf-cross cpp-arm-linux-gnueabihf
+</pre>
+
+<h4>The host Linux kernel</h4>
+
+<p>A precompiled kernel image can be downloaded from:</p>
+
+<pre>
+$ wget http://www.virtualopensystems.com/downloads/guides/kvm_on_arm/uImage
+</pre>
+
+<p class="firstparlev1">We use a recent upstream kernel for 
+development including recent patches for LPAE support. To download the 
+latest kernel for KVM on ARM development from the Virtual Open Systems 
+repository, follow these few steps:</p>
+
+<pre>
+$ sudo apt-get install git
+$ git clone git://github.com/virtualopensystems/linux-kvm-arm.git
+$ cd linux-kvm-arm
+</pre>
+
+
+<p><b>Note: (01/22/2017)</b> For the mainline kernel, (4.9 0r 4.10), the kvm 
+  <code>Kconfig</code> file is in here:  
+  <a href="http://lxr.free-electrons.com/source/arch/arm/kvm/Kconfig"
+     target="_b">arch/arm/kvm/Kconfig</b></a>.  Also,
+  <a href="http://forum.odroid.com/viewtopic.php?f=64&t=2778&start=80" 
+     target="_b">Running KVM in ODROID-XU</a>
+
+<p>Also, mkimage from the u-boot package is required to build a kernel <em>uImage</em>; 
+under Debian or Ubuntu we can do the following to install it:</p>
+
+<pre>
+$ sudo apt-get install u-boot-tools
+</pre>
+
+<p>Configuring the kernel for cross compilation does not differ much than usual, 
+however it is important to set the <em>ARCH</em> and <em>CROSS_COMPILE</em> 
+variables.</p>
+
+<p>We can download a premade configuration for the kernel:</p>
+
+<pre>
+$ curl http://www.virtualopensystems.com/downloads/guides/kvm_on_arm/kernel-config &gt; .config
+$ CROSS_COMPILE=arm-linux-gnueabihf- ARCH=arm make menuconfig
+</pre>
+
+<p>And finally compile our host kernel:</p>
+
+<pre>
+$ LOADADDR=0x80008000 CROSS_COMPILE=arm-linux-gnueabihf- ARCH=arm make uImage
+</pre>
+
+<h4>Flattened Device Tree</h4>
+
+<p>If you want to skip this chapter you can download the Device Tree Blob files:</p>
+
+<pre>
+$ wget http://www.virtualopensystems.com/downloads/guides/kvm_on_arm/host-a15.dtb
+$ wget http://www.virtualopensystems.com/downloads/guides/kvm_on_arm/guest-a15.dtb
+</pre>
+
+<p>Newer kernel versions (3.4 or later) require FDT support in order to boot a Cortex-A15 host.</p>
+
+<p>Grab the Device Tree Source files:</p>
+
+<pre>
+$ git clone git://github.com/virtualopensystems/arm-dts.git
+</pre>
+
+<p>On our kernel source root:</p>
+
+<pre>
+$ ./scripts/dtc/dtc -O dtb -o host-a15.dtb \
+       ../arm-dts/fast_models/rtsm_ve-cortex_a15x1.dts
+$ ./scripts/dtc/dtc -O dtb -o guest-a15.dtb \
+       ../arm-dts/versatile_express/vexpress-v2p-ca15-tc1.dts
+</pre>
+
+<p>The resulting Device Tree Blob files should be used with the host bootloader and QEMU, as instructed on the following chapters.</p>
+
+
+<h4>Bootloader</h4>
+
+<p>To skip this step you can download a precompiled version of the bootwrapper:</p>
+
+<pre>
+$ wget http://www.virtualopensystems.com/downloads/guides/kvm_on_arm/linux-system-semi.axf
+</pre>
+
+<p>We don't use u-boot to run Cortex-A15 yet, but instead a small 
+custom bootloader, with the necessary hypervisor monitor API used to 
+initialize KVM. We can clone a copy of this bootloader from the Virtual 
+Open Systems repository:</p>
+
+<pre>
+$ git clone git://github.com/virtualopensystems/boot-wrapper.git
+</pre>
+
+<p>Finally, to create the system image file, we simply do:</p>
+
+<pre>
+$ make clean
+$ LOADADDR=0x80008000 CROSS_COMPILE=arm-linux-gnueabihf- ARCH=arm make
+</pre>
+
+
+<h4>Host file system</h4>
+
+<p>We will boot our filesystem from a NFS share exported by the machine 
+we use for development. Of course any machine accessible from the local 
+network could be used instead. First we need to make sure NFS is 
+installed, with the help of our distribution's tools. E.g. for Debian 
+and Ubuntu:</p>
+
+<pre>
+$ sudo apt-get install nfs-kernel-server nfs-common
+</pre>
+
+<p>Make sure an appropriate directory is exported in <em>/etc/exports</em> with the right settings. For example:</p>
+
+<pre>
+/srv/nfsroot 192.168.0.0/255.255.0.0(rw,sync,no_root_squash,no_subtree_check,insecure)
+</pre>
+
+<p>The above configuration defines an NFS share in <em>/srv/nfsroot</em>,
+ accessible by any machine on the local network with an IP address of 
+192.168.x.x. Also, make sure to restart the nfs server after editing <em>/etc/exports</em>:</p>
+
+<pre>
+$ sudo /etc/init.d/nfs-kernel-server restart
+</pre>
+
+<p>Any file system compatible with the processor can be used. A starting point can be one of the file system images from <a target="_blank" class="reference external" href="http://www.arm.com/community/software-enablement/linux.php">http://www.arm.com/community/software-enablement/linux.php</a>. Alternatively you can download this minimal busybox environment:</p>
+
+<pre>
+$ wget http://www.virtualopensystems.com/downloads/guides/kvm_on_arm/fs-alip-armel.cramfs
+</pre>
+
+<p>We need to extract the tar in our exported NFS share:</p>
+
+<pre>
+$ sudo mount -o loop -t cramfs fs-alip-armel.cramfs /mnt
+$ sudo cp -a /mnt/* /srv/nfsroot/
+$ sudo umount /mnt
+</pre>
+
+
+<p>Tip</p>
+
+<p><strong>Use another host boot method</strong></p>
+
+<p>In case you don't want to boot the host through NFS, check chapter <a class="reference internal" href="#mmc-host-booting">MMC host booting</a>.</p>
+
+<h4>Testing the host system</h4>
+
+<p>At this point we have everything we need to boot a fully working 
+Linux system on the Fast Models based Cortex-A15 simulation platform. We
+ should now test, that everything works as expected.</p>
+
+<p>We will need to return to the directory where we built our Cortex-A15
+ model, which we will run with a number of parameters. For convenience 
+we will add our parameters to a <em>params</em> file:</p>
+
+<pre>
+motherboard.smsc_91c111.enabled=1
+motherboard.hostbridge.userNetworking=1
+cluster.cpu0.semihosting-cmd_line="semihosting arguments"
+</pre>
+
+<p>Semihosting arguments format:</p>
+
+<pre>
+Kernel: --kernel /path-to/uImage
+Optional initrd: --initrd /path-to/initrd
+Optional device tree file: --dtb /path-to/dtb
+Kernel arguments: followed by a double dash and a space "-- "
+</pre>
+
+<p>In our case, to boot the host kernel, the semihosting arguments should be (in one contiguous line):</p>
+
+<pre>
+"--kernel uImage --dtb host-a15.dtb -- earlyprintk console=ttyAMA0
+     mem=2048M root=/dev/nfs nfsroot=192.168.x.x:/srv/nfsroot/ rw ip=dhcp"
+</pre>
+
+<p>Now we can run our model:</p>
+
+<pre>
+$ model_shell cadi_system_Linux-Release-GCC-4.1.so -f params \
+               ~/ARM/boot-wrapper/linux-system-semi.axf
+</pre>
+
+<p>After a while, we should be able to login as root, greeted by a <em>Busybox</em> shell for us to use.</p>
+
+<p>Optionally you can check the <a class="reference internal" href="#id1">Booting without semihosting</a> chapter, in the unlikely case you don't need the semihosting feature of the bootloader.</p>
+
+
+<h3>Preparing the system to boot a guest</h3>
+
+<p>We can now proceed to prepare our host to be able to boot guest 
+systems. A precompiled binary of qemu can be downloaded from our 
+website, which can be used to skip this section and the next one:</p>
+
+<pre>
+$ wget http://www.virtualopensystems.com/downloads/guides/kvm_on_arm/qemu-system-arm
+</pre>
+
+<p>QEMU requires a few dependencies, we can use the tools provided
+ by Ubuntu, to easily get all of them for the cross compiled ARM build 
+of QEMU:</p>
+
+<pre>
+$ sudo apt-get build-dep qemu
+$ sudo apt-get install xapt
+</pre>
+
+<p>Create a file like <em>/etc/apt/sources.list.d/armhf-saucy.list</em> with the required repositories:</p>
+
+<pre>
+deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports saucy main restricted universe multiverse
+deb-src [arch=armhf] http://ports.ubuntu.com/ubuntu-ports saucy main restricted universe multiverse
+</pre>
+
+<p>Now we can build and install the required packages:</p>
+
+<pre>
+$ sudo xapt -a armhf -m -b zlib1g-dev libglib2.0-dev libfdt-dev libpixman-1-dev
+$ sudo dpkg -i /var/lib/xapt/output/*.deb
+</pre>
+
+<p>We also need to download and install this package on Ubuntu:</p>
+
+<pre>
+$ sudo apt-get install pkg-config-arm-linux-gnueabihf
+</pre>
+
+
+<h4>QEMU</h4>
+
+<p>We need to build QEMU to emulate devices and drive KVM from user 
+space. We can clone the latest version with KVM on ARM support from the 
+Virtual Open Systems repository:</p>
+
+<pre>
+$ git clone git://github.com/virtualopensystems/qemu.git
+</pre>
+
+<a name="KVM-on-ARMVirtualizationGuiles"></a>
+<h3 class="title">A set of virtualization KVM-on-ARM guides 
+<a href="http://www.virtualopensystems.com/en/solutions/guides/" target="_b">(Source 
+Origin)</a></h3>
+
+<h3 class="subtitle" id="enabling-arm-multicore-heterogeneous-systems" 
+target="_b">enabling ARM multicore heterogeneous systems</h3>
+
+<!-- .. class:: targetblank -->
+<a class="reference external image-reference" href="http://www.virtualopensystems.com/en/virtualization"><img alt="kvm-on-arm virtualization series of guides for heterogeneous embedded multicore systems and armv8 servers" class="align-right" src="http://www.virtualopensystems.com/static/vosapp/images/logo.png" style="width: 17.0em;"></a>
+
+<p>Based on company research and development work in the field of <a href="http://www.virtualopensystems.com/en/solutions" title="kvm virtualization solutions for embedded multicore ARM SoC's">virtualization solutions</a>
+ and virtualization custom extensions for complex heterogeneous 
+multi-core SoC spanning from embedded to server, to HPC, Virtual Open 
+Systems makes available a series of guides about virtualization of ARM 
+based heterogeneous multicore hardware architectures.</p>
+
+<p>Most of these guides have become very popular and downloaded by both 
+academic researchers and industry specialized companies working with 
+virtualization and ARM based hardware architectures with virtualization 
+extensions (ARMv7, ARMv8 ..).</p>
+
+<div class="section" id="experience-your-company-with-virtual-open-systems-guides">
+
+<h3>Experience your company with Virtual Open Systems' guides</h3>
+
+<p>As an open source minded company, <a href="http://www.virtualopensystems.com/" title="an open source virtualization company providing products and services for heteregeneous embedded ARM multicore systems" target="_b">Virtual Open Systems operates for open and unchained continuous progress and innovation</a>.
+ Sharing technical guides on different software technologies is a way 
+for Virtual Open Systems to contribute in accelerating and stimulating 
+developments from open source communities and private third parties, 
+while building partnership and business relationships with companies 
+sharing similar technical fast innovation targets.</p>
+
+<p>The most recent virtualization guides from Virtual Open Systems are:</p>
+
+<blockquote>
+<ul class="simple">
+  <li>A step by step guide to show how to install the <a href="http://www.virtualopensystems.com/en/solutions/guides/opnfv-with-vosyswitch" title="How to setup OPNFV with VOSYSwitch vSwitch for vCPE edge, NFV networking, 5G NFV c-RAN" target="_b">user space virtual switch VOSYSwitch within OPNFV</a>,
+ with VOSYSwitch used as a layer 2 forwarding dataplane in an OpenStack 
+Neutron network. This guide provides a solution that uses a mixed 
+environment, including both a virtualized and baremetal host, where the 
+management roles are running as virtual machines, whereas the nodes with
+ compute roles responsible for hosting the instances, are deployed on 
+baremetal servers. At the end of the guide a <a href="http://www.virtualopensystems.com/en/solutions/demos/vosyswitch-perf-openstack-integration" title="VOSYSwitch, an high-performance user space virtual switch showcased within an integrated OpenStack deployment in NFV infrastructure compute node" target="_b">performance comparison</a> between an OPNFV setup running VOSYSwitch and one using OVS-DPDK is presented.</li>
+  <li>To showcase how to setup NXP LS2085A-RDB as KVM virtualization host with <a href="http://www.virtualopensystems.com/en/solutions/guides/yocto-qemu-kvm-vswitch-nxp-ls2085a" title="How to setup NXP LS2085A-RDB as KVM virtualization host with VOSYSwitch vSwitch support for vCPE edge, NFV networking ODP ARMv8" target="_b">VOSYSwitch vSwitch support</a>,
+ for a number of scenarios involving virtualization on ARMv8 
+architecture, in the field of vCPE edge, IoT, Mobile Edge Computing, 
+etc.</li>
+  <li>To support mixed-criticality systems, Virtual Open Systems has developed KVM virtualization extensions and a TrustZone-enabling <a href="http://www.virtualopensystems.com/en/solutions/guides/agl-mixed-criticality-armv8" title="A guide on how to run concurrently a RTOS and a KVM GPOS on Juno 64-bit ARMv8 Platform by custom ATF TrustZone monitor layer" target="_b">custom ATF monitor layer</a>
+ which showcases through this step by step guide how to run concurrently
+ a Real Time Operating System (RTOS) and a General Purpose Operating 
+System (GPOS) on a real ARMv8 hardware target.</li>
+  <li>A guide made available by Virtual Open Systems on how to <a href="http://www.virtualopensystems.com/en/solutions/guides/kvm-svirt-omap5" title="secure virtual machines on KVM on ARM Cortex-A15 with SELinux through sVirt, a libvirt extension to protect virtual machine resources by MAC security policy" target="_b">deploy the KVM hypervisor with sVirt on an OMAP5 uEVM</a>
+ real hardware ARM Cortex-A15 target. sVirt ensures a security solution 
+through SELinux to completely isolate virtual machines and protect the 
+guest systems from attacks, from the host or other virtual machines. At 
+the end of this document the reader should be able to run a <em>secure guest</em>, i.e. a virtual machine completely and securely isolated from the outside world.</li>
+  <li>The VFIO framework is featured in the Linux kernel in order to 
+fulfill a precise requirement, which is the possibility to realize user 
+space device drivers, exploiting the capabilities of a DMA capable 
+device behind an IOMMU. This further applies to Virtual Machines, driven
+ by QEMU/KVM, as the capability to assign hardware devices directly to a
+ guest OS, while preserving the isolation properties of virtualization 
+and the security of the system. This guide is about a <a href="http://www.virtualopensystems.com/en/solutions/guides/vfio-on-arm" title="VFIO for SMMU or IOMMU to enable KVM on ARM device assignment. Test cases based on the ARM PL330 DMA Controller" target="_b">user space VFIO_PLATFORM test</a> and an example of device passthrough in QEMU.</li>
+  <li>An introduction to the <a href="http://www.virtualopensystems.com/en/solutions/guides/snabbswitch-qemu" title="vhost-user for integration of QEMU/KVM with an userspace ethernet switch" target="_b">vhost-user feature introduced by Virtual open Systems in QEMU</a>,
+ which is an essential component to run virtual switches in user-space 
+domain; the original development has been done by Virtual open Systems 
+for use in the open source Snabbswitch Ethernet switch. The architecture
+ of vhost-user and Vapp are covered in this guide. The reader will also 
+be walked through building QEMU with the vhost-user feature, and testing
+ it with the Vapp reference implementation.</li>
+  <li>A step by step guide to experience KVM virtualization on a real 
+commercial laptop, based on Cortex-A15. This is about how to enable <a href="http://www.virtualopensystems.com/en/solutions/guides/kvm-on-chromebook" title="how to setup KVM virtualization on Samsung Chromebook" target="_b">KVM on Samsung's ARM Chromebook</a>,
+ allowing the usage of multiple popular operating systems (ChromeOS, 
+Ubuntu, Android) simultaneously. The Samsung Chromebook used for the 
+guide is based on the Exynos5250 platform which incorporate a dual-core 
+Cortex-A15 at 1.7 GHz and a Mali-T604 GPU on a 32nm package. The next 
+version of Exynos scales even further, by utilizing a big.LITTLE 
+architecture with 1.8 GHz quad-core Cortex-A15 together with a quad-core
+ Cortex-A7 at 1.2 GHz.</li>
+  <li>A guide for <a href="http://www.virtualopensystems.com/en/solutions/guides/kvm-on-armv8" title="how to set up a KVM development environment on ARMv8 platform" target="_b">KVM Virtualization on the ARMv8</a>
+ Architecture to experience how to set up a KVM development environment 
+on 64-bit ARM processors. It showcases how to run a guest operating 
+system inside an ARM64 host taking benefit of its KVM module. A 
+practical ARMv8 step by step guide on how to reach a fully functional 
+environment on upcoming hardware targets. The guide is using ARM 
+Foundation Model to simulate ARMv8 environment.</li>
+  <li>A guide to deploy <a href="http://www.virtualopensystems.com/en/solutions/guides/kvm-on-arm-vexpress" title="how to deploy full KVM virtualization on Cortex-A15 VExpress" target="_b">full virtualization KVM-on-ARM Cortex-A15</a>
+ VExpress real hardware, showcasing the full virtualization extensions 
+of Cortex-A15 on real hardware, based on most recent KVM-on-ARM 
+developments by Virtual Open Systems. KVM-on-ARM is the first hypervisor
+ technology using the hardware virtualization extensions of ARM 
+Cortex-A15 to enable multiple copies of operating systems, aiming to 
+deliver near-native performance for server, consumer and mobile market 
+applications. Starting with this implementation, different customer 
+specific use cases could be easily instantiated targeting Android 
+multi-persona, different heterogeneous OS or different version of the 
+same OS.</li>
+  <li>A guide to experience <a href="http://www.virtualopensystems.com/en/solutions/guides/kvm-virtualization-on-arndale" title=" Guide to a full virtualization system on Arndale development board" target="_b">KVM virtualization on Arndale</a>,
+ know how to virtualize Exynos-5250 based devices, such as the Arndale 
+development board. Cortex-A15/A7 devices (big.LITTLE architectures) are 
+mature enough, and more companies implement their own 
+platforms/solutions based on ARMv7 and the Virtualization Extensions. In
+ this context KVM on Exynos-5250 is a practical guide.</li>
+  <li>A guide for virtualizing <a href="http://www.virtualopensystems.com/en/solutions/guides/kvm-android-on-fastmodels" title="KVM guide to boot Android jelly bean on ARM FastModels" target="_b">Android on ARM Cortex-A15 FastModels</a>,
+ using Android Jelly Bean OS on Cortex-A15 FastModels. Develop software 
+for modern virtualization platforms based on Cortex-A15, ahead of real 
+platforms.</li>
+  <li>The <a href="http://www.virtualopensystems.com/en/solutions/guides/kvm-on-arm" title="KVM port to ARM Cortex-A15 and big.LITTLE FastModels" target="_b">KVM-on-ARM guide</a>
+ is a step by step showcase for linux KVM virtualization on embedded 
+systems and ARM based servers, starting with KVM porting on ARM 
+Cortex-A15 and big.LITTLE Fast Models. Discover how to setup the 
+development environment for KVM development on embedded multi-core 
+architecture processors.</li>
+</ul>
+</blockquote>
+
+<h3>Open source virtualization port services to ARM architectured SoC's</h3>
+
+<p>Today, next generation of SoC platforms based on most innovating ARM 
+architectures for consumer devices, smartphones, internet connected TVs,
+ data center servers, can use the native virtualization to introduce new
+ types of applications or services or a way to improve security and to 
+reduce their carbon footprint.</p>
+
+<p>Virtual Open Systems, while building and continuously extending a 
+strong know-how based on virtualization on ARM architectures software 
+developments, provides customized virtualization on ARM SoC's software 
+porting services. For any inquiry related to the company <a href="http://www.virtualopensystems.com/en/products" title="products" target="_b">virtualization products</a> and <a href="http://www.virtualopensystems.com/en/services" title="kvm virtualization services for embedded multicore ARM SoC's">custom porting services</a> you can <a href="http://www.virtualopensystems.com/en/contact" title="virtual open systems contact for kvm on arm virtualization services" target="_b">contact us</a>.</p>
+
+  <ul>
+    <li class="samelevel"><a href="http://www.virtualopensystems.com/en/solutions/demos" 
+        target="_b" title="KVM full virtualization on ARM video demos show Android, BYOD 
+        use cases">Demos</a></li>
+  </ul>
+       
+<h4>Company Offer</h4>
+  <p> Custom virtualization extensions enabling KVM-on-ARM heterogeneous
+ systems, embedded virtualization proof of concepts and turn key 
+solutions for low latency virtualized systems</p>
+       
+<h4>Technical Guides</h4>
+
+<ul id="guides_list">
+           
+  <li>
+<a href="http://www.virtualopensystems.com/en/solutions/guides/opnfv-with-vosyswitch" title="How to setup OPNFV with VOSYSwitch vSwitch for vCPE edge, NFV networking, 5G NFV c-RAN" target="_b">Opnfv with vosyswitch</a>
+: How to setup OPNFV with VOSYSwitch vSwitch for vCPE edge, NFV networking, 5G NFV c-RAN</p>
+             </li>
+           
+  <li>
+<a href="http://www.virtualopensystems.com/en/solutions/guides/yocto-qemu-kvm-vswitch-nxp-ls2085a" title="How to setup NXP LS2085A-RDB as KVM virtualization host with VOSYSwitch vSwitch support for vCPE edge, NFV networking ODP ARMv8" target="_b">	yocto qemu kvm vswitch nxp ls2085a</a>
+: How to setup NXP LS2085A-RDB as KVM virtualization host with 
+VOSYSwitch vSwitch support for vCPE edge, NFV networking ODP ARMv8</p>
+             </li>
+           
+  <li>
+<a href="http://www.virtualopensystems.com/en/solutions/guides/agl-mixed-criticality-armv8" title="A guide on how to run concurrently a RTOS and a KVM GPOS on Juno 64-bit ARMv8 Platform by custom ATF TrustZone monitor layer" target="_b">Agl mixed criticality on armv8</a>
+: A guide on how to run concurrently a RTOS and a KVM GPOS on Juno 64-bit ARMv8 Platform by custom ATF TrustZone monitor layer</p>
+             </li>
+           
+  <li>
+<a href="http://www.virtualopensystems.com/en/solutions/guides/kvm-svirt-omap5" title="secure virtual machines on KVM on ARM Cortex-A15 with SELinux through sVirt, a libvirt extension to protect virtual machine resources by MAC security policy" target="_b">Kvm svirt omap5</a>
+: Secure virtual machines on KVM on ARM Cortex-A15 with SELinux through 
+sVirt, a libvirt extension to protect virtual machine resources by MAC 
+security policy</p>
+             </li>
+           
+  <li>
+<a href="http://www.virtualopensystems.com/en/solutions/guides/vfio-on-arm" title="VFIO for SMMU or IOMMU to enable KVM on ARM device assignment. Test cases based on the ARM PL330 DMA Controller" target="_b">Vfio on arm</a>
+: VFIO for SMMU or IOMMU to enable KVM on ARM device assignment. Test cases based on the ARM PL330 DMA Controller</p>
+             </li>
+           
+  <li>
+<a href="http://www.virtualopensystems.com/en/solutions/guides/snabbswitch-qemu" title="vhost-user for integration of QEMU/KVM with an userspace ethernet switch" target="_b">Vhost-user for snabbswitch</a>
+: Vhost-user for integration of QEMU/KVM with an userspace ethernet switch</p>
+             </li>
+           
+  <li>
+<a href="http://www.virtualopensystems.com/en/solutions/guides/kvm-on-chromebook" title="how to setup KVM virtualization on Samsung Chromebook" target="_b">Kvm on chromebook</a>
+: How to setup KVM virtualization on Samsung Chromebook</p>
+             </li>
+           
+  <li>
+<a href="http://www.virtualopensystems.com/en/solutions/guides/kvm-on-armv8" title="how to set up a KVM development environment on ARMv8 platform" target="_b">Kvm on armv8</a>
+: How to set up a KVM development environment on ARMv8 platform</p>
+             </li>
+           
+  <li>
+<a href="http://www.virtualopensystems.com/en/solutions/guides/kvm-on-arm-vexpress" title="how to deploy full KVM virtualization on Cortex-A15 VExpress" target="_b">Kvm on arm vexpress</a>
+: How to deploy full KVM virtualization on Cortex-A15 VExpress</p>
+             </li>
+           
+  <li>
+<a href="http://www.virtualopensystems.com/en/solutions/guides/kvm-virtualization-on-arndale" title=" Guide to a full virtualization system on Arndale development board" target="_b">Kvm virtualization on arndale</a>
+:  Guide to a full virtualization system on Arndale development board</p>
+             </li>
+           
+  <li>
+<a href="http://www.virtualopensystems.com/en/solutions/guides/kvm-android-on-fastmodels" title="KVM guide to boot Android jelly bean on ARM FastModels" target="_b">Kvm android on fastmodels</a>
+: KVM guide to boot Android jelly bean on ARM FastModels</p>
+             </li>
+           
+  <li>
+<a href="http://www.virtualopensystems.com/en/solutions/guides/kvm-on-arm" title="KVM port to ARM Cortex-A15 and big.LITTLE FastModels" target="_b">Kvm on arm</a>
+: KVM port to ARM Cortex-A15 and big.LITTLE FastModels</p>
+             </li>
+           
+</ul>
+
+<h4>Virtualization Demos</h4>
+
+<ul id="videos_list">
+           
+  <li>
+<a href="http://www.virtualopensystems.com/en/solutions/demos/vosysmonitor-als2016" title="VOSYSmonitor, a low latency Monitor layer for Mixed-Criticality automotive IVI, drones, industrial, co-execute GPOS and RTOS on Renesas R-Car H3" target="_b">Vosysmonitor als2016</a>
+: VOSYSmonitor, a low latency Monitor layer for Mixed-Criticality 
+automotive IVI, drones, industrial, co-execute GPOS and RTOS on Renesas 
+R-Car H3</p>
+             </li>
+           
+  <li>
+<a href="http://www.virtualopensystems.com/en/solutions/demos/vosyswitch-interop" title="user-space VOSYSwitch showcased at INTEROP TOKYO 2016, outperforms OVS-DPDK for x86 and ARMv8 NFV servers" target="_b">Vosyswitch interop</a>
+: User-space VOSYSwitch showcased at INTEROP TOKYO 2016, outperforms OVS-DPDK for x86 and ARMv8 NFV servers</p>
+             </li>
+           
+  <li>
+<a href="http://www.virtualopensystems.com/en/solutions/demos/vosyswitch-odp-armv8" title="VOSYSwith with OPNFV Linaro ODP showcased at LinaroConnect BKK16 on VNFs chaining ARMv8 servers" target="_b">Vosyswitch odp armv8</a>
+: VOSYSwith with OPNFV Linaro ODP showcased at LinaroConnect BKK16 on VNFs chaining ARMv8 servers</p>
+             </li>
+           
+  <li>
+<a href="http://www.virtualopensystems.com/en/solutions/demos/kvm-virtualization-training-video" title="Introduction to virtualization and KVM training material" target="_b">Kvm virtualization training video</a>
+: Introduction to virtualization and KVM training material</p>
+             </li>
+           
+  <li>
+<a href="http://www.virtualopensystems.com/en/solutions/demos/vosyswitch-perf-openstack-integration" title="VOSYSwitch, an high-performance user space virtual switch showcased within an integrated OpenStack deployment in NFV infrastructure compute node" target="_b">Vosyswitch perf openstack integration</a>
+: VOSYSwitch, an high-performance user space virtual switch showcased 
+within an integrated OpenStack deployment in NFV infrastructure compute 
+node</p>
+             </li>
+           
+  <li>
+<a href="http://www.virtualopensystems.com/en/solutions/demos/vosyshmem-api-remoting" title="API Remoting for OpenGL, OpenMax, OpenCL: GPU KVM virtualization on ARM platforms" target="_b">Vosyshmem api remoting</a>
+: API Remoting for OpenGL, OpenMax, OpenCL: GPU KVM virtualization on ARM platforms</p>
+             </li>
+           
+  <li>
+<a href="http://www.virtualopensystems.com/en/solutions/demos/virtual-bfq-action" title="virtual bfq storage I/O scheduler for optimizing latency and increasing responsiveness in kvm virtualized systems" target="_b">Virtual bfq in action</a>
+: Virtual bfq storage I/O scheduler for optimizing latency and increasing responsiveness in kvm virtualized systems</p>
+             </li>
+           
+  <li>
+<a href="http://www.virtualopensystems.com/en/solutions/demos/kvm-on-arndale-exynos" title="KVM virtualization port on Exynos-5250 Arndale ARM platform" target="_b">Kvm on arndale exynos</a>
+: KVM virtualization port on Exynos-5250 Arndale ARM platform</p>
+             </li>
+           
+  <li>
+<a href="http://www.virtualopensystems.com/en/solutions/demos/kvm-armv7-multiple-guests-poc" title="proof of concept shows feasibility, near-native performance of KVM on ARMv7" target="_b">Kvm armv7 multiple guests poc</a>
+: Proof of concept shows feasibility, near-native performance of KVM on ARMv7</p>
+             </li>
+           
+  <li>
+<a href="http://www.virtualopensystems.com/en/solutions/demos/byod-android-kvm-on-cortex-a15" title="Multi-Persona/BYOD Android KVM Virtualization demo on Cortex-A15 Versatile Express" target="_b">Byod android kvm on cortex-a15</a>
+: Multi-Persona/BYOD Android KVM Virtualization demo on Cortex-A15 Versatile Express</p>
+             </li>
+           
+  <li>
+<a href="http://www.virtualopensystems.com/en/solutions/demos/kvm-full-virtualization-cortex-a15-vexpress" title="Android ICS guest KVM on ARMv7 demo with Cortex-A15 Versatile Express">Kvm full virtualization on vexpress</a>
+: Android ICS guest KVM on ARMv7 demo with Cortex-A15 Versatile Express</p>
+             </li>
+           
+  <li>
+<a href="http://www.virtualopensystems.com/en/solutions/demos/kvm-vs-tcg-virtualized-guests" title="near-native performance KVM virtualized guest vs Qemu's TCG emulation" target="_b">Kvm vs tcg virtualized guests</a>
+: Near-native performance KVM virtualized guest vs Qemu's TCG emulation</p>
+             </li>
+           
+  <li>
+<a href="http://www.virtualopensystems.com/en/solutions/demos/kvm-android-guest-on-arm-fastmodels" title="kvm android guest on arm fastmodels" target="_b">Kvm android guest on arm fastmodels</a>
+: Kvm android guest on arm fastmodels</p>
+             </li>
+           
+</ul>
+
+<a name="KVMOnARMArchitecture"></a>
+<h3>Supporting KVM on the ARM architecture 
+<a href="https://lwn.net/Articles/557132/" target="_b">(Source Origin)</a></h3>
+<div class="GAByline">
+           <p>July 3, 2013</p>
+           <p>This article was contributed by Christoffer Dall and Jason Nieh</p>
+</div>
+
+<p>One of the new features in the 3.9 kernel is KVM/ARM: KVM support for the ARM
+architecture.  While KVM is already supported on i386 and x86/64, PowerPC, and
+s390, ARM support required more than just reimplementing the features and
+styles of the other architectures.  The reason is that the ARM virtualization
+extensions are quite different from those of other architectures.</p>
+
+<p>Historically, the ARM architecture is not virtualizable, because there are a
+number of sensitive instructions which do not trap when they are executed in an 
+unprivileged mode.  However, the most recent 32-bit ARM processors, like the 
+Cortex-A15, include hardware support for virtualization as an ARMv7 architectural 
+extension.  A number of research projects have attempted to support virtualization 
+on ARM processors without hardware virtualization support, but they require various 
+levels of paravirtualization and have not been stabilized.  KVM/ARM is designed 
+specifically to work on ARM processors with the virtualization extensions enabled 
+to run unmodified guest operating systems.</p>
+
+<p>The ARM hardware extensions differ quite a bit from their x86 counterparts.  
+A simplified view of the ARM CPU modes is that the kernel runs in SVC mode and
+user space runs in USR mode.  ARM introduced a new CPU mode for running
+hypervisors called HYP mode, which is a more privileged mode than SVC mode.
+An important characteristic of HYP mode, which is central to the design of
+KVM/ARM, is that HYP mode is not an extension of SVC mode, but a distinct mode
+with a separate feature set and a separate virtual memory translation mechanism.
+For example, if a page fault is taken in HYP mode, the faulting virtual address
+is stored in a different register in HYP mode than in SVC mode.  As another
+example, for the SVC and USR modes, the hardware has two separate page table base
+registers, which are used to provide the familiar address space split between
+user space and kernel.  HYP mode only uses a single page table base register and
+therefore does not allow the address space split between user mode and kernel.</p>
+
+<p>The design of HYP mode is a good fit with a classic bare-metal hypervisor
+design because such a hypervisor does not reuse any existing kernel code written 
+to work in SVC mode.  KVM, however, was designed specifically to reuse existing 
+kernel components and integrate these with the hypervisor.  In comparison, the x86 
+hardware support for virtualization does not provide a new CPU mode, but provides 
+an orthogonal concept known as "root" and "non-root".  When running as non-root on 
+x86, the feature set is completely equivalent to a CPU without virtualization
+support.  When running as root on x86, the feature set is <em>extended</em> to add
+additional features for controlling virtual machines (VMs), but all existing kernel 
+code can run unmodified as both root and non-root.  On x86, when a VM traps to the
+hypervisor, the CPU changes from non-root to root.  On ARM, when a VM traps to the 
+hypervisor, the CPU traps to HYP mode.</p>
+
+<p>HYP mode controls virtualization features by configuring sensitive operations to 
+trap to HYP mode when executed in SVC and USR mode; it also allows hypervisors to 
+configure a number of shadow register values used to hide information about the 
+physical hardware from VMs.  HYP mode also controls Stage-2 translation, a feature 
+similar to Intel's "extended page table" used to control VM memory access.  Normally 
+when an ARM processor issues a load/store instruction, the memory address used in 
+the instruction is translated by the memory management unit (MMU) from a virtual 
+address to a physical address using regular page tables, like this:</p>
+
+<ul>
+  <li>Virtual Address (VA) -&gt; Intermediate Physical Address (IPA)</li>
+</ul>
+
+<p>The virtualization extensions add an extra stage of translation known as Stage-2 
+translation which can be enabled and disabled only from HYP mode.  When Stage-2 
+translation is enabled, the MMU translates address in the following way:</p>
+
+<ul>
+  <li>Stage-1: Virtual Address (VA) -&gt; Intermediate Physical Address (IPA)</li>
+  <li>Stage-2: Intermediate Physical Address (IPA) -&gt; Physical Address (PA)</li>
+</ul>
+
+<p>The guest operating system controls the Stage-1 translation independently of 
+the hypervisor and can change mappings and page tables without trapping to the
+hypervisor.  The Stage-2 translation is controlled by the hypervisor, and a
+separate Stage-2 page table base register is accessible only from HYP mode.  The 
+use of Stage-2 translations allows software running in HYP mode to control access
+to physical memory in a manner completely transparent to a VM running in SVC or
+USR mode, because the VM can only access pages that the hypervisor has mapped
+from an IPA to the page's PA in the Stage-2 page tables.</p>
+
+<h4>KVM/ARM design</h4>
+
+<p>KVM/ARM is tightly integrated with the kernel and effectively turns the kernel 
+into a first class ARM hypervisor.  For KVM/ARM to use the hardware features, the 
+kernel must somehow be able to run code in HYP mode because HYP mode is used to 
+configure the hardware for running a VM, and traps from the VM to the host (KVM/ARM) 
+are taken to HYP mode.</p>
+
+<p>Rewriting the entire kernel to run only in HYP mode is not an option, because
+it would break compatibility with hardware that doesn't have the virtualization
+extensions.  A HYP-mode-only kernel also would not work when run inside a
+VM, because the HYP 
+mode would not be available.  Support for running both in HYP mode and
+SVC mode would be much too invasive to the source code, and would potentially
+slow down critical paths.  Additionally, the hardware requirements for the page
+table layout in HYP mode are different from those in SVC mode in that they
+mandate the use of LPAE (ARM's Large Physical Address Extension) and require
+specific bits to be set on the page table entries, which are otherwise clear on
+the kernel page tables used in SVC mode.  So KVM/ARM must manage a separate
+set of HYP mode page tables and explicitly map in code and data accessed from
+HYP mode.</p>
+
+<p>We therefore came up with the idea to split execution across multiple CPU modes
+and run as little code as possible in HYP mode.  The code run in HYP mode is
+limited to a few hundred instructions and isolated to two assembly files:
+<a href="https://github.com/torvalds/linux/blob/master/arch/arm/kvm/interrupts.S" 
+target="_b"><tt>arch/arm/kvm/interrupts.S</tt></a> and 
+<a href="https://github.com/torvalds/linux/blob/master/arch/arm/kvm/interrupts_head.S" 
+target="_b">><tt>arch/arm/kvm/interrupts_head.S</tt></a>.</p> 
+
+<p>For readers not familiar with the general KVM architecture, KVM on all
+architectures works by exposing a simple interface to user space to provide 
+virtualization of core components such as the CPU and memory.  Device emulation, 
+along with setup and configuration of VMs, is handled by a user space process, 
+typically QEMU.  When such a process decides it is time to run the VM, it will call 
+the <code>KVM_VCPU_RUN</code> <tt>ioctl()</tt>, which executes VM code natively on 
+the CPU.  On ARM, the <tt>ioctl()</tt> handler in <tt>arch/arm/kvm/arm.c</tt> 
+switches to HYP mode by issuing an HVC (hypercall) instruction, which changes the 
+CPU mode to HYP mode, context switches all hardware state between the host and the 
+guest, and finally jumps to the VM SVC or USR mode to natively execute guest code. 
+When KVM/ARM runs guest code, it enables Stage-2 memory translation, which completely
+isolates the address space of VMs from the host and other VMs.  The CPU will be
+executing guest code until the hardware traps to HYP mode, because of a hardware
+interrupt, a stage-2 page fault, or a sensitive operation.  When such a trap
+occurs, KVM/ARM switches back to the host hardware state and returns to normal
+KVM/ARM host SVC code with the full kernel mappings available.</p>
+
+<p>When returning from a VM, KVM/ARM examines the reason for the trap, and performs
+the necessary emulation or resource allocation to allow the VM to resume.  For example, 
+if the guest performs a memory-mapped I/O (MMIO) operation to an emulated device, that 
+will generate a Stage-2 page fault, because only physical RAM dedicated to the guest 
+will be mapped in the Stage-2 page tables.  KVM/ARM will read special system registers, 
+available only in HYP mode, which contain the address causing the fault and report the 
+address to QEMU through a shared memory-mapped structure between QEMU and the kernel.  
+QEMU knows the memory map of the emulated system and can forward the operation to the 
+appropriate device emulation code.  As another example, if a hardware interrupt occurs 
+while the VM is executing, this will trap to HYP mode, and KVM/ARM will switch back in 
+the host state and re-enable interrupts, which will cause the hardware interrupt 
+handlers to execute once again, but this time without trapping to HYP mode.  While 
+every hardware interrupt ends up interrupting the CPU twice, the actual trap cost 
+on ARM hardware is negligible compared to the world-switch from the VM to the host.</p>
+
+<h4>HYP mode</h4>
+
+<p>Providing access to HYP mode from KVM/ARM was a non-trivial challenge, since HYP
+mode is a more privileged mode than the standard ARM kernel modes and there is no 
+architecturally defined ABI for entering HYP mode from less privileged modes.  One 
+option would be to expect bootloaders to either install secure monitor handlers or 
+hypercall handlers that would allow the kernel to trap back into HYP mode, but this 
+method is brittle and error-prone, and prior experience with establishing TrustZone 
+APIs has shown that it is hard to create a standard across different implementations 
+of the ARM architecture.  
+</p>
+
+<p> Instead, Will Deacon, Catalin Marinas, and Ian Jackson <a  
+href="http://lists.linaro.org/pipermail/boot-architecture/2011-August/000058.html" 
+ target="_b">proposed</a> that we rely on  the kernel being booted in HYP mode if the 
+kernel is going to support KVM/ARM.  In version 3.6, a patch series developed by Dave 
+Martin and Marc Zyngier was merged that detects if the kernel is booted in HYP mode 
+and, if so, installs a small stub handler that allows other subsystems like KVM/ARM 
+to take control of HYP mode later on.  As it turns out, it is reasonable to recommend 
+that bootloaders always boot the kernel in HYP mode if it is available because even
+legacy kernels always make an explicit switch to SVC mode at boot time, even though 
+they expect to boot into SVC mode already.  Changing bootloaders to simply boot all 
+kernels in HYP mode is therefore backward-compatible with legacy kernels.</p>
+
+<p>Installing the hypervisor stub when the kernel is booted in HYP mode was an 
+interesting implementation challenge.  First, ARM kernels are often loaded as
+a compressed image, with a small uncompressed pre-boot environment known as the
+"decompressor" which decompresses the kernel image into memory.  If the
+decompressor detects that it is booted in HYP mode, then a temporary stub must be 
+installed at this stage allowing the CPU to fall back to SVC mode to run the 
+decompressor code.  The reason is that the decompressor must turn on the MMU to 
+enable caches, but doing so in HYP mode requires support for the LPAE page table 
+format used by HYP mode, which is an unwanted piece of complexity in the decompressor 
+code.  Therefore, the decompressor installs the temporary HYP stub, falls back to 
+SVC mode, decompresses the kernel image, and finally, immediately before calling the
+uncompressed initialization code, switches back to HYP mode again.  Then, the 
+uncompressed initialization code will again detect that the CPU is in HYP mode and 
+will install the main HYP stub to be used by kernel modules later in the boot process
+or after the kernel has finally booted.  The HYP stub can be found in
+<a href="https://github.com/torvalds/linux/blob/master/arch/arm/kernel/hyp-stub.S" 
+ target="_b"><tt>arch/arm/kernel/hyp-stub.S</tt></a>.  Note that the uncompressed 
+initialization code doesn't care whether the uncompressed code is started directly 
+in HYP mode from a bootloader or from the decompressor.</p>
+
+<p>Because HYP mode is a more privileged mode than SVC mode, the transition from SVC 
+mode to HYP mode occurs only through a hardware trap.  Such a trap can be generated 
+by executing the hypercall (HVC) instruction, which will trap into HYP mode and cause 
+the CPU to execute code from a jump entry in the HYP exception vectors.  This allows a 
+subsystem to use the hypervisor stub to fully take over control of HYP mode, because 
+the hypervisor stub allows subsystems to change the location of the exception vectors.  
+The HYP stub is called through the <code>__hyp_set_vectors()</code> function, which 
+takes the physical address of the HYP exception vector as its only parameter, and 
+replaces the HYP Vector Base Address Register (HVBAR) with that address.  When KVM/ARM 
+is initialized during normal kernel boot (after all main kernel initialization functions 
+have run), it creates an identity mapping (one-to-one mapping of virtual addresses to 
+physical address) of the HYP mode initialization code, which includes an exception 
+vector, and sets the physical address of using the <code>__hyp_set_vectors()</code> 
+function.  Further, the KVM/ARM initialization code calls the HVC instruction to run 
+the identity-mapped initialization code, which can safely enable the MMU, because the 
+code is identity mapped.</p>
+
+<p>Finally, KVM/ARM initialization sets up the HVBAR to point to the main KVM/ARM HYP 
+exception handling code, now using the virtual addresses for HYP mode.  Since HYP mode
+has its own address space, KVM/ARM must choose an appropriate virtual address for any 
+code or data, which is mapped into HYP mode.  For convenience and clarity, the kernel 
+virtual addresses are reused for pages mapped into HYP mode, making it possible to 
+dereference structure members directly as long as all relevant data structures are 
+mapped into HYP mode.</p>
+
+<p>Both traps from sensitive operations in VMs and hypercalls from the host kernel
+enter HYP mode through an exception on the CPU.  Instead of changing the HYP exception 
+vector on every switch between the host and the guest,  a single HYP exception vector 
+is used to handle both HVC calls from the host kernel and to handle traps from the VM.  
+The HYP vector handling code checks the VMID field on the Stage-2 page table base 
+register, and VMID&nbsp;0 is reserved for the host.  This field is only accessible 
+from HYP mode and guests are therefore prevented from escalating privilege.  We 
+introduced the <code>kvm_call_hyp()</code> function, which can be used to execute code 
+in HYP mode from KVM/ARM.  For example, KVM/ARM code running in SVC mode can make the
+following call to invalidate TLB entries, which must be done from HYP mode: 
+</p>
+
+<pre>
+    kvm_call_hyp(__kvm_tlb_flush_vmid_ipa, kvm, ipa);
+</pre>
+
+<h4>Virtual GIC and timers</h4>
+
+<p>ARMv7 architectures with hardware virtualization support also include
+virtualization support for timers and the interrupt controller.  Marc Zyngier
+implemented support for these features, which are called "generic timers"
+(a.k.a. architected timers) and the Virtual Generic Interrupt Controller (VGIC).</p>
+
+<p>Traditionally, timer operations on ARM systems have been MMIO operations to 
+dedicated timer devices.  Such MMIO operations performed by VMs would trap to QEMU, 
+which would involve a world-switch from the VM to host kernel, and a switch from 
+the host kernel to user space for every read of the time counter or every time a 
+timer needed to be programmed.  Of course, the timer functionality could be emulated 
+inside the kernel, but this would require a trap from the VM to the host kernel, and 
+would therefore add substantial overhead to VMs compared to running on native hardware.
+Reading the counter is a very frequent operation in Linux.  For example, every time a 
+task is enqueued or dequeued in the scheduler, the runqueue clock is updated, and in 
+particular multi-process workloads like Apache benchmarks clearly show the overhead 
+of trapping on each counter read.</p>
+
+<p>ARMv7 allows for an optional extension to the architecture, the generic timers,
+which makes counter and timer operations part of the core architecture.  Now,
+reading a counter or programming a timer is done using coprocessor register
+accesses on the core itself, and the generic timers provide two sets of timers
+and counters: the physical and the virtual.  The virtual counter and timer are
+always available, but access to the physical counter and timer can be limited
+through control registers accessible only in HYP mode.  If the kernel is booted
+in HYP mode, it is configured to use the physical timers; otherwise
+the kernel uses the virtual timers, allowing both an unmodified kernel to
+program timers when running inside a VM without trapping to the host, and providing
+the necessary isolation of the host from VMs.  
+</p>
+
+<p>
+If a VM programs a virtual
+timer, but is preempted before the virtual timer fires, KVM/ARM reads the timer
+settings to figure out the remaining time on the timer, and programs a
+corresponding soft timer in the kernel.  When the soft timer expires, the timer
+handler routine injects the timer interrupt back into the VM.  If the VM is
+scheduled before the soft timer expires, the virtual timer hardware is
+re-programmed to fire when the VM is running.</p>
+
+<p>The role of an interrupt controller is to receive interrupts from devices and
+forward them to one or more CPUs.  ARM's Generic Interrupt Controller
+(GIC) provides a "distributor" which is the core logic of the GIC and several CPU
+interfaces.  The GIC allows CPUs to mask
+certain interrupts, assign priority, or set affinity for certain interrupts to
+certain CPUs.  Finally, a CPU also uses the GIC to send inter-processor
+interrupts (IPIs) from one CPU core to another and is the underlying mechanism
+for SMP cross calls on ARM.  
+</p>
+
+<p>
+Typically, when the GIC raises an interrupt to a CPU, the CPU will acknowledge the 
+interrupt to the GIC, interact with the interrupting device, signal end-of-interrupt 
+(EOI) to the GIC, and resume normal operation.  Both acknowledging and EOI-signaling 
+interrupts are privileged operations that will trap when executed from within a VM, 
+adding performance overhead to common operations.  The hardware support for 
+virtualization in the VGIC comes in the form of a virtual CPU interface that CPUs 
+can query to acknowledge and EOI virtual interrupts without trapping to the host.  
+The hardware support further provides a virtual control interface to the VGIC, which 
+is accessed only by KVM/ARM, and is used to program virtual interrupts generated from 
+virtual devices (typically emulated by QEMU) to the VGIC.  
+</p>
+
+<p>
+Since access to the distributor is typically not a common operation, the hardware does 
+not provide a virtual distributor, so KVM/ARM provides in-kernel GIC distributor 
+emulation code as part of the support for VGIC.  The result is that VMs can acknowledge 
+and EOI virtual interrupts directly without trapping to the host.  Actual hardware 
+interrupts received during VM execution always trap to HYP mode, and KVM/ARM lets the 
+kernel's standard ISRs handle the interrupt as usual, so the host remains in complete 
+control of the physical hardware.</p>
+
+<p>There is no mechanism in the VGIC or generic timers to let the hardware directly 
+inject physical interrupts from the virtual timers as virtual interrupts to the VMs.  
+Therefore, VM timer interrupts will trap as any other hardware interrupt, and KVM/ARM 
+registers a handler for the virtual timer interrupt and injects a corresponding virtual 
+timer interrupt using software when the handler function is called from the ISR.</p>
+
+<h4>Results</h4>
+
+<p>During the development of KVM/ARM, we continuously measured the virtualization 
+overhead and ran long-running workloads to test stability and measure performance.  
+We have used various kernel configurations and user space environments (both ARM
+and Thumb-2) for both the host and the guest, and validated our workloads with SMP 
+and UP guests.  Some workloads have run for several weeks at a time without crashing, 
+and the system behaves as expected when exposed to extreme memory pressure or CPU 
+over-subscription.  We therefore feel that the implementation is stable and encourage 
+users to try and use the system.</p>
+
+<p>Our measurements using both micro and macro benchmarks show that the overhead
+of KVM/ARM is within 10% of native performance on multicore platforms for
+balanced workloads.  Purely CPU-bound workloads perform almost at native speed.
+The relative overhead of KVM/ARM is comparable to KVM on x86.  For some macro
+workloads, like Apache and MySQL, KVM/ARM even has less overhead than on x86
+using the same configuration.  A significant source of this improved
+performance can be attributed to the optimized path for IPIs and thereby
+process rescheduling caused by the VGIC and generic timers hardware
+support.</p>
+
+<h4>Status and future work</h4>
+
+<p>KVM/ARM started as a research project at Columbia University and was later supported 
+by <a href="http://www.virtualopensystems.com/">Virtual Open Systems</a>.  After the 
+3.9 merge, KVM/ARM continues to be maintained by the original author of the code, 
+Christoffer Dall, and the ARMv8 (64-bit) port is maintained by Marc Zyngier.  QEMU 
+system support for ARMv7 has been merged upstream in QEMU, and kvmtool also has support 
+for KVM/ARM on both ARMv7 and ARMv8.  ARMv8 support is scheduled to be merged for the 
+3.11 kernel release.</p>
+
+<p>Linaro is supporting a number of efforts to make KVM/ARM itself feature complete, 
+which involves debugging and full migration features including migration of the 
+in-kernel support for the VGIC and the generic timers.  Additionally, virtio has so 
+far relied on a PCI backend in QEMU and the kernel, but a significant amount of work 
+has already been merged upstream to refactor the QEMU source code concerning virtio 
+to allow better support for MMIO-based virtio devices to accelerate virtual network 
+and block devices.  The remaining work is currently a priority for Linaro, as is 
+support for the mach-virt ARM machine definition, which is a simple machine model 
+designed to be used for virtual machines and is based only on virtio devices.  Finally, 
+Linaro is also working on ARMv8 support in QEMU, which will also take advantage of 
+mach-virt and virtio support.</p>
+
+<h4>Conclusion</h4>
+
+<p>KVM/ARM is already used heavily in production by the <a target="_b" 
+href="https://build.opensuse.org/monitor">SUSE Open Build Service</a> on Arndale 
+boards, and we can only speculate about its future uses in the green data center of 
+the future, as the hypervisor of choice for ARM-based networking equipment, or even 
+ARM-based laptops and desktops.</p>
+
+<p>For more information, help on how to run KVM/ARM on your specific board or SoC, or 
+to participate in KVM/ARM development, the <a target="_b" 
+href="https://lists.cs.columbia.edu/cucslists/listinfo/kvmarm">kvmarm mailing list</a> 
+is a good place to start.</p><hr>
+
+<a name="Comments"></a>
+<h4>Comments</h4>
+
+<OL>
+<a name="CommAnchor557548"></a>
+  <LI> Posted Jul 4, 2013 1:14 UTC (Thu) by <b>smoogen</b> (subscriber, #97)
+       [<a href="https://lwn.net/Articles/557548/">Link</a>]
+    </p>
+    <div class="FormattedComment">
+Here is the "Shut up and take my money" question :)<br>
+<p>
+What hardware can I buy that supports this and where can I get it?<br>
+</p></div>
+
+  </div>
+  
+</div>
+<div class="Comment">
+
+<a name="CommAnchor557561"></a>
+<div class="CommentBox">
+  <p class="CommentTitle">Supporting KVM on the ARM architecture
+  <div class="CommentBody">
+    <p class="CommentPoster">Posted Jul 4, 2013 4:42 UTC (Thu) by <b>olof</b> (subscriber, #11729)
+       [<a href="https://lwn.net/Articles/557561/">Link</a>]
+    </p>
+    <div class="FormattedComment">
+<a href="http://howchip.com/shop/content.php?co_id=ArndaleBoard_en">http://howchip.com/shop/content.php?co_id=ArndaleBoard_en</a> for the Arndale development board.<br>
+<p>
+The Samsung ARM-based Chromebook has the same SoC in it, but 
+unfortunately the firmware on the system does not launch the kernel in 
+HYP mode, so you can't run KVM out of the box on them (I.e. not even 
+with the chainloaded nv-u-boot).<br>
+</p>
+
+<p>
+Some of the lower-end Cortex-A7 based systems will be able to run KVM 
+too, for example Cubieboard 2 (which has the dual-A7 Allwinner A20 SoC 
+on it). Upstream support for their hardware is not quite there yet 
+though, but down the road things should look quite a bit better.<br>
+</p></div>
+
+  </div>
+  
+</div>
+<div class="Comment">
+
+<a name="CommAnchor557630"></a>
+  <LI> Posted Jul 4, 2013 13:59 UTC (Thu) by <b>ibukanov</b> (subscriber, #3942)
+       [<a href="https://lwn.net/Articles/557630/">Link</a>]
+    </p>
+    <div class="FormattedComment">
+On ARM Chromebook is that ROM firmware that <a href="http://www.chromium.org/chromium-os/developer-information-for-chrome-os-devices/custom-firmware">http://www.chromium.org/chromium-os/developer-information...</a> mention that does not activate HYP?<br>
+<p>
+If so one need to apply some soldering skills to replace it...<br>
+</p></div>
+
+  </div>
+  
+</div>
+
+<a name="CommAnchor557763"></a>
+  <LI> Posted Jul 5, 2013 11:01 UTC (Fri) by <b>danpb</b> (subscriber, #4831)
+       [<a href="https://lwn.net/Articles/557763/">Link</a>]
+    </p>
+    <div class="FormattedComment">
+<font class="QuotedText">&gt; The Samsung ARM-based Chromebook has the same SoC in it, but</font><br>
+<font class="QuotedText">&gt; unfortunately the firmware on the system does not launch the</font><br>
+<font class="QuotedText">&gt; kernel in HYP mode, so you can't run KVM out of the box on </font><br>
+<font class="QuotedText">&gt; them (I.e. not even with the chainloaded nv-u-boot).</font><br>
+<p>
+Hmm, this page claims to have tested KVM on the ARM Chromebook<br>
+</p>
+
+<p>
+  <a href="http://columbia.github.io/linux-kvm-arm/">http://columbia.github.io/linux-kvm-arm/</a><br>
+</p>
+
+<p>
+but they don't mention what they did about the bootloader/HYP mode 
+problem. The Xen folks seem to suggest it is just a matter of compiling a
+ version of u-boot with HYP mode support, and presumably they then 
+chainloaded it<br>
+</p>
+
+<p>
+  <a href="http://blog.xen.org/index.php/2013/05/23/bringing-xen-on-the-chromebook-and-the-arndale-board-the-journey-so-far/">http://blog.xen.org/index.php/2013/05/23/bringing-xen-on-...</a><br>
+</p>
+
+<div class="Comment">
+
+<a name="CommAnchor557902"></a>
+  <LI> Posted Jul 5, 2013 23:32 UTC (Fri) by <b>christofferdall</b> (subscriber, #63430)
+       [<a href="https://lwn.net/Articles/557902/">Link</a>]
+    </p>
+    <div class="FormattedComment">
+We have heard from a number of people who have successfully booted KVM 
+on the chromebook using the HYP U-boot approach, but I haven't verified 
+this myself.<br>
+<p>
+However, given that you can chainload u-boot and that the device boots 
+in secure mode it should be possible with enough effort to run KVM on 
+there.<br>
+</p></div>
+
+  </div>
+  
+</div>
+</div>
+</div>
+
+<a name="CommAnchor557605"></a>
+  <LI> Posted Jul 4, 2013 9:37 UTC (Thu) by <b>bboy</b> (subscriber, #63074)
+       [<a href="https://lwn.net/Articles/557605/">Link</a>]
+    </p>
+    <div class="FormattedComment">
+Arndale board or big.LITTLE TC2 platform are the right choices.<br>
+</div>
+
+  </div>
+</div>
+</div>
+
+<a name="CommAnchor558196"></a>
+  <LI> Posted Jul 9, 2013 13:40 UTC (Tue) by <b>jzbiciak</b> (subscriber, #5246)
+       [<a href="https://lwn.net/Articles/558196/">Link</a>]
+    </p>
+    <p>This is an excellent, excellent article.  I've been studying 
+ARM's virtualization hardware support, and wondered just exactly how 
+Linux would make use of it, due to all the differences you described in 
+your opening paragraphs.  You've answered those questions thoroughly!</p>
+<p>Basically, as I understand the concept, the host Linux runs at SVC 
+level like any other guest, but, it has a special channel to communicate
+ with a thin layer at HYP level to control all the HYP-specific 
+machinery to control the other guests.  Did I understand that correctly?</p>
+
+<p>One very minor quibble.  When describing address translation, you say:</p>
+<blockquote><i>
+Normally when an ARM processor issues a load/store instruction, the 
+memory address used in the instruction is translated by the memory 
+management unit (MMU) from a virtual address to a physical address using
+ regular page tables, like this:
+<br><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Virtual Address (VA) -&gt; Intermediate Physical Address (IPA)
+</i></blockquote>
+<p>Shouldn't that just be "Virtual Address (VA) -&gt; Physical Address 
+(PA)"?  I didn't think there was a notion of IPA when Stage-2 is not 
+enabled.  As I said, a very minor quibble.</p>
+  </div>
+  
+</div>
+<div class="Comment">
+
+<a name="CommAnchor558212"></a>
+  <LI> Posted Jul 9, 2013 15:15 UTC (Tue) by <b>raven667</b> (subscriber, #5198)
+       [<a href="https://lwn.net/Articles/558212/">Link</a>]
+    </p>
+    <div class="FormattedComment">
+<font class="QuotedText">&gt; Basically, as I understand the concept, 
+the host Linux runs at SVC level like any other guest, but, it has a 
+special channel to communicate with a thin layer at HYP level to control
+ all the HYP-specific machinery to control the other guests. Did I 
+understand that correctly?</font><br>
+<p>
+That sounds like how every other hypervisor such as Xen or VMware is 
+architected.  Xen has dom0 and VMware has the Service Console (or 
+whatever it's called on ESXi).  This seems to be a pattern in the 
+design.<br>
+</p></div>
+
+  </div>
+  
+</div>
+<div class="Comment">
+
+<a name="CommAnchor558516"></a>
+  <LI> Posted Jul 11, 2013 6:44 UTC (Thu) by <b>christofferdall</b> (subscriber, #63430)
+       [<a href="https://lwn.net/Articles/558516/">Link</a>]
+    </p>
+    <div class="FormattedComment">
+It's not exactly how other hypervisors work.<br>
+<p>
+Xen's dom0 for example does not handle scheduling and memory allocation 
+of VMs and boots directly into the Xen hypervisor in HYP mode and runs 
+dom0 in many ways just like another guest.  KVM/ARM boots in HYP, but 
+immediately drops back into SVC mode, only returning to HYP mode to run a
+ minimal amount of code in the most privileged mode.<br>
+</p>
+
+<p>
+VMware ESX and KVM on x86 both benefit from the x86 architecture, where 
+there is no equivalent to the distinction between HYP mode and SVC mode 
+on the host side - there is simply "root ring0" privilege level, and 
+don't have to deal with separate mappings of code between the host 
+kernel and the low-level part of the hypervisor, just to give an 
+example.<br>
+</p>
+
+<p>
+In fact, this was the real challenge with designing KVM/ARM, that the 
+architecture doesn't apparently fit very well with a KVM architecture, 
+but our results show that this is not a significant concern for 
+performance, and the it works out quite well from a software engineering
+ point of view.<br>
+</p></div>
+
+  </div>
+  
+</div>
+</div>
+
+<a name="CommAnchor558515"></a>
+  <LI> Posted Jul 11, 2013 6:36 UTC (Thu) by <b>christofferdall</b> (subscriber, #63430)
+       [<a href="https://lwn.net/Articles/558515/">Link</a>]
+    </p>
+    <div class="FormattedComment">
+yes, when Stage-2 translation is not used, the IPA equals the PA.<br>
+</div>
+
+  </div>
+  
+</div>
+</div>
+
+<a name="CommAnchor624846"></a>
+  <LI> Posted Dec 5, 2014 18:22 UTC (Fri) by <b>jcm</b> (subscriber, #18262)
+       [<a href="https://lwn.net/Articles/624846/">Link</a>]
+    </p>
+    <div class="FormattedComment">
+Note that a couple of issues raised in this piece have been addressed as part of ARMv8.1.<br>
+</div>
+
+  </div>
+  
+</div>
+<div class="Comment">
+
+<a name="CommAnchor710126"></a>
+  <LI> Posted Dec 24, 2016 10:51 UTC (Sat) by <b>raziel</b> (subscriber, #113201)
+       [<a href="https://lwn.net/Articles/710126/">Link</a>]
+    </p>
+    <div class="FormattedComment">
+I am reading the code of the KVM/ARM64 and I am trying to understand 
+whether it is possible to leave the hcr_el2 and the vttbr_el2 registers 
+enabled without running any code in the guest at all. <br>
+I just want to monitor interrupts. <br>
+<p>
+Whenever I do that the OS hangs due to a failure in the el1_irq even though I do not 
+pass the interrupt to a guest.<br>
+</OL>
+
+</body></html>

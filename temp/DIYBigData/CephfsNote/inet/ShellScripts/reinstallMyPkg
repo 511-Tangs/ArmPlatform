@@ -1,0 +1,20 @@
+#!/bin/bash
+# This script installs extra packages after initial system installation
+
+if [ $EUID != 0 ]
+  then echo "Only Super user can execute this script."
+  exit 1
+elif [ $# != 1 ]
+  then echo "$0 package-list-file"
+  exit 2
+fi
+
+if [ ! `which dselect` ]
+  then echo "You need to install dselect package and execute dselect update, first,"
+       echo " since apt-get dselect-upgrade depends on dselect front-end." 
+       exit 3
+fi 
+
+dselect update # Update the packages database 
+dpkg --set-selections < $1
+apt-get dselect-upgrade 

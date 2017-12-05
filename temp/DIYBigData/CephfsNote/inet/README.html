@@ -1,0 +1,460 @@
+<HTML>  
+  <head><title>DebianNet-Light</title></head>  
+  
+<h3>Overview</h3>  
+  
+<P> UML Root File System or <b>template</b> in <b>mln</b> language is a plain   
+file for booting user mode linux.  Based on technique described in directory   
+<a href="http://140.120.7.21/backup/UML-tool">UML-tool</a>, we created the  
+following three user mode linux root file systems:  
+  
+<OL>  
+  <LI>	<a href="http://140.120.7.21/uml-rfs/DebJes-UltraLight.ext4.gz"   
+       target="newwindow">DebJes-UltraLight.ext4.gz</a>  
+  
+       <P> The smallest root file system for Debian/Jessie distribution  
+           (Linux Kernel 4.2, 2.6GB).   Its main purpose is to provide   
+           Dynamic IP service and X window connectivity test.  Also, if   
+           necessary, resizing this uml-rfs, we may use it to build servers,   
+           such as our mirror and http server on as.  
+  <LI>	<a href="http://140.120.7.21/uml-rfs/DebJes.ext4.gz"   
+       target="newwindow">DebJes.ext4.gz</a>  
+  
+       <P> A root file system for Debian/Jessie (Linux Kernel 4.2, 6.8GB).  
+         Resized from DebJes-UltraLight.ext4.gz with more packages installed.  
+         A root file system for high availability cluster.  6.8 GB. Everything   
+         from DebJes-UltraLight.ext4 plus Software for Open System 1 and 2  
+         courses.  
+  <LI>	<a href="http://140.120.7.21/uml-rfs/DevUan-UltraLight.ext4.gz"   
+       target="newwindow">DevUan-UltraLight.ext4.gz</a>  
+  
+     <P> A root file system from DevUan project, an UML without systemd.   
+</OL>  
+  
+<P> These root file systems are created based on Debian Jessie or Devuan testing. We 
+compile our own linux.uml (user-mode-linux) from source downloaded from Debian Sid.
+  
+<P> <b>Note: 12/14/2012, (12/12/2010), (05/15/2009)</b>  
+  
+<OL>  
+  <LI> Linux OS for sid is 3.13-1 (Wheezy is  3.2.0-4).  
+  <LI> The "dnsutils install", "fail2ban install", and "geoip-bin install"   
+       entries are added to DebianNet-pkgs.txt and DebianNet-UltraLight.txt   
+       files.  
+  
+<P> We add these entries so that we can use IpTracing.sh shell script to   
+    monitor our visitors.  The fail2ban package successfully protects UML   
+    from ssh attacks, so far.  
+</OL>  
+  
+<h3>Uml Template Installation via devuan debootstrap</h3>
+
+  <P> <b>Note: (12/11/2015, 05/31/2015)</b> Download newest debootstrap: 
+<a href="http://packages.devuan.org/devuan/pool/main/d/debootstrap/" 
+target="_b">debootstrap from devuan</a>. Otherwise, Release signed by unknown key 
+failure. All steps involved are almost the same except we don't need to "$ apt-get 
+install sysvinit-core", (step 20), explicitly.
+
+<PRE>
+$ dd if=/dev/zero of=./DevOne-Light.ext4 bs=1024K count=4000 
+$ mkfs.ext4 DevOne-Light.ext4
+$ sudo mount -o loop DevOne-Light.ext4 /mnt/tmp
+$ IncPkgs="console-setup,deborphan,dnsutils,emacs,fail2ban,geoip-bin,less,libpng12-0,locales,openssh-client,openssh-server,xaw3dg,xauth,xterm"
+$ ExcPkgs="libsystemd0,systemd,systemd-sysv"
+$ sudo debootstrap --arch amd64 --include=${IncPkgs} --exclude=${ExcPkgs} testing /mnt/tmp  http://packages.devuan.org/merged
+# Bootstrapping failure with "Couldn't download packages: libthai0" message.
+# sudo chroot /mnt/tmp: chroot: failed to run command '/bin/bash': No such file or directory
+$ ls -l /mnt/tmp
+# For sure, only debootstrap, var, and one more which I can't recall, 3 directories. 
+$ sudo debootstrap --arch amd64 --include=${IncPkgs} --exclude=${ExcPkgs} testing /mnt/tmp  http://packages.devuan.org/merged 
+# This time, packages are validated, extracted, unpacked,  and configured
+;; Must add the file /etc/apt/preferences.d/preferences immediately and symbolically link
+;; it to parent directory to prevent systemd related packages from sneaking in.
+# apt-get -f install ;; This will cause the init-system-helpers and other packages to be 
+;; installed and configured. 
+;; By default, xauth was not installed, xterm: Xt error: Can't open display:  We include
+;; it during debootstrap. 
+# After Config-UML-Rfs and booting up new Dev1UML, add the next line to /etc/apt/sources.list
+deb http://us.mirror.devuan.org/devuan jessie main
+</PRE>
+
+<a name="MLNTemplate"></a><h3><a   
+href="http://140.120.7.21/LinuxRef/Cluster/MLN-Notes.html#UML-Root-Fs"   
+      target="newwindow">Create Our own DebianNet Template for MLN</a></h3>  
+  
+  <P> <b>Note:</b> Every needed tool can be obtained via   
+<a href="http://140.120.7.21/backup/UML-tool">UML-tool</a>.  
+  
+The followings are the steps for creating DebJes-UltraLight.ext4.gz  
+  
+<OL>  
+  <LI> Customarily, we install UML related tools in <code>/src3</code>, KVM 
+      related tools in <code>/src4</code> because of filesystem size. <br> 
+
+<PRE>
+ $ if [ ! -d /src3/UML ]
+     then sudo mkdir /src3/UML 
+          sudo chown hsu:hsu /src3/UML 
+          cd /src3/UML
+   else cd /src3/UML 
+        if [ -f DebJes-UltraLight.ext4* ]
+          then rm DebJes-UltraLight.ext4*
+        fi
+   fi
+</PRE>
+
+  <LI> $ scp -r as:/backup/UML-tool/* .  
+
+<P> Get it from ac20 will be much faster? Check whether DebianNetFiles (symbolic 
+    link) exists.  If link does not exist,
+<PRE> 
+ $ ln -s /backup/KVM-tool/DebianNetFiles DebianNetFiles 
+</PRE>
+
+
+  <LI> $ dd if=/dev/zero of=./DebJes-UltraLight.ext4 bs=1024K count=1500  
+
+<P> Nowadays, 1000M is too small even for UltraLight root filesystem, since after 
+   installation, only 261M free space left.  Probably, system upgrade will fail 
+   if too many packages need to be downloaded.  But, keeping it small is essential 
+   since we need to scp it from as.  
+  <LI> $ mkfs.ext4 DebJes-UltraLight.ext4  
+  <LI> $ sudo mount -o loop DebJes-UltraLight.ext4 /mnt/tmp  
+  <LI> $ sudo debootstrap --arch amd64 testing /mnt/tmp http://amdm/debian  
+  
+  <LI> $ sudo chroot /mnt/tmp  
+  <LI> # cd /dev  
+  <LI> # for i in 0 1 2 3 4 5 6 7; do mknod ubd$i b 98 $[ $i * 16 ]; done  
+  <LI> # passwd root  
+  <LI> # adduser hsu  
+  <LI> # adduser guest, also guest1, guest2, guest3, guest4, guest5  
+  <LI> # cd /etc/apt;
+       # ls -l prefe*d/*
+       # ln -s preferences.d/avoid-systemd avoid-systemd 
+  <LI> In another xterm, run "update-base" to update basic setup, such as:  
+        <UL>  
+           <LI>   
+      <TABLE>  
+        <TR><td>/mnt/tmp/etc/fstab&nbsp; <td>/mnt/tmp/etc/hosts  
+        <TR><td>/mnt/tmp/etc/hostname&nbsp; <td>/mnt/tmp/etc/network/interfaces
+        <TR><td>/mnt/tmp/etc/inittab&nbsp;  <td>/mnt/tmp/etc/securetty
+        <TR><td>/mnt/tmp/etc/apt/sources.list&nbsp; <td>/mnt/tmp/etc/hosts.deny
+      </TABLE>  
+         <LI>  
+       <PRE>  
+$ sudo rm /mnt/tmp/tmp/DebianNet-pkgs.txt  
+$ sudo cp DebianNetFiles/DebianNet-UltraLight.txt  /mnt/tmp/tmp  
+       </PRE>  
+        </UL>  
+  <LI> # apt-get update  
+  <LI> # apt-get -f install  
+  <LI> # for pkg in `grep "\binstall$" /tmp/DebianNet-UltraLight.txt | awk '{print $1} '`;  
+           do apt-get -y --force-yes install $pkg; done  
+  <LI> # apt-get autoremove  
+  <LI> # apt-get dselect-upgrade   
+  <LI> # apt-get install sysvinit-core 
+
+<PRE>
+    ;; By default, nowadays, systemd got installed with the following 
+    ;; consequences: /etc/rc.local won't be executed, no network, no
+    ;; console, etc.  Fail to boot and can't fix the useless uml root 
+    ;; filesystem.
+</PRE>
+
+  <LI> # ls /var/cache/apt/archives/*deb  
+  <LI> # apt-get clean; deborphan
+
+<PRE>
+   ;; If there is any output, "dpkg -P `deborphan`" to get rid of orphaned packages.
+   ;; And repeat these two commands as many times as necessary so that there is no 
+   ;; more orphaned packages reported.
+</PRE>
+
+  <LI> In another xterm,   
+<PRE> 
+ # Make sure you are in the right directory:
+ $ pwd 
+/src3/UML 
+ # Configure ssh client and server so that we will be ready for remote login.
+ $ ssh-hosts-config
+ $ cd /usr/local/lib/uml/lib/modules  
+ $ ls -l  
+total 4  
+drwxr-xr-x 3 root root 4096 2008-08-07 10:05 3.*
+ # Make sure directory /mnt/tmp/lib/modules do exist! Otherwise, 
+ # sudo mkdir /mnt/tmp/lib/modules
+ $ ls -l /mnt/tmp/lib/modules  
+total 0  
+ $ sudo cp -r * /mnt/tmp/lib/modules  
+ $ ls -l /mnt/tmp/lib/modules/3.*
+total 136  
+drwxr-xr-x 9 root root  4096 2008-08-21 14:43 kernel  
+-rw-r--r-- 1 root root  7182 2008-08-21 14:43 modules.alias  
+-rw-r--r-- 1 root root    69 2008-08-21 14:43 modules.ccwmap  
+-rw-r--r-- 1 root root 40794 2008-08-21 14:43 modules.dep  
+-rw-r--r-- 1 root root    73 2008-08-21 14:43 modules.ieee1394map  
+-rw-r--r-- 1 root root   141 2008-08-21 14:43 modules.inputmap  
+-rw-r--r-- 1 root root    81 2008-08-21 14:43 modules.isapnpmap  
+-rw-r--r-- 1 root root    74 2008-08-21 14:43 modules.ofmap  
+-rw-r--r-- 1 root root 13158 2008-08-21 14:43 modules.order  
+-rw-r--r-- 1 root root    99 2008-08-21 14:43 modules.pcimap  
+-rw-r--r-- 1 root root    43 2008-08-21 14:43 modules.seriomap  
+-rw-r--r-- 1 root root 33707 2008-08-21 14:43 modules.symbols  
+-rw-r--r-- 1 root root   189 2008-08-21 14:43 modules.usbmap  
+ # Hopefully, ssh_config and sshd_config no long needed to be edited.  Otherwise, 
+ # $ sudo emacs /mnt/tmp/etc/ssh/ssh_config  
+ $ diff /mnt/tmp/etc/ssh/ssh_config /mnt/tmp/etc/ssh/ssh_config.orig  
+22c22  
+< ForwardX11Trusted yes  
+---  
+> #   ForwardX11Trusted yes  
+39c39  
+< Port 22  
+---  
+> #   Port 22  
+ $ diff /mnt/tmp/etc/ssh/sshd_config /mnt/tmp/etc/ssh/sshd_config.orig  
+26c26  
+< PermitRootLogin no  
+---  
+> PermitRootLogin yes  
+</PRE>  
+  <LI> # cd /etc/init.d  
+
+<P><b>Note: (03/23/2013)</b> It seems <b>dhcp</b>, <b>quagga</b>, <b>thttpd</b> 
+   were no longer installed automatically.  Since no harm done, we complete them 
+   anyway.
+
+  <LI> # ./dhcp stop  
+  <LI> # ./quagga stop  
+  <LI> # ./ssh stop  
+  <LI> # ./thttpd stop  
+  <LI> # update-rc.d -f dhcp remove  
+  <LI> # update-rc.d -f hwclock.sh remove
+
+<P> <b>Note: (2012/12/16)</b> Nowadays, the <code>/etc/hosts.allow</code> and 
+<code>/etc/hosts.deny</code> files weren't installed during <b>debootstrap</b>. 
+We need to adjust them in <b>ssh-hosts-config</b> shell script, not in 
+<b>update-base</b> script.  Also, good news: the <code>/etc/udev/rules.d</code> 
+directory is empty.
+
+
+<P> <b>Note: (2012/05/12)</b> It seems dhcp server no longer installed automatically, 
+   but <b>dhcp-client</b> will change our IP address behind our back.  Temporary 
+   solution: # dpkg -P isc-dhcp-client isc-dhcp-common
+
+<P> <b>Note: (2012/04/27)</b> Some of the above packages, e.g. dhcp, are no longer 
+       installed? <b>Note: (2010/12/16)</b>  Inherit Hardware clock from our host, 
+       we don't need these two.  For high performance cluster, we probably can use 
+       the service provided by dhcp daemon, keep dhcp client?
+
+  <LI> # update-rc.d -f hwclockfirst.sh remove  
+  <LI> # update-rc.d -f quagga remove  
+  <LI> # update-rc.d -f thttpd remove  
+  <LI> # df  
+<PRE>  
+Filesystem           1K-blocks      Used Available Use% Mounted on  
+sysfs                   812700    512484    259256  67% /sys  
+</PRE>
+<P> <b>Note: (2012/04/27)</b> No longer functional, check free space after booting 
+    up uml!
+  
+  <LI> # mount
+
+ <P> <b>umount</b> everything reported by the above mount command.  Otherwise, 
+    umount <code>/mnt/tmp</code> from physical host will fail!
+  <LI> # exit  
+  <LI> $ sudo umount /mnt/tmp  
+<PRE>  
+[sudo] password for hsu:  
+umount: /mnt/tmp: device is busy  
+umount: /mnt/tmp: device is busy  
+</PRE>  
+  <LI> $ sudo fuser -m /mnt/tmp  
+<PRE>  
+/mnt/tmp:            16368rce  
+</PRE>  
+  <LI> $ sudo kill -2 16368  
+
+    <P> If <code>$ kill -2 16368</code> fails, try <code>$ kill -9 16368</code>.
+        The command "kill -2" tries to interrupt 16368, "kill -9" will kill it, and 
+        can not be blocked.
+  <LI> $ sudo fuser -m /mnt/tmp  
+  <LI> $ sudo umount /mnt/tmp  
+  <LI> $ linux.uml ubd0=DebJes-UltraLight.ext4  # ;; must add <b>mem=256M</b> string.
+ 
+   <P> <b> Note: (2015/12/27)</b> If the following message shows up:
+
+<PRE>
+dev/shm must be not mounted noexec  
+# This is a bug! But we overcome it by add the next line at the end of our host's 
+# /etc/fstab file and reboot our system so that the change takes effect. Then, we
+# try it again. 
+$ diff /etc/fstab  /etc/fstab.orig
+38d37
+< shm    /dev/shm        tmpfs    nodev,nosuid                0       0 
+</PRE>
+
+   <P> <b> Note: (2014/12/27)</b> Unwanted X Console pups up, but can't do anything 
+     in the useless console.  Also waste about 140M more storage space (62% used).
+     <b> Note: (2012/04/11)</b> Occasionally, due to default memory size is too small, 
+     uml fails to boot.  May try to add "mem=512M" option in the above command line.
+  
+   <P> Check root file system is ok, then (1) login, (2) su, (3) # init 0
+  
+   <P> <b>Note: (2010/12/16)</b> In case that we can not shut it down, the $HOME/.uml  
+       directory has its umid, consult the stop-uml-restore-lan script, and use   
+       the <b>uml_mconsole</b> commands to suspend, umount, kill all processes  
+       except <b>init</b>, and then halt the uml.  
+  
+  <LI> <b>Note: (2012/04/11)</b> No need for this last step anymore!
+
+<PRE>
+ $ gzip DebJes-UltraLight.ext4; 
+ $ scp DebJes-UltraLight.ext4.gz as:/src2/uml-rfs   
+</PRE>
+</OL>  
+    
+<h3><a href="./uml-howto.html#UMLResizing" target="newwindow">Resize UML Root   
+ Filesystem</a></h3>  
+  
+<P> We may resize our DebJes-UltraLight.ext4 root filesystem to suitable   
+ sizes so that we may install more packages to get DebWzy-Light.ext4 and   
+ DebWzy.ext4 root filesystems.    
+  
+<PRE>  
+ $ cp DebJes-UltraLight.ext4 DebWzy-Light.ext4  
+ $ cp DebJes-UltraLight.ext4 DebWzy.ext4  
+ # We can then reize DebWzy-Light.ext4 and DebWzy.ext4 to 3 and 5 GB,   
+ # respectively.  The smaller, the better, since scp will be easier.  
+</PRE>  
+  
+<P> The packages installed from DebianNetFiles/DebianNet-UltraLight.txt and   
+DebianNetFiles/DebianNet-Light.txt are as follows:  
+  
+<P>
+<a href="./DebianNetFiles/DebianNet-UltraLight.txt" 
+target="newwindow">$ cat DebianNetFiles/DebianNet-UltraLight.txt</a>&nbsp;&nbsp;
+<a href="./DebianNetFiles/DebianNet-Light.txt" 
+target="newwindow">$ cat DebianNetFiles/DebianNet-Light.txt</a>
+
+  
+<h3>DebWzy.ext4.gz</h3>  
+  
+<p> DebWzy.ext4 is based on DebianNetFiles/DebianNet-pkgs.txt package list, everything   
+  in DebWzy-Light is included plus <b>iceweasel</b>, a replacement of   
+  <b>firefox</b> and other programs useful in OpenSystem 1 and 2 courses.  
+  <b>Note: (12/15/2010)</b> DebWzy.ext4 does not need dhcp related packages,  
+     since the services it provided always need fixed IP to access.  
+  
+  
+<p> The steps for creating DebWzy.ext4 are almost the same, except   
+  
+<OL>  
+  <LI> Step (5), count=2500, (2500MB disk space).   
+  <LI> Step 14, we need to adduser guest1, guest2, guest3, guest4, guest5, too.   
+  <LI> Step 15, <b>update-base</b> script is written for DebianNet.ext4   
+       creation, don't need to rm <code>DebianNet-pkgs.txt</code> and replace   
+       it by <code>DebianNet-Light.txt</code>.    
+  <LI> After step 22, copy myterm to hsu, guest, guest1-5.    
+  <LI> After step 32, also  
+<PRE>  
+# update-rc.d -f guidance-backends remove  
+</pre>   
+  
+      <P> I don't think we need to probe hardware in UML, since they are   
+    simulated via physical host kernel.  When did the above script get   
+    installed?  
+  <LI> Probably, we need to link <code>/usr/bin/iceweasel</code> to   
+       <code>/usr/bin/firefox so that we can invoke it by the name of   
+       firefox</code>.   <b>Note:</b> No, already linked.  
+  <LI> At steps 40 and 41,   
+  
+<PRE>  
+# df  
+Filesystem     1K-blocks      Used Available Use% Mounted on  
+/dev/ubd0        2539792   1563396    848396  65% /  
+$ gzip Debian.ext4  
+</PRE>  
+</OL>  
+  
+<p> Finally, we also need to replace <b>linux.uml</b> on each host by Debian   
+squeeze version.  Out of curiosity, will the performance of this heavy desktop  
+uml suffer?  
+  
+<p>Known Problems for DebianNet.ext4:  
+  
+<OL>   
+  <LI> On UML 3.13.4 (03/01/2014)
+
+<P> Package installation based on <code>DebianNet-pkgs.txt</code> always fails to 
+  complete due to lack of memory.  Increase memory to 2048 or 3072M won't help 
+  either.  Divide <code>DebianNet-pkgs.txt</code> into several pieces, say 6 pieces,
+  pkgs1.txt, pkgs2.txt,  pkgs3.txt,  pkgs4.txt,  pkgs5.txt,  pkgs6.txt, with smaller 
+  pkgs[1-3].txt (each contains 20 or less packages),  we finally managed to complete 
+  the installation process.
+ 
+  <LI> Debian lenny is to be released on Sept 2008.    
+  
+<PRE>  
+  $ sudo mount -o loop DebWzy.ext4 /mnt/tmp  
+  $ sudo chroot /mnt/tmp  
+  # apt-get update  
+  # apt-get upgrade  
+  # ls -l /var/cache/apt/archives/*deb  
+  # rm /var/cache/apt/archives/*deb  
+  # deborphan  
+%% bound to fail, since uswsusp failed to configure.  It needs /dev/stderr   
+%% which is not available unless uml was started.  Even if we started it,   
+%% configuration still would fail, since kernel does not support "user space   
+%% work suspension", unless we recompile uml kernel with supporting module.  
+%% After starting uml the first time:  
+  # apt-get update  
+  # apt-get upgrade  
+%% Problem about uswsusp (userspace software suspend) will be resolved.    
+%% Then we can do the following as many times as necessary, till all   
+%% orphaned files are removed:  
+  # aptitude remove `deborphan`  
+  # deborphan  
+</PRE>  
+  <LI> IOError: [Errno 2] No such file or directory: '/proc/bus/pci/devices'   
+(<b>Resolved!</b>)  
+  
+<p> Should UML have this device file, since everything is simulated via   
+   physical host kernel.  Is this caused by exim4?  No, we <b>disabled</b>   
+   it already, messages still show up.  By the way, I recalled exim is used  
+   for message passing between compute nodes, but can't find reference any   
+   more.  (Now, I got it, inherit exim from Debian MLN template from SoftIce.)  
+<p> Now, I found it: An error message from the following file:  
+  
+<PRE>  
+ $ ls -l /usr/share/python-support/guidance-backends/displayconfig-hwprobe.py  
+</PRE>  
+  
+    Called from <code>/etc/init.d/guidance-backends</code> startup script.  
+    UML does not need hardware probe, does it?  It seems this is a kde   
+    script.   
+<PRE>  
+# update-rc.d -f guidance-backends remove  
+<PRE>  
+</OL>  
+  
+<h3>DebJes-UltraLight.ext4</h3>  
+  
+<P> A root file system for IP server.  We use it to provide login for  
+  finding our own dynamic IP address. Only 6 packages are installed.  
+  
+<PRE>  
+$ more  DebianNetFiles/DebianNet-UltraLight.txt  
+deborphan					install  
+dnsutils                                        install  
+emacs21						install  
+fail2ban                                        install  
+geoip-bin                                       install  
+less						install  
+openssh-client					install  
+openssh-server					install  
+xterm						install  
+$ df  
+Filesystem    1K-blocks    Used Available Use% Mounted on  
+/dev/ubd0        508424  349644    133180  82% /  
+</PRE>  

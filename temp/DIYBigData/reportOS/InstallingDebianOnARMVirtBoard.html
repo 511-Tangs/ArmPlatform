@@ -1,0 +1,780 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+  <head><title>Installing Debian on QEMU's 32-bit ARM "virt" board | 
+        translatedcode</title>
+  </head>
+
+<body class="post-template-default single single-post postid-165 single-format-standard mp6 customizer-styles-applied highlander-enabled highlander-light">
+
+<h2 id="post-165">Installing Debian on QEMU's 32-bit ARM "virt" board 
+<a href="https://translatedcode.wordpress.com/2016/11/03/installing-debian-on-qemus-32-bit-arm-virt-board/" 
+target="_b">(Source Origin)</a></h2>
+
+<p><a href="https://translatedcode.wordpress.com/2016/11/03/installing-debian-on-qemus-32-bit-arm-virt-board/#comments">with 20 comments</a></p>
+	
+<p>In this post I'm going to describe how to set up Debian on QEMU emulating a 32-bit 
+ARM "virt" board. There are a lot of older tutorials out there which suggest using 
+boards like "versatilepb" or "vexpress-a9", but these days "virt" is a far better 
+choice for most people, so some documentation of how to use it seems overdue. (I 
+may do a followup post for 64-bit ARM later.)</p>
+
+<p><b>Update 2017-07-24</b>: I have now written <a href="https://translatedcode.wordpress.com/2017/07/24/installing-debian-on-qemus-64-bit-arm-virt-board/">that 
+post about installing a 64-bit ARM guest</a>.</p>
+
+<a name="WhyVirtBoard"></a>
+<h3>Why the "virt" board?</h3>
+
+<p>QEMU has models of nearly 50 different ARM boards, which makes it difficult for new 
+users to pick one which is right for their purposes.  This wild profusion reflects a 
+similar diversity in the real hardware world: ARM systems come in many different 
+flavours with very different hardware components and capabilities.  A kernel which is 
+expecting to run on one system will likely not run on another.  Many of QEMU's models 
+are annoyingly limited because the real hardware was also limited -- there's no PCI 
+bus on most mobile devices, after all, and a fifteen year old development board 
+wouldn't have had a gigabyte of RAM on it.</p>
+
+<p>My recommendation is that if you don't know for certain that you want a model of a 
+specific device, you should choose the "virt" board. This is a purely virtual platform 
+designed for use in virtual machines, and it supports PCI, virtio, a recent ARM CPU and 
+large amounts of RAM. The only thing it doesn't have out of the box is graphics, but 
+graphical programs on a fully emulated system run very slowly anyway so are best 
+avoided.</p>
+
+<h3>Why Debian?</h3>
+
+<p>Debian has had good support for ARM for a long time, and with the Debian Jessie 
+release it has a "multiplatform" kernel, so there's no need to build a custom kernel. 
+Because we're installing a full distribution rather than a cut-down embedded 
+environment, any development tools you need inside the VM will be easy to install 
+later.</p>
+
+<h3>Prerequisites and assumptions</h3>
+
+<p>I'm going to assume you have a Linux host, and a recent version of QEMU (at least 
+QEMU 2.6). I also use <a href="http://libguestfs.org/">libguestfs</a> to extract files 
+from a QEMU disk image, but you could use a different tool for that step if you 
+prefer.</p>
+
+<h3>Getting the installer files</h3>
+
+<p>I suggest creating a subdirectory for these and the other files we're going to 
+create.</p>
+
+<p>To install on QEMU we will want the multiplatform "<a target="_b" 
+href="https://wiki.debian.org/DebianKernel/ARMMP"><b>armmp</b></a>" kernel and initrd 
+from the <a href="http://http.us.debian.org/debian/dists/jessie/main/installer-armhf/current/images/netboot/" 
+target="_b">Debian website</a>: 
+
+<PRE>
+$ wget -O installer-vmlinuz http://http.us.debian.org/debian/dists/jessie/main/installer-armhf/current/images/netboot/vmlinuz
+$ wget -O installer-initrd.gz http://http.us.debian.org/debian/dists/jessie/main/installer-armhf/current/images/netboot/initrd.gz
+</PRE>
+
+<p>Saving them locally as <code>installer-vmlinuz</code> and 
+<code>installer-initrd.gz</code> means they won't be confused with the final kernel 
+and initrd that the installation process produces.</p>
+
+<p>(If we were installing on real hardware we would also need a "device tree" file to 
+tell the kernel the details of the exact hardware it's running on. QEMU's "virt" board 
+automatically creates a device tree internally and passes it to the kernel, so we don't 
+need to provide one.)</p>
+
+
+<P><b>Note: (08/12/2017)</b> We probably can find the file in our newly built 
+mirror.  Check the following anchor first:
+<a href="http://140.120.7.22/merged/pool/DEVUAN/main/d/debian-installer/" 
+target="_b">debian-installer</a> or 
+<a href="http://140.120.7.22/devuan/pool/main/d/debian-installer/" 
+target="_b">debian-installer 2</a>.  Note that source tar.gz is also available.  And 
+beta release would be better than alpha release.
+
+<PRE>
+hsu@Amath-DevuanMirror:~$ find /var/spool/apt-mirror -name  debian-installer 2>/dev/null
+/var/spool/apt-mirror/mirror/auto.mirror.devuan.org/devuan/pool/main/d/debian-installer
+/var/spool/apt-mirror/mirror/auto.mirror.devuan.org/merged/pool/DEBIAN/main/d/debian-installer
+/var/spool/apt-mirror/mirror/auto.mirror.devuan.org/merged/pool/DEVUAN/main/d/debian-installer
+hsu@Amath-DevuanMirror:~$ ls -l /var/spool/apt-mirror/mirror/auto.mirror.devuan.org/merged/pool/DEBIAN/main/d/debian-installer
+total 2788
+-rw-r--r-- 1 apt-mirror apt-mirror    3534 Jun  2  2016 debian-installer_20150422+deb8u4.dsc
+-rw-r--r-- 1 apt-mirror apt-mirror 1381370 Jun  2  2016 debian-installer_20150422+deb8u4.tar.gz
+-rw-r--r-- 1 apt-mirror apt-mirror  732920 Oct  2 05:41 debian-installer_20170615+deb9u2_amd64.deb
+-rw-r--r-- 1 apt-mirror apt-mirror  732894 Oct  2 05:41 debian-installer_20170615+deb9u2_armhf.deb
+hsu@Amath-DevuanMirror:~$ ls -l /var/spool/apt-mirror/mirror/auto.mirror.devuan.org/merged/pool/DEVUAN/main/d/debian-installer
+total 5452
+-rw-r--r-- 1 apt-mirror apt-mirror    3180 Jul  3  2015 debian-installer_201507023+devuan.alpha3u1.dsc
+-rw-r--r-- 1 apt-mirror apt-mirror 1027226 Jul  3  2015 debian-installer_201507023+devuan.alpha3u1.tar.gz
+-rw-r--r-- 1 apt-mirror apt-mirror    3172 Jan 29  2016 debian-installer_201507023+devuan.alpha4.dsc
+-rw-r--r-- 1 apt-mirror apt-mirror 1027159 Jan 29  2016 debian-installer_201507023+devuan.alpha4.tar.gz
+-rw-r--r-- 1 apt-mirror apt-mirror    3172 Jan 29  2016 debian-installer_20160129+devuan1+alpha4.dsc
+-rw-r--r-- 1 apt-mirror apt-mirror 1027412 Jan 29  2016 debian-installer_20160129+devuan1+alpha4.tar.gz
+-rw-r--r-- 1 apt-mirror apt-mirror  737038 Jan 29  2016 debian-installer_20160129+devuan1+alpha4_armhf.deb
+-rw-r--r-- 1 apt-mirror apt-mirror    3198 Apr 21  2017 debian-installer_20170116+devuan1Beta3u2.dsc
+-rw-r--r-- 1 apt-mirror apt-mirror  999792 Apr 21  2017 debian-installer_20170116+devuan1Beta3u2.tar.gz
+-rw-r--r-- 1 apt-mirror apt-mirror  737874 Apr 21  2017 debian-installer_20170116+devuan1Beta3u2_amd64.deb
+</PRE>
+
+<P><b>Note: (08/13/2017)</b> 
+
+<UL>
+  <LI>Anchor for Devuan is provided above.  Hopefully, it will work.  Otherwise, 
+      Debian Jessie is not that bad.  
+  <LI>Also, the kernels provided by Devuan are "armmp" (and "lpae", Large Physical 
+      Address Extensions).
+  <LI><b>Arndale (Exynos5) (device tree?)</b> is formally supported by Debian. We 
+      don't need it, <br>
+      since we will use the "virt" guest model, and its dt is <b>built-in</b>.
+</UL>
+</p>
+
+<PRE>
+$ hostname
+odxu4host1
+$ apt-cache search linux-image
+linux-image-3.16.0-4-armmp - Linux 3.16 for ARMv7 multiplatform compatible SoCs
+linux-image-3.16.0-4-armmp-lpae - Linux 3.16 for ARMv7 multiplatform compatible SoCs supporting LPAE
+linux-image-armmp - Linux for ARMv7 multiplatform compatible SoCs (meta-package)
+linux-image-armmp-lpae - Linux for ARMv7 multiplatform compatible SoCs supporting LPAE (meta-package)
+linux-image-4.9.0-0.bpo.3-armmp - Linux 4.9 for ARMv7 multiplatform compatible SoCs
+linux-image-4.9.0-0.bpo.3-armmp-lpae - Linux 4.9 for ARMv7 multiplatform compatible SoCs supporting LPAE
+linux-image-armmp-dbg - Debugging symbols for Linux armmp configuration (meta-package)
+linux-image-armmp-lpae-dbg - Debugging symbols for Linux armmp-lpae configuration (meta-package)
+linux-image-4.9.0-0.bpo.2-armmp - Linux 4.9 for ARMv7 multiplatform compatible SoCs (signed)
+linux-image-4.9.0-0.bpo.2-armmp-lpae - Linux 4.9 for ARMv7 multiplatform compatible SoCs supporting LPAE (signed)
+linux-image-4.9.38+ - Linux kernel, version 4.9.38+
+</PRE>
+
+<h3>Installing</h3>
+
+<p>First we need to create an empty disk drive to install onto.  I picked a 5GB disk 
+but you can make it larger if you like.</p>
+
+<PRE>
+qemu-img create -f qcow hda.qcow2 5G
+</PRE>
+
+
+<p>Now we can run the installer:</p>
+
+<PRE>
+qemu-system-arm -M virt -m 1024 \
+  -kernel installer-vmlinuz \
+  -initrd installer-initrd.gz \
+  -drive if=none,file=hda.qcow2,format=qcow,id=hd \
+  -device virtio-blk-device,drive=hd \
+  -netdev user,id=mynet \
+  -device virtio-net-device,netdev=mynet \
+  -nographic -no-reboot
+</PRE>
+
+<p>(I would have preferred to use QEMU's PCI virtio devices, but unfortunately the 
+Debian kernel doesn't support them; a future Debian release very likely will, which 
+would allow you to use <code>virtio-blk-pci</code> and <code>virtio-net-pci</code> 
+instead of <code>virtio-blk-device</code> and <code>virtio-net-device</code>.)&nbsp;
+<a href="https://wiki.qemu.org/Documentation/Platforms/ARM#Suggested_command-line" 
+target="_b">Suggested Commandline</a>
+</p>
+
+<p>The installer will display its messages on the text console (via an emulated serial 
+port). Follow its instructions to install Debian to the virtual disk; it's 
+straightforward, but if you have any difficulty 
+<a href="DebianArmhfInstaller/DebianArmhfInstaller.html" target="_b">the 
+Debian release manual</a> may help.<br>
+(Don't worry about all the warnings the installer kernel produces about GPIOs when it 
+first boots.)</p>
+
+<P><b>Note: (08/14/2017)</b> I believe the packages installed by the installer are not 
+suitable.  For example, it seems <b>openssh-server</b> is not installed.  We need 
+to customize or minimize the installed packages.  We than take it as a template 
+to add special packages for special purposes.
+</P>
+
+<p>The actual install process will take a few hours as it downloads packages over the 
+network and writes them to disk. It will occasionally stop to ask you questions.</p>
+
+<p>Late in the process, the installer will print the following warning dialog:</p>
+
+
+<PRE>
++-----------------| [!] Continue without boot loader |------------------+
+|                                                                       |
+|                       No boot loader installed                        |
+| No boot loader has been installed, either because you chose not to or |
+| because your specific architecture doesn't support a boot loader yet. |
+|                                                                       |
+| You will need to boot manually with the /vmlinuz kernel on partition  |
+| /dev/vda1 and root=/dev/vda2 passed as a kernel argument.             |
+|                                                                       |
+|                              <Continue>                               |
+|                                                                       |
++-----------------------------------------------------------------------+  
+</PRE>
+
+
+<p>Press continue for now, and we'll sort this out later.</p>
+
+<p>Eventually the installer will finish by rebooting -- this should cause QEMU to exit 
+(since we used the <code>-no-reboot</code> option).</p>
+
+<p>At this point you might like to make a copy of the hard disk image file, to save the 
+tedium of repeating the install later.</p>
+
+<h3>Extracting the kernel</h3>
+
+<p>The installer warned us that it didn't know how to arrange to automatically boot the 
+right kernel, so we need to do it manually.  For QEMU that means we need to extract the 
+kernel the installer put into the disk image so that we can pass it to QEMU on the 
+command line.</p>
+
+<p>There are various tools you can use for this, but I'm going to recommend 
+<a href="http://libguestfs.org/">libguestfs</a>, because it's the simplest to use. 
+An <b>important warning</b> about libguestfs, or any other tools for accessing disk 
+images from the host system: do not try to use them while QEMU is running, or you will 
+get disk corruption when both the guest OS inside QEMU and libguestfs try to update the 
+same image.</p>
+
+<P><b>Note: (08/13/2017)</b> <b>virt-filesystems, virt-ls, virt-copy-in</b> and 
+<b>virt-copy-out</b> are commands from <b>libguestfs-tools</b> package.
+
+<PRE>
+hsu@odxu4host1:~$ apt-cache search libguestfs-tools
+libguestfs-tools - guest disk image management system - tools
+hsu@odxu4host1:~$ sudo apt-get install libguestfs-tools 
+</PRE>
+
+<p>To check that it works, let's look at the partitions in our virtual disk image:</p>
+
+<PRE>
+$ virt-filesystems -a hda.qcow2
+/dev/sda1
+/dev/sda2
+</PRE>
+
+<p>If this doesn't work, then you should sort that out first. A couple of common 
+reasons I've seen:</p>
+
+<ul>
+  <li>if you're on Ubuntu then your kernels in <code>/boot</code> are installed 
+      not-world-readable; you can fix this with <code>sudo chmod 644 
+      /boot/vmlinuz*</code></li>
+  <li>if you're running Virtualbox on the same host it will interfere with libguestfs's 
+      attempt to run KVM; you can fix that by exiting Virtualbox</li>
+</ul>
+
+<p>Looking at what's in our disk we can see the kernel and initrd in /boot:</p>
+
+<PRE>
+$ virt-ls -a hda.qcow2 /boot/
+System.map-3.16.0-4-armmp-lpae
+config-3.16.0-4-armmp-lpae
+initrd.img
+initrd.img-3.16.0-4-armmp-lpae
+lost+found
+vmlinuz
+vmlinuz-3.16.0-4-armmp-lpae
+</PRE>
+
+
+<p>and we can copy them out to the host filesystem:</p>
+
+
+<PRE>
+$ virt-copy-out -a hda.qcow2 /boot/vmlinuz-3.16.0-4-armmp-lpae /boot/initrd.img-3.16.0-4-armmp-lpae .
+</PRE>
+
+
+<p>(We want the longer filenames, because <code>vmlinuz</code> and 
+<code>initrd.img</code> are just symlinks and virt-copy-out won't copy them.)</p>
+
+<h3>Running</h3>
+
+<p>To run the installed system we need a different command line which boots the 
+installed kernel and initrd, and passes the kernel the command line arguments the 
+installer told us we'd need:</p>
+
+<PRE>
+qemu-system-arm -M virt -m 1024 \
+  -kernel vmlinuz-3.16.0-4-armmp-lpae \
+  -initrd initrd.img-3.16.0-4-armmp-lpae \
+  -append 'root=/dev/vda2' \
+  -drive if=none,file=hda.qcow2,format=qcow,id=hd \
+  -device virtio-blk-device,drive=hd \
+  -netdev user,id=mynet \
+  -device virtio-net-device,netdev=mynet \
+  -nographic
+</PRE>
+
+
+<p>This should boot to a login prompt, where you can log in with the user and password 
+you set up during the install.</p>
+
+<p>The installation has an SSH client, so one easy way to get files in and out is to use 
+"scp" from inside the VM to talk to an SSH server outside it. Or you can use libguestfs 
+to write files directly into the disk image (for instance using virt-copy-in) -- but 
+make sure you only use libguestfs when the VM is not running, or you will get disk 
+corruption.</p>
+
+<h3 class="reply">20 Responses</h3>
+
+<p>Subscribe to comments with <a href="https://translatedcode.wordpress.com/2016/11/03/installing-debian-on-qemus-32-bit-arm-virt-board/feed/">RSS</a>.</p>
+
+<ol>
+  <li id="comment-130">
+    <p>Hi thanks so much for this tutorial. I am really interested in the virt board's 
+       possibilities but not finding much info (as the main qemu page just points to 
+       this article for now). For versatilepb we have the following: 
+       <a href="http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.dui0224i/index.html">http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.dui0224i/index.html</a>
+       but would you know if there anything for virt -- or is it known as another name? 
+       As I'm starting out I was really hoping to have a reference doc. Thanks!</p>
+
+    <p><strong>Ben</strong> <small>November 15, 2016 at 
+       <a href="#comment-130">12:15 am</a></small></p>
+
+
+<a href="https://translatedcode.wordpress.com/2016/11/03/installing-debian-on-qemus-32-bit-arm-virt-board/?replytocom=130#respond">Reply</a>	</div>
+	</div>
+
+<ul class="children">
+  <li id="comment-133">
+
+
+    <p>There isn't any specific documentation on exactly what the virt board has in it, 
+       I'm afraid. In general the idea is that the virt board will autogenerate a device 
+       tree (or ACPI tables) which tell the guest OS what components it has in it, and 
+       the guest OS will read that and do the right thing. Since (unlike versatilepb) it 
+       isn't a model of a specific piece of real-world hardware there's no third-party 
+       documentation the way there is for versatilepb.</p>
+
+<p><strong><a href="https://translatedcode.wordpress.com/">pm215</a></strong> 
+ <small>November 27, 2016 at <a href="#comment-133">5:56 pm</a></small></p>
+
+<a href="https://translatedcode.wordpress.com/2016/11/03/installing-debian-on-qemus-32-bit-arm-virt-board/?replytocom=133#respond">Reply</a></li><!-- #comment-## -->
+</ul>
+</li>
+  <li id="comment-136">
+
+    <p>I was trying to run qemu for raspberry PI 3 (which apprears to not be supported). 
+       I am following a youtube video and when I try to edit a file in /arm, it does 
+       not exist.  Any suggestions, etc?  This is the command I am trying to run from 
+       youtube.</p>
+
+<p>sudo nano /home/pi/raspidev/qemu/tcg/arm/tcg-targe-t.c</p>
+
+
+<p><strong><a href="https://www.facebook.com/app_scoped_user_id/10211705016686743/">Steve Klise</a></strong>  <small>December 29, 2016 at 
+<a href="#comment-136">4:48 pm</a></small></p>
+
+<a href="https://translatedcode.wordpress.com/2016/11/03/installing-debian-on-qemus-32-bit-arm-virt-board/?replytocom=136#respond">Reply</a>
+
+<ul class="children">
+<li id="comment-139">
+
+
+  <p>The file has moved in the QEMU source tree and is now at tcg/arm/tcg-target.inc.c. 
+     Things do move around in the QEMU sources so if you're following instructions on 
+     how to edit things you need to adjust for changes that have happened since the 
+     instructions were written.</p>
+
+  <p>In this case the function the instructions want you to edit has been removed 
+     entirely. I would suggest just building QEMU without trying to edit any of its 
+     source files. If the compilation fails with an error message then let me know, 
+     because we can fix that bug in QEMU (but it may have been fixed already).</p>
+
+  <p>PS: as those instructions note, it's likely that the resulting setup will be too 
+     slow to run Windows usefully anyway.</p>
+
+
+<p><strong><a href="https://translatedcode.wordpress.com/">pm215</a></strong> 
+<small>December 30, 2016 at <a href="#comment-139">11:43 am</a></small></p>
+
+
+<a href="https://translatedcode.wordpress.com/2016/11/03/installing-debian-on-qemus-32-bit-arm-virt-board/?replytocom=139#respond">Reply</a>
+<ul class="children">
+<li id="comment-140">
+
+
+<p>AM now getting this. I was able to edit the files.....<br>
+--------------------------------------------------------------------------------------
+<p>In file included from /usr/include/string.h:640:0,<br>
+                 from /home/pi/xpstuff/qemu/slirp/slirp.h:66,<br>
+                 from slirp/misc.c:8:<br>
+In function 'memset',<br>
+    inlined from 'slirp_connection_info' at slirp/misc.c:401:9:<br>
+/usr/include/arm-linux-gnueabihf/bits/string3.h:81:7: error: call to 
+'__warn_memset_zero_len' declared with attribute warning: memset used 
+with constant zero length parameter; this could be due to transposed 
+parameters [-Werror]<br>
+       __warn_memset_zero_len ();<br>
+       ^<br>
+cc1: all warnings being treated as errors<br>
+/home/pi/xpstuff/qemu/rules.mak:18: recipe for target 'slirp/misc.o' failed<br>
+make: *** [slirp/misc.o] Error 1<br>
+pi@raspberrypi:~/xpstuff/qemu $ sudo make install<br>
+  CC    slirp/misc.o<br>
+In file included from /usr/include/string.h:640:0,<br>
+                 from /home/pi/xpstuff/qemu/slirp/slirp.h:66,<br>
+                 from slirp/misc.c:8:<br>
+In function 'memset',<br>
+    inlined from 'slirp_connection_info' at slirp/misc.c:401:9:<br>
+/usr/include/arm-linux-gnueabihf/bits/string3.h:81:7: error: call to 
+'__warn_memset_zero_len' declared with attribute warning: memset used 
+with constant zero length parameter; this could be due to transposed 
+parameters [-Werror]<br>
+       __warn_memset_zero_len ();<br>
+       ^<br>
+cc1: all warnings being treated as errors<br>
+/home/pi/xpstuff/qemu/rules.mak:18: recipe for target 'slirp/misc.o' failed<br>
+make: *** [slirp/misc.o] Error 1<br>
+pi@raspberrypi:~/xpstuff/qemu $</p>
+	</div>
+
+
+
+<p><strong><a href="https://www.facebook.com/app_scoped_user_id/10211705016686743/">Steve
+Klise</a></strong> <small>December 30, 2016 at <a href="#comment-140">5:05 
+pm</a></small></p>
+
+
+<a href="https://translatedcode.wordpress.com/2016/11/03/installing-debian-on-qemus-32-bit-arm-virt-board/?replytocom=140#respond">Reply</a>	
+
+<ul class="children">
+<li id="comment-141">
+
+
+  <p>You seem to be trying to build a really ancient version of QEMU -- that compile 
+     issue was fixed in QEMU upstream four years ago, and looking at the tarball the 
+     video instructions reference it is a five year old random development snapshot. 
+     Trying to build something that old you're likely to run into other problems that 
+     have already been fixed. I suggest you try a newer release instead.</p>
+
+
+
+  <p><strong><a href="https://translatedcode.wordpress.com/">pm215</a></strong>
+     <small>December 30, 2016 at <a href="#comment-141">6:29 pm</a></small></p>
+
+
+<a href="https://translatedcode.wordpress.com/2016/11/03/installing-debian-on-qemus-32-bit-arm-virt-board/?replytocom=141#respond">Reply</a>	
+
+<ul class="children">
+<li id="comment-142">
+
+
+<p>thank you pm215  !</p>
+
+
+
+
+<p><strong><a href="https://www.facebook.com/app_scoped_user_id/10211705016686743/">Steve Klise</a></strong>
+<small>December 30, 2016 at <a href="#comment-142">6:46 pm</a></small></p>
+	</div>
+
+<a href="https://translatedcode.wordpress.com/2016/11/03/installing-debian-on-qemus-32-bit-arm-virt-board/?replytocom=142#respond">Reply</a>
+
+</li><!-- #comment-## -->
+</ul><!-- .children -->
+</li><!-- #comment-## -->
+</ul><!-- .children -->
+</li><!-- #comment-## -->
+</ul><!-- .children -->
+</li><!-- #comment-## -->
+</ul><!-- .children -->
+</li><!-- #comment-## -->
+<li id="comment-150">
+
+
+  <p>For my convenience I added a new VM for the ARM image to the Virtual Machine 
+     Manager. 
+
+     <UL>
+       <LI> At step 1 select "Import existing disk image", then in "Architectural 
+            Options" select "Arm". "Machine Type" will be "virt".  Click "Forward". 
+       <LI> In step 2, enter the location of the image and its name in the first box. 
+            Add the paths and names of the initrd and kernel in the appropriate boxes 
+            and add "root=/dev/vda2" in the Kernel args box. DTB path can be left empty. 
+            Click "Forward". 
+       <LI> In step 3 set the RAM and CPUs and click "Forward". 
+       <LI> In step 4 check the box "Customize configuration before install" and click 
+            "Finish". In the dialog that pops up select "SCSI Disk 1". Open the Advanced 
+            options and click the drop down where it says "Disk bus". Select "VirtIO", 
+            then click "Apply". Click "Begin Installation" at the top and the Virtual 
+            Machine Manager will create an entry for your machine and boot it. 
+     </UL>
+
+     It all seems to work after that but some tweaking may be required.</p>
+
+
+
+  <p><strong><a href="https://www.cliffp.com/">Cliff Pratt</a></strong>
+     <small>January 15, 2017 at <a href="#comment-150">10:40 pm</a></small></p>
+	</div>
+
+<a href="https://translatedcode.wordpress.com/2016/11/03/installing-debian-on-qemus-32-bit-arm-virt-board/?replytocom=150#respond">Reply</a>
+</li><!-- #comment-## -->
+<li id="comment-157">
+	<div id="div-comment-157">
+</div>
+
+
+  <p>When I run the installer command, I get no output at all, as if the console was not 
+     properly redirected</p>
+
+  <p>You need to add -append "console=ttyAMA0"</p>
+
+
+
+<p><strong>pock</strong>
+<small>February 14, 2017 at <a href="#comment-157">9:37 am</a></small></p>
+	</div>
+
+<a href="https://translatedcode.wordpress.com/2016/11/03/installing-debian-on-qemus-32-bit-arm-virt-board/?replytocom=157#respond">Reply</a>
+
+    <ul class="children">
+      <li id="comment-158">
+
+
+        <p>Hmm, pretty sure it worked without for me, but certainly adding that append 
+           line won't hurt.</p>
+
+
+        <p><strong><a href="https://translatedcode.wordpress.com/">pm215</a></strong>
+            <small>February 14, 2017 at <a href="#comment-158">9:58 am</a></small></p>
+
+
+<a href="https://translatedcode.wordpress.com/2016/11/03/installing-debian-on-qemus-32-bit-arm-virt-board/?replytocom=158#respond">Reply</a>
+      </li><!-- #comment-## -->
+    </ul><!-- .children -->
+</li><!-- #comment-## -->
+<li id="comment-162">
+
+  <p>You mention that you would prefer to use virtio-pci devices, but that this is 
+     currently not supported by the debian kernel. Could you explain why this is the 
+     case?<br>
+     From my own experiments I also found that the debian kernel fails to recognize any 
+     PCI-devices of the qemu's "virt" machine, however I was only able to find your 
+     blog post mentioning the problem.</p>
+
+  <p>(There was also a comment in qemu's 2.5 release notes that some kernels without 
+     CONFIG_LPAE=y will fail to detect the PCI controller if the flag "-machine 
+     highmem=off" was not used. However, neither setting the flag nor using a 
+     LPAE-kernel seems to help.)</p>
+
+  <p>Best,<br>     Johannes</p>
+
+
+
+<p><strong>Johannes Krupp</strong>
+<small>February 22, 2017 at <a href="#comment-162">12:12 pm</a></small></p>
+
+<a href="https://translatedcode.wordpress.com/2016/11/03/installing-debian-on-qemus-32-bit-arm-virt-board/?replytocom=162#respond">Reply</a>
+
+<ul class="children">
+  <li id="comment-163">
+
+    <p>It's just that the changes needed to get PCI supported went into the kernel 
+       relatively recently, and Debian's release cycles mean that their stable kernel 
+       is just older than the necessary support/config changes. I expect that when the 
+       next Debian release happens (very shortly) PCI should just work, though I haven't 
+       tested. (You could also try using Debian 'testing' for the moment.)</p>
+
+
+
+    <p><strong><a href="https://translatedcode.wordpress.com/">pm215</a></strong>
+       <small>February 22, 2017 at <a href="#comment-163">12:31 pm</a></small></p>
+
+<a href="https://translatedcode.wordpress.com/2016/11/03/installing-debian-on-qemus-32-bit-arm-virt-board/?replytocom=163#respond">Reply</a>
+  </li><!-- #comment-## -->
+</ul><!-- .children -->
+</li><!-- #comment-## -->
+<li id="comment-210">
+
+  <p>I'am very interesting for the 64 version of this tutorial.  ; )<br>
+     Coming soon ?</p>
+
+
+  <p><strong><a href="https://translatedcode.wordpress.com/2016/11/03/installing-debian-on-qemus-32-bit-arm-virt-board/">snak3xe</a></strong>
+<small>July 20, 2017 at <a href="#comment-210">12:24 pm</a></small></p>
+
+
+<a href="https://translatedcode.wordpress.com/2016/11/03/installing-debian-on-qemus-32-bit-arm-virt-board/?replytocom=210#respond">Reply</a>
+
+<ul class="children">
+<li id="comment-211">
+
+  <p>Heh, I'd forgotten I'd said I would do the 64-bit version. I'll try to get to that 
+     this week or next...</p>
+
+
+
+  <p><strong><a href="https://translatedcode.wordpress.com/">pm215</a></strong>
+     <small>July 20, 2017 at <a href="#comment-211">12:56 pm</a></small></p>
+
+<a href="https://translatedcode.wordpress.com/2016/11/03/installing-debian-on-qemus-32-bit-arm-virt-board/?replytocom=211#respond">Reply</a>
+<ul class="children">
+<li id="comment-212">
+
+  <p>Thanks a lot.  ; )</p>
+
+
+
+  <p><strong><a href="https://translatedcode.wordpress.com/2016/11/03/installing-debian-on-qemus-32-bit-arm-virt-board/">snak3xe</a></strong>
+     <small>July 20, 2017 at <a href="#comment-212">1:42 pm</a></small></p>
+	</div>
+
+<a href="https://translatedcode.wordpress.com/2016/11/03/installing-debian-on-qemus-32-bit-arm-virt-board/?replytocom=212#respond">Reply</a>
+
+<ul class="children">
+<li id="comment-213">
+
+
+  <p>I've now published the 64-bit install instructions post.</p>
+
+
+
+  <p><strong><a href="https://translatedcode.wordpress.com/">pm215</a></strong>
+     <small>July 24, 2017 at <a href="#comment-213">10:32 am</a></small></p>
+	</div>
+
+<a href="https://translatedcode.wordpress.com/2016/11/03/installing-debian-on-qemus-32-bit-arm-virt-board/?replytocom=213#respond">Reply</a>
+
+<ul class="children">
+<li id="comment-216">
+
+
+  <p>Do you have a quickly solution to bridge a network interface directly to the guest 
+     and not system dependant? I try the bridge feature of qemu but not work.</p>
+
+<p>On the host:</p>
+
+<PRE>
+# ip link add br0 type bridge
+
+# ip addr flush dev eth0
+
+# ip link set eth0 master br0
+</PRE>
+
+<p>and I add this to the qemu command line</p>
+
+<PRE>
+-netdev bridge,id=hn0
+-device virtio-net-device,netdev=hn0,id=nic1
+</PRE>
+
+<p># ip link</p>
+
+<p>3: eth0:  mtu 1500 qdisc fq_codel master br0 state UP mode DEFAULT group default qlen 1000<br>
+    link/ether 20:47:47:bb:51:ca brd ff:ff:ff:ff:ff:ff<br>
+34: br0:  mtu 1500 qdisc noqueue state UP mode DEFAULT group default qlen 1000<br>
+    link/ether 20:47:47:bb:51:ca brd ff:ff:ff:ff:ff:ff<br>
+35: tap0:  mtu 1500 qdisc fq_codel master br0 state UNKNOWN mode DEFAULT group default qlen 1000<br>
+    link/ether fe:23:18:f4:c6:31 brd ff:ff:ff:ff:ff:ff</p>
+
+<p>Next in the guest, I have an eth0 network interface, but dhcpclient fail.</p>
+
+<p>At boot time:</p>
+
+<p>[*     ] A start job is running for LSB: Raise network interf...38s / no limit<br>
+...<br>
+[FAILED] Failed to start LSB: IPv4 DHCP client with IPv4LL support.<br>
+See 'systemctl status dhcpcd.service' for details.</p>
+
+<p># systemctl status dhcpcd.service -l</p>
+
+<p>Jul 25 20:29:17 solid dhcpcd[276]: Not running dhcpcd because /etc/network/interfaces ... failed!<br>
+Jul 25 20:29:17 solid dhcpcd[276]: defines some interfaces that will use a DHCP client ... failed!<br>
+Jul 25 20:29:17 solid systemd[1]: dhcpcd.service: control process exited, code=exited status=6<br>
+Jul 25 20:29:17 solid systemd[1]: Failed to start LSB: IPv4 DHCP client with IPv4LL support.<br>
+Jul 25 20:29:17 solid systemd[1]: Unit dhcpcd.service entered failed state.</p>
+
+<p># cat /etc/network/interfaces</p>
+
+<p>source /etc/network/interfaces.d/*</p>
+
+<p>auto lo<br>
+iface lo inet loopback</p>
+
+<p>allow-hotplug eth0<br>
+iface eth0 inet dhcp</p>
+
+<p>With dhcpcd:</p>
+
+<p># dhcpcd eth0<br>
+dhcpcd[560]: version 6.0.5 starting<br>
+dhcpcd[560]: eth0: soliciting an IPv6 router<br>
+dhcpcd[560]: eth0: using IPv4LL address 169.254.41.139<br>
+dhcpcd[560]: eth0: adding host route to 169.254.41.139 via 127.0.0.1<br>
+dhcpcd[560]: eth0: adding route to 169.254.0.0/16<br>
+dhcpcd[560]: forked to background, child pid 583</p>
+
+
+
+  <p><strong><a href="https://translatedcode.wordpress.com/2016/11/03/installing-debian-on-qemus-32-bit-arm-virt-board/">snak3xe</a></strong>
+     <small>July 25, 2017 at <a href="#comment-216">7:40 pm</a></small></p>
+	</div>
+
+<a href="https://translatedcode.wordpress.com/2016/11/03/installing-debian-on-qemus-32-bit-arm-virt-board/?replytocom=216#respond">Reply</a>
+
+<ul class="children">
+<li id="comment-217">
+
+
+  <p>Afraid not -- I've never used anything except 'user' networking. There should be 
+     no difference on ARM to getting this working with an x86 VM, though, so there 
+     should be plenty of tutorials out there.</p>
+
+
+
+  <p><strong><a href="https://translatedcode.wordpress.com/">pm215</a></strong>
+     <small>July 25, 2017 at <a href="#comment-217">8:32 pm</a></small></p>
+
+
+</li><!-- #comment-## -->
+<li id="comment-219">
+
+
+  <p>UPDATE</p>
+
+  <p>I'am on Archlinux and I have fix the problem with the bridge interface with the 
+     following iptables rules:</p>
+
+<pre>
+# iptables -A INPUT -i tap0 -j ACCEPT
+# iptables -A INPUT -i br0 -j ACCEPT
+# iptables -A FORWARD -i br0 -j ACCEPT
+</pre>
+
+
+
+
+  <p><strong><a href="https://translatedcode.wordpress.com/2016/11/03/installing-debian-on-qemus-32-bit-arm-virt-board/">snak3xe</a></strong>
+     <small>July 27, 2017 at <a href="#comment-219">8:28 pm</a></small></p>
+	</div>
+
+
+</li><!-- #comment-## -->
+</ul><!-- .children -->
+</li><!-- #comment-## -->
+</ul><!-- .children -->
+</li><!-- #comment-## -->
+</ul><!-- .children -->
+</li><!-- #comment-## -->
+</ul><!-- .children -->
+</li><!-- #comment-## -->
+</ul><!-- .children -->
+</li><!-- #comment-## -->
+<li id="comment-218">
+
+
+  <p>yeh ok</p>
+
+
+
+
+  <p><strong><a href="https://translatedcode.wordpress.com/2016/11/03/installing-debian-on-qemus-32-bit-arm-virt-board/">snak3xe</a></strong>
+     <small>July 25, 2017 at <a href="#comment-218">10:22 pm</a></small></p>
+	</div>
+
+<a href="https://translatedcode.wordpress.com/2016/11/03/installing-debian-on-qemus-32-bit-arm-virt-board/?replytocom=218#respond">Reply</a>
+</li><!-- #comment-## -->
+</ol>
+
+</body></html>

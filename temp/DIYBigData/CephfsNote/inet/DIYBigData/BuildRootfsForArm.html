@@ -1,0 +1,1565 @@
+<h4>Table Of Contents</h4>
+
+<OL>
+  <LI><a href="#BuildJessieRootfs">Build a Debian Jessie Root Filesystem</a>
+  <LI><a href="#PreparingArmRootfs">Preparing a Kali Linux ARM chroot</a>
+  <LI><a href="#CrossDebootstrap">EmDebian CrossDebootstrap</a>
+  <LI><a href="#"></a>
+</OL>
+
+<a name="BuildJessieRootfs"></a>
+<h3>Build a Debian Jessie root filesystem 
+<a href="http://www.acmesystems.it/debian_jessie" target="_b">(Source Origin)</a></h3>
+
+<div class="col-md-2">
+   <img src="http://www.acmesystems.it/www/debian_jessie/debian.jpg" 
+        class="img-thumbnail">
+</div>
+
+<div class="col-md-10">
+  This article illustrates how to build an Debian Jessie root filesystem for 
+  the all the Acme Systems boards based on Atmel MCU (ARM processor-based 
+  microcontrollers?)
+</div>
+
+
+<h4>Requirements</h4>
+
+<p>To create the rootfs contents you need an Ubuntu PC (we used
+an Ubuntu 15.04) with the some packages installed. Type these commands
+to install them:</p>
+
+<pre class="terminal">
+~$ <b>sudo apt-get install multistrap</b>
+~$ <b>sudo apt-get install qemu</b>
+~$ <b>sudo apt-get install qemu-user-static</b>
+~$ <b>sudo apt-get install binfmt-support</b>
+~$ <b>sudo apt-get install dpkg-cross</b>
+</pre>
+
+<h4>Use Multistrap to generate the rootfs contents</h4>
+
+<p><i>"<a href="https://packages.debian.org/stretch/multistrap"
+	  target="_b">Multistrap</a> is a tool that automates the creation of
+    complete, bootable, Debian root filesystems. It can merge packages from
+    different repositories.  Extra packages are added to the rootfs simply by
+    listing them. All dependencies are taken care of."</i>.</p>
+
+<p>Create a working directory in your home directory:</p>
+
+<pre class="terminal">
+~$ <b>mkdir debian_jessie</b>
+~$ <b>cd debian_jessie</b>
+~/debian_jessie$
+</pre>
+
+<p>Download the configuration file for your board:</p>
+
+<ul>
+  <li><a href="http://www.acmesystems.it/www/debian_jessie/multistrap_acqua.conf" 
+         target="_b">multistrap_acqua.conf</a></li>
+  <li><a href="http://www.acmesystems.it/www/debian_jessie/multistrap_aria.conf" 
+         target="_b">multistrap_aria.conf</a></li>
+  <li><a href="http://www.acmesystems.it/www/debian_jessie/multistrap_arietta.conf" 
+         target="_b">multistrap_arietta.conf</a></li>
+  <li><a href="http://www.acmesystems.it/www/debian_jessie/multistrap_fox.conf" 
+         target="_b">multistrap_fox.conf</a></li>
+</ul>
+
+<p>Read <a href="https://wiki.debian.org/MultistrapManPage" target="_b">Multistrap 
+man page</a> to understand each directive meanings.</p>
+
+<h4>Create the root filesystem</h4>
+
+<p>When your multistrap.conf file is ready launch type:</p>
+
+<ul>
+  <li>if you are using a board without FPU like FOX Board G20, Aria G25 or Arietta G25 
+      type for example:</li>
+</ul>
+
+<pre class="terminal">
+~/debian_jessie$ <b>sudo multistrap -a armel -f multistrap_</b><i>boardname</i><b>.conf</b>
+</pre>
+
+<ul>
+  <li>if you are using a board with FPU like Acqua A5 type:</li>
+</ul>
+
+<pre class="terminal">
+~/debian_jessie$ <b>sudo multistrap -a armhf -f multistrap_acqua.conf</b>
+</pre>
+
+<p>At the end of this procedure the directory <strong>target-rootfs</strong> directory 
+will contents the whole rootfs tree to be moved into the second partition of an Acme 
+board bootable microSD.</p>
+
+<p>Configure now the Debian packages using the armel CPU emulator <strong>QEMU</strong> 
+and  <strong>chroot</strong> to create a jail where <strong>dpkg</strong> will see the 
+<strong>target-rootfs</strong> as its root (/) directory.</p>
+
+<pre class="terminal">
+~/debian_jessie$ <b>sudo cp /usr/bin/qemu-arm-static target-rootfs/usr/bin</b>
+~/debian_jessie$ <b>sudo mount -o bind /dev/ target-rootfs/dev/</b>
+~/debian_jessie$ <b>sudo LC_ALL=C LANGUAGE=C LANG=C chroot target-rootfs dpkg --configure -a</b>
+</pre>
+
+<p>At this prompt:</p>
+
+<p><img src="http://www.acmesystems.it/www/debian_jessie/configuring_dash.jpg"></p>
+
+<p>Reply with <strong>&lt; No &gt;</strong>.</p>
+
+<p>Some other prompt will appear during the configuration. Reply to them as you like.</p>
+
+<p>When finished the target rootfs will be almost ready to be moved on the target 
+microSD but it still needs some last extra configuration file before using it.</p>
+
+<p>Based on type board you are using select one of these script to create the the
+right configuration files:</p>
+
+<ul>
+  <li>Acqua A5 <a href="http://www.acmesystems.it/www/debian_jessie/acqua.sh" 
+           target="_b">acqua.sh</a></li>
+  <li>Aria G25 <a href="http://www.acmesystems.it/www/debian_jessie/aria.sh" 
+           target="_b">aria.sh</a></li>
+  <li>Arietta G25 <a href="http://www.acmesystems.it/www/debian_jessie/arietta.sh" 
+           target="_b">arietta.sh</a></li>
+  <li>FOX board G20 <a href="http://www.acmesystems.it/www/debian_jessie/fox.sh" 
+           target="_b">fox.sh</a></li>
+</ul>
+
+<pre class="terminal">
+~/debian_jessie$ <b>chmod +x arietta.sh</b>
+~/debian_jessie$ <b>sudo ./arietta.sh</b>
+</pre>
+
+<p>create now the target root login password:</p>
+
+<pre class="terminal">
+~/debian_jessie$ <b>sudo chroot target-rootfs passwd</b>
+Enter new UNIX password: <b>type your password</b>
+Retype new UNIX password: <b>type your password again</b>
+passwd: password updated successfully
+</pre>
+
+<p>If you want to take a look to the packages installed type:</p>
+
+<pre class="terminal">
+~/debian_jessie$ <b>sudo chroot target-rootfs dpkg --get-selections | more</b>
+</pre>
+
+<p>Check the Debian version installed:</p>
+
+<pre class="terminal">
+~/debian_jessie$ <b>cat target-rootfs/etc/debian_version</b>
+8.2
+</pre>
+
+<p>Add more packages if needed by typing:</p>
+
+<pre class="terminal">
+~/debian_jessie$ <b>sudo LC_ALL=C LANGUAGE=C LANG=C chroot target-rootfs apt-get install <i>packagename</i></b>
+</pre>
+
+<p>Please note that will be possible to add packages also directly on the target board. 
+In than case the command will be simply:</p>
+
+<pre class="terminal">
+# <b>apt-get install <i>packagename</i></b>
+</pre>
+
+<p>then remove the <strong>qemu-arm-static</strong> executable:</p>
+
+<pre class="terminal">
+~/debian_jessie$ <b>sudo rm target-rootfs/usr/bin/qemu-arm-static</b>
+</pre>
+
+<h4>Enable the root access via ssh</h4>
+
+<p>By default the sshd server is installed inhibiting the root login via ssh. To enabled 
+it change in <b>target-rootfs/etc/ssh/sshd_config</b> this line:</p>
+
+<pre class="minicom">
+PermitRootLogin <b>without-password</b>
+</pre>
+
+<p>with this:</p>
+
+<pre class="minicom">
+PermitRootLogin <b>yes</b>
+</pre>
+
+<h4>Copy the rootfs contents on microSD</h4>
+
+<p><a href="http://www.acmesystems.it/microsd_format">Format a new microSD</a>.</p>
+
+<p>Mount the microSD on your Ubuntu Linux PC and copy all the target-rootfs contents in 
+the second microSD partition mounted on <strong>/media/$USER/rootfs</strong>.</p>
+
+<pre class="terminal">
+~/debian_jessie$ <b>sudo rsync -axHAX --progress target-rootfs/ /media/$USER/rootfs/</b>
+</pre>
+
+<p>Unmount the microSD, insert it in your board, insert the 
+<a href="http://www.acmesystems.it/DPI" target="_b">DPI cable</a> to see the Kernel 
+bootstrap messages and boot.</p>
+
+<h4>Related links</h4>
+
+<ul>
+  <li><a href="http://wiki.debian.org/Multistrap">Multistrap</a></li>
+  <li><a href="http://wiki.debian.org/MultistrapManPage">Multistrap man page</a></li>
+  <li><a href="http://free-electrons.com/blog/embdebian-with-multistrap/">Building a small Debian root filesystem with Multistrap</a></li>
+  <li><a href="http://wiki.debian.org/QemuUserEmulation">QEMU User Emulation</a></li>
+  <li><a href="http://lists.debian.org/debian-embedded/">Debian mailing list</a></li>
+  <li><a href="http://blog.mister-muffin.de/2011/04/02/foreign-debian-bootstrapping-without-root-priviliges-with-fakeroot,-fakechroot-and-qemu-user-emulation/">foreign debian bootstrapping without root priviliges</a></li>
+  <li><a href="http://publib.boulder.ibm.com/infocenter/wmbhelp/v7r0m0/index.jsp?topic=%2Fcom.ibm.etools.mft.doc%2Fae19494_.htm">Changing your locale on Linux and UNIX systems</a></li>
+  <li><a href="http://en.wikipedia.org/wiki/Locale">Locale</a></li>
+</ul>
+
+<a name="PreparingArmRootfs"></a>
+<h3 class="page-title">Preparing a Kali Linux ARM chroot 
+<a href="http://docs.kali.org/development/kali-linux-arm-chroot" target="_b">(Source 
+Origin)</a></h3>
+
+    
+      		<figure class="entry-thumb">   
+<img src="http://docs.kali.org/wp-content/uploads/2013/02/kali-on-arm-150x150.jpg" class="attachment-post size-post wp-post-image" alt="" height="150" width="150">	
+	</figure>
+	    
+	</header>
+	<!-- /.entry-header -->
+      
+        
+        <div class="entry-content">
+          <p style="text-align: justify;">Although you can <a class="vt-p" title="Download Kali Linux ARM Images" href="https://www.kali.org/downloads/" target="_blank">download pre-rolled Kali ARM images</a> from our Download area, there may be applications which will require building your own custom bootstrapped Kali rootfs for ARM.</p>
+<p style="text-align: justify;">The following procedure shows an example of building a fairly generic Kali <strong>armhf</strong> rootfs. If you wish to build for <strong>armel</strong>, use that value rather than "armhf" when you export the <strong>architecture</strong> environment variable.</p>
+<h4>Some Notes on This Procedure</h4>
+<p style="text-align: justify;">The intention in this article is more to
+ provide a high-level overview of how the build scripts work than an 
+actual manual procedure (although it's completely possible to walk 
+through this example at the command line). The style mimics that used in
+ the build scripts used to create the pre-rolled images. Specifically, 
+you'll see a construct in several places that looks like:</p>
+<div class="codecolorer-container text default" style="overflow:auto;white-space:nowrap;width:670px;"><div class="text codecolorer">cat &lt;&lt; EOF &gt; kali-$architecture/etc/apt/sources.list<br>
+deb http://http.kali.org/kali kali-rolling main non-free contrib<br>
+#deb-src http://http.kali.org/kali kali-rolling main non-free contrib<br>
+EOF</div></div>
+<p style="text-align: justify;">This simply amounts to creating a new file, <strong>~/arm-stuff/rootfs/kali-armhf/etc/apt/sources.list</strong>, with the contents</p>
+<div class="codecolorer-container text default" style="overflow:auto;white-space:nowrap;width:670px;"><div class="text codecolorer">deb http://http.kali.org/kali kali-rolling main non-free contrib<br>
+#deb-src http://http.kali.org/kali kali-rolling main non-free contrib</div></div>
+<h4>Real-World Custom Kali Linux Builds for ARM Devices</h4>
+<p style="text-align: justify;">Before we walk through our example, it's
+ probably good to see how a custom ARM build would actually be 
+accomplished. Typically, to do a local build of an image for, e.g., 
+Raspberry Pi, the process would be something like the following. As an 
+initial one-time set-up, clone <a href="https://github.com/offensive-security/kali-arm-build-scripts" target="_blank">the ARM build scripts repository on GitHub</a> and install the build prerequisites:</p>
+<div class="codecolorer-container text default" style="overflow:auto;white-space:nowrap;width:670px;"><div class="text codecolorer">cd ~<br>
+git clone https://github.com/offensive-security/kali-arm-build-scripts.git<br>
+dpkg --add-architecture i386<br>
+apt update<br>
+apt -y install debootstrap qemu-user-static device-tree-compiler lzma lzop u-boot-tools libncurses5:i386 pixz</div></div>
+<p style="text-align: justify;">To do an ARM build, you must enable cross-compilation for your current shell session:</p>
+<div class="codecolorer-container bash default" style="overflow:auto;white-space:nowrap;width:670px;"><div class="bash codecolorer"><span class="kw3">export</span> <span class="re2">ARCH</span>=arm<br>
+<span class="kw2">mkdir</span> <span class="re5">-p</span> arm-stuff<span class="sy0">/</span>kernel<span class="sy0">/</span>toolchains<br>
+<span class="kw3">cd</span> arm-stuff<span class="sy0">/</span>kernel<span class="sy0">/</span>toolchains<br>
+<span class="kw2">git clone</span> git:<span class="sy0">//</span>github.com<span class="sy0">/</span>offensive-security<span class="sy0">/</span>gcc-arm-eabi-linaro-4.6.2.git<br>
+<span class="kw3">export</span> <span class="re2">CROSS_COMPILE</span>=~<span class="sy0">/</span>arm-stuff<span class="sy0">/</span>kernel<span class="sy0">/</span>toolchains<span class="sy0">/</span>gcc-arm-eabi-linaro-4.6.2<span class="sy0">/</span>bin<span class="sy0">/</span>arm-eabi-</div></div>
+<p style="text-align: justify;">Then simply invoke the build script for 
+the specific platform. So, for a Raspberry Pi build of Kali Linux 
+2016.2, execute the commands:</p>
+<div class="codecolorer-container bash default" style="overflow:auto;white-space:nowrap;width:670px;"><div class="bash codecolorer"><span class="kw3">cd</span> ~<br>
+kali-arm-build-scripts<span class="sy0">/</span>rpi.sh <span class="nu0">2016.2</span></div></div>
+<p style="text-align: justify;">The ARM build scripts are all completely
+ self-contained, aside from the initial one-time installation of the 
+build prerequisites. The first time you run one of the ARM build 
+scripts, it is <em>extremely important</em> that you inspect the output 
+for any errors such as missing tools, etc., correct them, and then 
+re-run the script until you get a clean build. Only at that point can 
+you go ahead to make any customizations you want to the basic build 
+script to create the specific "recipe" you're after.</p>
+<p style="text-align: justify;">It's possible to speed up your builds by caching the packages you download using <strong>apt-cacher-ng</strong>, as described in <a title="Getting Set Up for ARM Cross-Compilation" href="http://docs.kali.org/development/arm-cross-compilation-environment">the previous article</a>.
+ Note that this can break some of the standard build scripts unless you 
+uncomment certain lines before building -- they're noted in the scripts 
+themselves. If you're using <strong>apt-cacher-ng</strong>, make sure you <em>check your scripts</em> for any necessary changes.</p>
+<p style="text-align: justify;">For reliable and predictable results, build your Kali Linix ARM chroot&nbsp;<strong>from within a&nbsp;pre-existing&nbsp;and up-to-date Kali Linux environment</strong>. This guide assumes that you have already <a title="Getting Set Up for ARM Cross-Compilation" href="http://docs.kali.org/development/arm-cross-compilation-environment">set up your ARM cross-compilation environment</a>.</p>
+<h3>An Annotated Example of a Generic ARM Build of Kali Linux</h3>
+<p style="text-align: justify;">The build described here is both minimal
+ and generic. A small number of basic packages are included, and the 
+fuller configuration needed for a real-world platform is omitted for the
+ sake of clarity. Use this example as a reference for understanding 
+what's going on in the official ARM build scripts and as a high-level 
+guide for writing your own build scripts. It can be successfully 
+followed as a stand-alone tutorial from the command line, but the image 
+produced is not likely to run on any particular device. Use <a href="https://github.com/offensive-security/kali-arm-build-scripts" target="_blank">the pre-rolled build scripts</a>, either as-is or with your own customizations, to produce working images for concrete hardware.</p>
+<h4>Install Required Tools and Dependencies</h4>
+<p style="text-align: justify;">This is a general set-up task, and should only ever need to be done once.</p>
+<div class="codecolorer-container bash default" style="overflow:auto;white-space:nowrap;width:670px;"><div class="bash codecolorer">apt <span class="kw2">install</span> debootstrap qemu-user-static</div></div>
+<h4>Enable Cross-Compilation</h4>
+<p style="text-align: justify;">In order to enable the Linaro 
+cross-compilation, you will need to set these environment variable at 
+the beginning of every session.</p>
+<div class="codecolorer-container bash default" style="overflow:auto;white-space:nowrap;width:670px;"><div class="bash codecolorer"><span class="kw3">export</span> <span class="re2">ARCH</span>=arm<br>
+<span class="kw3">export</span> <span class="re2">CROSS_COMPILE</span>=~<span class="sy0">/</span>arm-stuff<span class="sy0">/</span>kernel<span class="sy0">/</span>toolchains<span class="sy0">/</span>gcc-arm-eabi-linaro-4.6.2<span class="sy0">/</span>bin<span class="sy0">/</span>arm-eabi-</div></div>
+<h4>Define Architecture and Custom Packages</h4>
+<p style="text-align: justify;">This is where you define some environment variables for your required ARM architecture (armel vs armhf) and list the <a href="http://pkg.kali.org/" target="_blank">packages</a> to be installed in your image. These will be used throughout this article, so make sure to modify them to your needs.</p>
+<div class="codecolorer-container bash default" style="overflow:auto;white-space:nowrap;width:670px;"><div class="bash codecolorer"><span class="kw3">export</span> <span class="re2">packages</span>=<span class="st0">"xfce4 kali-menu wpasupplicant kali-defaults initramfs-tools u-boot-tools nmap openssh-server"</span><br>
+<span class="kw3">export</span> <span class="re2">architecture</span>=<span class="st0">"armhf"</span></div></div>
+<h4>Build the Kali rootfs</h4>
+<h4>Set Up the Base rootfs</h4>
+<p style="text-align: justify;">As our starting point, we'll create a standard directory structure and use <strong>debootstrap</strong> to install a base ARM rootfs from the Kali Linux repositories. We then copy over <strong>qemu-arm-static</strong>, an ARM emulator, from our host machine into the rootfs in order to initiate the 2nd stage chroot.</p>
+<div class="codecolorer-container bash default" style="overflow:auto;white-space:nowrap;width:670px;"><div class="bash codecolorer"><span class="kw3">cd</span> ~<br>
+<span class="kw2">mkdir</span> <span class="re5">-p</span> arm-stuff <span class="co0"># should have already been created when setting up x-compilation</span><br>
+<span class="kw3">cd</span> arm-stuff<span class="sy0">/</span><br>
+<span class="kw2">mkdir</span> <span class="re5">-p</span> kernel <span class="co0"># should have already been created when setting up x-compilation</span><br>
+<span class="kw2">mkdir</span> <span class="re5">-p</span> rootfs<br>
+<span class="kw3">cd</span> rootfs<br>
+<br>
+debootstrap <span class="re5">--foreign</span> <span class="re5">--arch</span> <span class="re1">$architecture</span> kali-rolling kali-<span class="re1">$architecture</span> http:<span class="sy0">//</span>http.kali.org<span class="sy0">/</span>kali<br>
+<span class="kw2">cp</span> <span class="sy0">/</span>usr<span class="sy0">/</span>bin<span class="sy0">/</span>qemu-arm-static kali-<span class="re1">$architecture</span><span class="sy0">/</span>usr<span class="sy0">/</span>bin<span class="sy0">/</span></div></div>
+<h4>2nd Stage chroot</h4>
+<p style="text-align: justify;">First, we'll chroot into our newly-created base rootfs, use <strong>debootstrap</strong> a second time to construct our second-stage rootfs, and configure base image settings such as repositories (in <strong>/etc/apt/sources.list</strong>), host name (in <strong>/etc/hostname</strong>), default network interfaces and behavior (in <strong>/etc/network/interfaces</strong> and <strong>/etc/resolv.conf</strong>), etc. Change these to suit your requirements.</p>
+<div class="codecolorer-container bash default" style="overflow:auto;white-space:nowrap;width:670px;"><div class="bash codecolorer"><span class="kw3">cd</span> ~<span class="sy0">/</span>arm-stuff<span class="sy0">/</span>rootfs<br>
+<span class="re2">LANG</span>=C <span class="kw2">chroot</span> kali-<span class="re1">$architecture</span> <span class="sy0">/</span>debootstrap<span class="sy0">/</span>debootstrap <span class="re5">--second-stage</span><br>
+<br>
+<span class="kw2">cat</span> <span class="sy0">&lt;&lt;</span> EOF <span class="sy0">&gt;</span> kali-<span class="re1">$architecture</span><span class="sy0">/</span>etc<span class="sy0">/</span>apt<span class="sy0">/</span>sources.list<br>
+deb http:<span class="sy0">//</span>http.kali.org<span class="sy0">/</span>kali kali-rolling main non-free contrib<br>
+<span class="co0"># deb-src http://http.kali.org/kali kali-rolling main non-free contrib</span><br>
+EOF<br>
+<br>
+<span class="kw3">echo</span> <span class="st0">"kali"</span> <span class="sy0">&gt;</span> kali-<span class="re1">$architecture</span><span class="sy0">/</span>etc<span class="sy0">/</span><span class="kw2">hostname</span><br>
+<br>
+<span class="kw2">cat</span> <span class="sy0">&lt;&lt;</span> EOF <span class="sy0">&gt;</span> kali-<span class="re1">$architecture</span><span class="sy0">/</span>etc<span class="sy0">/</span>network<span class="sy0">/</span>interfaces<br>
+auto lo<br>
+iface lo inet loopback<br>
+auto eth0<br>
+iface eth0 inet dhcp<br>
+EOF<br>
+<br>
+<span class="kw2">cat</span> <span class="sy0">&lt;&lt;</span> EOF <span class="sy0">&gt;</span> kali-<span class="re1">$architecture</span><span class="sy0">/</span>etc<span class="sy0">/</span>resolv.conf<br>
+nameserver 8.8.8.8<br>
+EOF</div></div>
+<p style="text-align: justify;">Now, we're ready to assemble our third-stage chroot.</p>
+<h4>3rd Stage chroot</h4>
+<p style="text-align: justify;">This is where your specific customizations come in. Your <strong>$packages</strong>
+ list is installed, as are keymaps, a default root password of "toor" is
+ set, and other configuration changes and fixes are applied.</p>
+<div class="codecolorer-container bash default" style="overflow:auto;white-space:nowrap;width:670px;"><div class="bash codecolorer"><span class="kw3">export</span> <span class="re2">MALLOC_CHECK_</span>=<span class="nu0">0</span> <span class="co0"># workaround for LP: #520465</span><br>
+<span class="kw3">export</span> <span class="re2">LC_ALL</span>=C<br>
+<span class="kw3">export</span> <span class="re2">DEBIAN_FRONTEND</span>=noninteractive<br>
+<br>
+<span class="kw2">mount</span> <span class="re5">-t</span> proc proc kali-<span class="re1">$architecture</span><span class="sy0">/</span>proc<br>
+<span class="kw2">mount</span> <span class="re5">-o</span> <span class="kw3">bind</span> <span class="sy0">/</span>dev<span class="sy0">/</span> kali-<span class="re1">$architecture</span><span class="sy0">/</span>dev<span class="sy0">/</span><br>
+<span class="kw2">mount</span> <span class="re5">-o</span> <span class="kw3">bind</span> <span class="sy0">/</span>dev<span class="sy0">/</span>pts kali-<span class="re1">$architecture</span><span class="sy0">/</span>dev<span class="sy0">/</span>pts<br>
+<br>
+<span class="kw2">cat</span> <span class="sy0">&lt;&lt;</span> EOF <span class="sy0">&gt;</span> kali-<span class="re1">$architecture</span><span class="sy0">/</span>debconf.set<br>
+console-common console-data<span class="sy0">/</span>keymap<span class="sy0">/</span>policy <span class="kw1">select</span> Select keymap from full list<br>
+console-common console-data<span class="sy0">/</span>keymap<span class="sy0">/</span>full <span class="kw1">select</span> en-latin1-nodeadkeys<br>
+EOF</div></div>
+<p style="text-align: justify;">Here, we'll create the script to do the third-stage chroot</p>
+<div class="codecolorer-container bash default" style="overflow:auto;white-space:nowrap;width:670px;height:300px;"><div class="bash codecolorer"><span class="kw2">cat</span> <span class="sy0">&lt;&lt;</span> EOF <span class="sy0">&gt;</span> kali-<span class="re1">$architecture</span><span class="sy0">/</span>third-stage<br>
+<span class="co0">#!/bin/bash</span><br>
+dpkg-divert <span class="re5">--add</span> <span class="re5">--local</span> <span class="re5">--divert</span> <span class="sy0">/</span>usr<span class="sy0">/</span>sbin<span class="sy0">/</span>invoke-rc.d.chroot <span class="re5">--rename</span> <span class="sy0">/</span>usr<span class="sy0">/</span>sbin<span class="sy0">/</span>invoke-rc.d<br>
+<span class="kw2">cp</span> <span class="sy0">/</span>bin<span class="sy0">/</span><span class="kw2">true</span> <span class="sy0">/</span>usr<span class="sy0">/</span>sbin<span class="sy0">/</span>invoke-rc.d<br>
+<br>
+apt update<br>
+apt <span class="kw2">install</span> locales-all<br>
+<span class="co0">#locale-gen en_US.UTF-8</span><br>
+<br>
+debconf-set-selections <span class="sy0">/</span>debconf.set<br>
+<span class="kw2">rm</span> <span class="re5">-f</span> <span class="sy0">/</span>debconf.set<br>
+apt update<br>
+apt <span class="re5">-y</span> <span class="kw2">install</span> git-core binutils ca-certificates initramfs-tools u-boot-tools<br>
+apt <span class="re5">-y</span> <span class="kw2">install</span> locales console-common <span class="kw2">less</span> <span class="kw2">nano</span> <span class="kw2">git</span><br>
+<span class="kw3">echo</span> <span class="st0">"root:toor"</span> <span class="sy0">|</span> chpasswd<br>
+<span class="kw2">sed</span> <span class="re5">-i</span> <span class="re5">-e</span> <span class="st_h">'s/KERNEL\!=\"eth\*|/KERNEL\!=\"/'</span> <span class="sy0">/</span>lib<span class="sy0">/</span>udev<span class="sy0">/</span>rules.d<span class="sy0">/</span><span class="nu0">75</span>-persistent-net-generator.rules<br>
+<span class="kw2">rm</span> <span class="re5">-f</span> <span class="sy0">/</span>etc<span class="sy0">/</span>udev<span class="sy0">/</span>rules.d<span class="sy0">/</span><span class="nu0">70</span>-persistent-net.rules<br>
+<span class="kw2">apt-get</span> <span class="re5">--yes</span> <span class="re5">--force-yes</span> <span class="kw2">install</span> <span class="re1">$packages</span><br>
+<br>
+<span class="kw2">rm</span> <span class="re5">-f</span> <span class="sy0">/</span>usr<span class="sy0">/</span>sbin<span class="sy0">/</span>invoke-rc.d<br>
+dpkg-divert <span class="re5">--remove</span> <span class="re5">--rename</span> <span class="sy0">/</span>usr<span class="sy0">/</span>sbin<span class="sy0">/</span>invoke-rc.d<br>
+<br>
+<span class="kw2">rm</span> <span class="re5">-f</span> <span class="sy0">/</span>third-stage<br>
+EOF</div></div>
+<p style="text-align: justify;">Now, we'll run it from within our second-stage chroot.</p>
+<div class="codecolorer-container bash default" style="overflow:auto;white-space:nowrap;width:670px;"><div class="bash codecolorer"><span class="kw2">chmod</span> +x kali-<span class="re1">$architecture</span><span class="sy0">/</span>third-stage<br>
+<span class="re2">LANG</span>=C <span class="kw2">chroot</span> kali-<span class="re1">$architecture</span> <span class="sy0">/</span>third-stage</div></div>
+<h4>Manual Configuration Within the chroot</h4>
+<p style="text-align: justify;">If you need to make any further 
+modifications in your rootfs environment, you can do so by manually 
+chrooting into it with the following command and making any needed 
+changes.</p>
+<div class="codecolorer-container bash default" style="overflow:auto;white-space:nowrap;width:670px;"><div class="bash codecolorer"><span class="re2">LANG</span>=C <span class="kw2">chroot</span> kali-<span class="re1">$architecture</span></div></div>
+<p style="text-align: justify;">Once you've completed your modifications, leave the chroot'ed rootfs with the command</p>
+<div class="codecolorer-container bash default" style="overflow:auto;white-space:nowrap;width:670px;"><div class="bash codecolorer"><span class="kw3">exit</span></div></div>
+<p></p>
+<h4>Cleanup</h4>
+<p style="text-align: justify;">Lastly, we create and run a cleanup 
+script in our chroot to free up space used by cached files and run any 
+other cleanup jobs we may require, and unmount the directories we were 
+using in our rootfs.</p>
+<div class="codecolorer-container bash default" style="overflow:auto;white-space:nowrap;width:670px;"><div class="bash codecolorer"><span class="kw2">cat</span> <span class="sy0">&lt;&lt;</span> EOF <span class="sy0">&gt;</span> kali-<span class="re1">$architecture</span><span class="sy0">/</span>cleanup<br>
+<span class="co0">#!/bin/bash</span><br>
+<span class="kw2">rm</span> <span class="re5">-rf</span> <span class="sy0">/</span>root<span class="sy0">/</span>.bash_history<br>
+apt update<br>
+apt clean<br>
+<span class="kw2">rm</span> <span class="re5">-f</span> cleanup<br>
+EOF<br>
+<br>
+<span class="kw2">chmod</span> +x kali-<span class="re1">$architecture</span><span class="sy0">/</span>cleanup<br>
+<span class="re2">LANG</span>=C <span class="kw2">chroot</span> kali-<span class="re1">$architecture</span> <span class="sy0">/</span>cleanup<br>
+<br>
+<span class="kw2">umount</span> kali-<span class="re1">$architecture</span><span class="sy0">/</span>proc<br>
+<span class="kw2">umount</span> kali-<span class="re1">$architecture</span><span class="sy0">/</span>dev<span class="sy0">/</span>pts<br>
+<span class="kw2">umount</span> kali-<span class="re1">$architecture</span><span class="sy0">/</span>dev<span class="sy0">/</span><br>
+<br>
+<span class="kw3">cd</span> ..</div></div>
+<p style="text-align: justify;">Congratulations! Your custom Kali ARM rootfs is located in the <strong>~/arm-stuff/rootfs/kali-$architecture</strong> directory. You can now tar up this directory or convert it to an image file for further work.</p>
+                  </div>
+        
+         
+</article>
+
+    
+	     
+     <section id="related-posts" class="clearfix">
+     <h4 id="related-posts-title">Related Articles</h4>
+     	<ul class="clearfix">        
+		<li class="standard">
+        <h4 class="entry-title"><a href="http://docs.kali.org/development/rebuilding-a-package-from-source" rel="bookmark" title="Rebuilding a Source Package">Rebuilding a Source Package</a></h4>
+        </li>
+
+        
+		<li class="standard">
+        <h4 class="entry-title"><a href="http://docs.kali.org/development/live-build-a-custom-kali-iso" rel="bookmark" title="Live Build a Custom Kali ISO">Live Build a Custom Kali ISO</a></h4>
+        </li>
+
+        
+		<li class="standard">
+        <h4 class="entry-title"><a href="http://docs.kali.org/development/recompiling-the-kali-linux-kernel" rel="bookmark" title="Recompiling the Kali Linux Kernel">Recompiling the Kali Linux Kernel</a></h4>
+        </li>
+
+        
+		<li class="standard">
+        <h4 class="entry-title"><a href="http://docs.kali.org/development/arm-cross-compilation-environment" rel="bookmark" title="ARM Cross-Compilation">ARM Cross-Compilation</a></h4>
+        </li>
+
+</ul></section>
+      
+<a name="CrossDebootstrap"></a>
+  <h3 id="locationline">EmDebian CrossDebootstrap
+<a href="https://wiki.debian.org/EmDebian/CrossDebootstrap">(Source Origin)</a>
+</h3>
+
+ <p class="table-of-contents-heading">Contents</p>
+
+<ol>
+  <li><a href="#Cross-installing_Debian_using_debootstrap.2Fmultistrap">Cross-installing Debian using
+        debootstrap/multistrap</a>
+
+<ol>
+  <li><a href="#Requirements">Requirements</a></li>
+</ol>
+
+</li>
+  <li><a href="#Multistrap">Multistrap</a>
+
+<ol>
+  <li><a href="#Example_use">Example use</a>
+
+<ol>
+  <li><a href="#Basic_usage">Basic usage</a></li>
+  <li><a href="#multiple_repository_usage">multiple repository usage</a></li>
+  <li><a href="#packages_from_multiple_components">packages from multiple components</a></li>
+</ol>
+
+</li>
+  <li><a href="#Configuring_the_rootfs">Configuring the rootfs</a></li>
+</ol></li>
+  <li><a href="#QEMU.2Fdebootstrap_approach">QEMU/debootstrap approach</a>
+
+<ol>
+  <li><a href="#Installing_required_packages">Installing required packages</a></li>
+  <li><a href="#Generating_cross_images_as_root_user">Generating cross images as root user</a></li>
+  <li><a href="#Generating_cross_images_as_non-root_user">Generating cross images as non-root user</a>
+
+<ol>
+  <li><a href="#Using_schroot">Using schroot</a></li>
+  <li><a href="#Using_fakechroot">Using fakechroot</a></li>
+</ol></li>
+  <li><a href="#Configuring_the_new_system_.28target_specific.29">Configuring the new system (target
+      specific)</a>
+
+<ol>
+  <li><a href="#Serial_console">Serial console</a></li>
+  <li><a href="#Networking">Networking</a></li>
+  <li><a href="#Apt">Apt</a></li>
+  <li><a href="#References">References</a></li>
+</ol></li>
+</ol></li>
+  <li><a href="#Real_Hardware.2Fcdebootstrap_approach">Real Hardware/cdebootstrap approach</a>
+
+<ol>
+  <li><a href="#Second_attempt_using_debootstrap">Second attempt using debootstrap</a></li>
+</ol></li>
+  <li><a href="#Unpacking_method">Unpacking method</a>
+
+<ol>
+  <li><a href="#Issues_with_the_final_filesystem_image">Issues with the final filesystem image</a></li>
+  <li><a href="#Issues_with_replacing_debconf_with_cdebconf">Issues with replacing debconf with
+         cdebconf</a></li>
+  <li><a href="#A.2Fetc.2Fgroup_and_.2Fetc.2Fpasswd">/etc/group and /etc/passwd</a></li>
+  <li><a href="#ash.2C_not_bash">ash, not bash</a></li>
+  <li><a href="#busybox_applets.2C_not_coreutils">busybox applets, not coreutils</a></li>
+  <li><a href="#starting_init_processes">starting init processes</a></li>
+  <li><a href="#Outputting_messages_to_the_user">Outputting messages to the user</a></li>
+  <li><a href="#Calling_processes_within_debootstrap">Calling processes within debootstrap</a></li>
+  <li><a href="#Method">Method</a>
+
+<ol>
+  <li><a href="#approximate_time_and_SecureApt">approximate time and SecureApt</a></li>
+</ol></li>
+  <li><a href="#Installing_the_image">Installing the image</a></li>
+</ol></li>
+</ol>
+
+
+<h3 id="Cross-installing_Debian_using_debootstrap.2Fmultistrap">Cross-installing Debian using
+  debootstrap/multistrap</h3>
+
+<p>(Nothing on this page is specific to emdebian, rather than debian) </p>
+
+<p>From debootstrap's manpage: </p>
+
+<ul>
+  <li>"Debootstrap can be used to install Debian in a system without using an installation disk
+    but can also be used to run a different Debian flavor in a chroot environment. This way you can
+    create a full (minimal) Debian installation which can be used for testing purposes". </li>
+</ul>
+
+  <p>Basically, bootstrapping a Debian system involves four steps (some were ommitted for
+    simplicity): </p>
+
+<ol type="1">
+  <li>Download the necessary .deb packages from a repository. </li>
+  <li>Unpack them into the target directory. </li>
+  <li>Chroot into the target directory. </li>
+  <li>Run the installation and configuration scripts from each package, finishing the setup. </li>
+</ol>
+
+  <p>Usually, when doing cross-bootstrapping, steps 3 and 4 need to be done on the target side. This
+    document explains how to bootstrap a Debian system for a target architecture different from the
+    host's one, doing all steps on the host side and, optionally, using QEMU to run target
+    executables. </p>
+
+  <p>This is useful, for example, to create filesystem images without depending on the target board to
+    be available. </p>
+
+
+
+<h4 id="Requirements">Requirements</h4>
+
+
+  <p>There are lots of ways of doing this. You can use multistrap (recommended) or debootstrap or
+    cdebootstrap for stages 1 and 2. And QEMU or real hardware for stages 3 &amp; 4. </p>
+
+  <p>Four variant approaches are described on this page: </p>
+
+  <ol type="1">
+    <li>Multistrap + real hardware
+      <ul>
+        <li>Multistrap + config script for rootfs creation </li>
+       <li>hardware or QEMU for configuration. </li>
+      </ul>
+
+</li>
+  <li>QEMU
+  <ul>
+    <li><p>QEMU with transparent user mode emulation (see
+	<a href="https://wiki.debian.org/QemuUserEmulation">QemuUserEmulation</a>) </p></li>
+    <li><p>debootstrap, with patch (<a href="https://bugs.debian.org/355801" title="Open in 
+         debootstrap/0.3.3: #355801: single-stage cross-debootstrap support using qemu">355801</a>)
+         applied to support cross-bootstrapping </p></li>
+  </ul></li>
+  <li>Real hardware <ul><li>An ARM machine which can mount an NFS root </li>
+        <li>cdebootstrap (in squeeze) </li>
+  </ul></li>
+  <li>Unpacking method
+  <ul>
+    <li>Any Debian box, to support any ARM machine with serial, network or USB connectivity </li>
+    <li>emsandbox (debootstrap --foreign). </li>
+  </ul></li>
+</ol>
+
+  <p>This page will try to stick to general issues around how a cross bootstrap differs from typical
+    usage of debootstrap. See also
+    <a href="https://wiki.debian.org/EmDebian/DeBootstrap">EmDebian/DeBootstrap</a> which deals with
+    specific issues with particular boards or devices. </p>
+
+  <p>Now there's also 'debootstrap --foreign' + 'debootstrap --second-stage', which should erase the
+    need to "re-install everything to get the configuration scripts run". The author of this document
+    is asked to look into this. --mirabilos </p>
+
+
+
+<h3 id="Multistrap">Multistrap</h3>
+
+  <p><a href="https://wiki.debian.org/Multistrap">Multistrap</a> is a tool which does essentially the
+    same job as Debootstrap but with a different design, giving a lot more flexibility, and a
+    different set of pros/cons. It works in a completely different way by simply using apt and dpkg,
+    rather than avoiding using them, which is how debootstrap works. It is focussed on producing
+    rootfs images for devices, as opposed to chroots for existing machines, but in fact (like
+    debootstrap) does both of these jobs almost equally well. </p>
+
+<p>Advantages: </p>
+
+<ul>
+  <li>Can use packages from multiple repositories - uses normal apt resolution to choose set. This
+    is very powerful - you can use debian as a base, plus some packages from a local repository, by
+    listing the repositories to use and the set of top-level packages wanted from each. Debootstrap 
+    can't do this. </li>
+  <li>Doesn't need copies of every deb in /var/cache/apt/archives, so tarball approx half the
+    size </li>
+  <li>Unpacks with dpkg so dpkg database already has packages marked 'unpacked': only postinst
+    scripts need to be run to complete process. </li>
+  <li>Because it uses apt, all the normal apt features work (e.g. apt-cacher proxy, repository key
+    checks, different apt methods (url, file), pinning) </li>
+</ul>
+
+<p>Limitations: </p>
+
+<ul>
+  <li>You need a real Debian-based system to run it on. Debootstrap can work on any system. </li>
+  <li><p>It needs a configuration file to run - you can't just do 'multistrap &lt;mirror&gt;
+      squeeze' </p></li>
+  <li>Because it cannot run preinst scripts a few packages need specific fixup in the config
+    script </li>
+</ul>
+
+  <p>Multistrap creates the image from the packages needed; it does not make device/chroot-specific
+    modifications. Most real devices need a set of such changes to operate (console, inittab, fstab,
+    devicenodes, etc) and a script or manual changes are needed. It has hooks to help automate this
+    sort of config. </p>
+
+
+<pre>
+apt-get install multistrap
+</pre>
+
+<h4 id="Example_use">Example use</h4>
+
+
+<h4 id="Basic_usage">Basic usage</h4>
+
+
+  <p>To create a new image in targetdir for arch armel using repositories specified in
+    multistrap.conf: (both arch and dir can be specified in the config file too, if you prefer) </p>
+
+<pre>
+# multistrap -a armel -d targetdir -f multistrap.conf
+</pre>
+
+  <p>This is a minimal config which will make a grip rootfs using just the packages which are Priority:
+    required (essential is ignored by multistrap, making it much easier to only get what you
+    want/need). Noauth stops secure-apt complaining about keys if no keyring package is specified.</p>
+
+<pre>
+[General]
+noauth=true
+unpack=true
+debootstrap=Grip
+aptsources=Grip
+
+[Grip]
+# space separated package list
+source=http://www.emdebian.org/grip
+suite=lenny
+</pre>
+
+<p>The (tared-up) result is a 30Mb tarball (approx 50% apt cache contents). Adding </p>
+
+<pre>
+cleanup=true
+</pre>
+
+<p>to the config removes the apt cache debs and lists, resulting in a 15Mb tarball. </p>
+
+
+
+<h4 id="multiple_repository_usage">multiple repository usage</h4>
+
+
+  <p>This is a more complex example which uses four repositories: grip, debian (for extra packages
+    not in grip), grip updates from proposed-updates, and a  local repository, as well as specifying
+    some optional packages from those repositories. The important thing is that for every name 
+    listed in 'aptsources' you need a correspondingly named section containing at least source and
+    suite. The use of keyring packages and specifying components other than the default of 'main' is
+    also shown. </p>
+
+  <p>I've set the cleanup option (which tidies up /var/cache/apt/ ), the retainsources option (which
+    keeps all downloaded debs in a directory so you have a copy of what was used to make this rootfs)
+    and an example of setting the arch and target dir in the config instead of on the command line:</p>
+
+<pre>
+[General]
+unpack=true
+debootstrap=Grip
+aptsources=Grip Updates Debian Localserver
+cleanup=true
+arch=armel
+directory=/tmp/targetdir/
+retainsources=/tmp/targetdir/sources
+
+[Grip]
+#space separated package list
+packages=udev ntpdate
+source=http://www.emdebian.org/grip
+keyring=emdebian-archive-keyring
+suite=lenny
+
+[Updates]
+packages=apt
+source=http://www.emdebian.org/grip
+keyring=emdebian-archive-keyring
+suite=lenny-proposed-updates
+
+[Debian]
+packages=erlang-nox
+source=http://ftp.uk.debian.org/debian
+keyring=debian-archive-keyring
+suite=lenny
+
+[Localserver]
+packages=sl40-platform-debian balloon3-config
+source=http://aptcache.localhost:4132/debian
+keyring=localrepo-archive-keyring
+suite=development
+</pre>
+
+<p>Running </p>
+
+<pre>
+sudo multistrap -f multistrap.conf
+</pre>
+
+  <p>updates package lists, takes packages from all 4 repositories (checking them against the specified
+    keyrings) and builds the rootfs, clears out the apt-cache and saves all the debs in the directory
+    specified in retainsources. </p>
+
+
+<h4 id="packages_from_multiple_components">packages from multiple components</h4>
+
+  <p>As of multistrap version v2.0.6, it is possible to use the "components=" option to load packages
+    from components other than main. Here is an example to include a firmware package from
+    non-free: </p>
+
+
+<pre>
+[General]
+noauth=true
+unpack=true
+debootstrap=Squeeze
+aptsources=Squeeze
+arch=armel
+
+[Squeeze]
+packages=wpasupplicant wireless-tools firmware-ralink
+source=http://ftp.au.debian.org/debian/
+keyring=debian-archive-keyring
+components=main non-free
+suite=squeeze
+</pre>
+
+
+
+<h4 id="Configuring_the_rootfs">Configuring the rootfs</h4>
+
+
+  <p>The rootfs produced is chrootable, but often not bootable without fixing up a few files. See the
+    QEMU/DeBootstrap section below for examples of the changes usually needed. Normaly it's best to
+    script those changes for repeatability. </p>
+
+  <p>If you can, it usually easier to chroot into the rootfs (on an ARM machine, or using qemu) to
+    configure it as less work is required than making it bootable. </p>
+
+<pre>
+chroot /tmp/targetdir
+dpkg --configure -a
+</pre>
+
+  <p>will run all the postinst scripts of the installed packages and complete the rootfs generation
+    process. Tar up the result and copy it onto your device. </p>
+
+<p>Alternatively, if you can boot the image on the device then you can do the </p>
+
+<pre>
+dpkg --configure -a
+</pre>
+
+<p>on the device directly. </p>
+
+<p>In order to complete the configure of dash you should </p>
+
+<pre>
+/var/lib/dpkg/info/dash.preinst install
+</pre>
+
+  <p>as described on the
+    <a href="https://wiki.debian.org/Multistrap#Steps_for_Squeeze_and_later">Multistrap page</a>.</p>
+
+
+<h3 id="QEMU.2Fdebootstrap_approach">QEMU/debootstrap approach</h3>
+
+
+<h4 id="Installing_required_packages">Installing required packages</h4>
+
+<p>Install required packages using the following command: </p>
+
+<pre>
+# apt-get install binfmt-support qemu qemu-user-static debootstrap
+</pre>
+
+
+<h4 id="Generating_cross_images_as_root_user">Generating cross images as root user</h4>
+
+
+  <p>The following steps need to be done as root, because debootstrap will create device nodes (using
+    mknod) as well as chroot into the newly created system, which require root privileges. </p>
+
+  <ol type="1">
+    <li>Choose the target's architecture and Debian suite (e.g. stable, testing, sid) you want to
+      bootstrap. For this tutorial, we will choose the ARM target architecture and the wheezy (AKA
+      Debian testing) suite. </li>
+    <li>Choose a (empty) directory where you want the new system to be populated. This directory
+      will reflect the root filesystem of the new system. Note that the host system is not affected
+      in any way, and all modifications are restricted to the directory you have chosen.
+      <p><strong>Note:</strong> For the purposes of this document, we will use "debian_armel_wheezy"
+      as the target directory. Create this directory, if it does not exist already: </p>
+
+<pre>
+# mkdir debian_armel_wheezy
+</pre>
+
+</li>
+  <li><p>To bootstrap the new system, run debootstrap. E.g.: </p>
+
+<pre>
+  # debootstrap --foreign --arch armel wheezy debian_armel_wheezy http://ftp.debian.org/debian/
+</pre>
+
+    <P> where "debian_armel_wheezy" is the directory you have created and "armel" is the target
+      architecture. See debootstrap(8) manpage for more details about each parameter used above.
+
+    <p>"<a href="http://ftp.debian.org/debian/">http://ftp.debian.org/debian/</a>"
+      is the Debian mirror from which the necessary .deb packages will be downloaded. You are free
+      to choose any mirror you like, as long as it has the architecture you are trying to bootstrap.
+      See <a href="http://www.debian.org/mirror/list">http://www.debian.org/mirror/list</a> for the
+      list of available Debian mirrors. </p></li>
+    <li>The new system is now created. By default, debootstrap creates a very minimal system, so you
+      will probably want to extend it (see below 'Configuring the new system' for some
+      instructions). </li>
+    <li>Copy 'qemu-arm-static' to the target file system. To be able to chroot into a target file
+      system, the qemu emulator for the target CPU needs to be accessible from inside the chroot
+      jail. </li>
+</ol>
+
+
+<pre>
+  # cp /usr/bin/qemu-arm-static debian_armel_wheezy/usr/bin
+</pre>
+
+<ol start="6" type="1">
+  <li>Run the second stage of debootstrap to unpack all the packages you installed in step 3. </li>
+</ol>
+
+
+<pre>
+# DEBIAN_FRONTEND=noninteractive DEBCONF_NONINTERACTIVE_SEEN=true \
+LC_ALL=C LANGUAGE=C LANG=C chroot debian_armel_wheezy /debootstrap/debootstrap --second-stage
+</pre>
+
+<ol start="7" type="1">
+  <li>Trigger post install scripts </li>
+</ol>
+
+
+<pre>
+DEBIAN_FRONTEND=noninteractive DEBCONF_NONINTERACTIVE_SEEN=true \
+ LC_ALL=C LANGUAGE=C LANG=C chroot debian_armel_wheezy dpkg --configure -a
+</pre>
+
+
+<h4 id="Generating_cross_images_as_non-root_user">Generating cross images as non-root user</h4>
+
+
+<ul>
+  <li><p>Generate a configure file for multistrap (<em>armel.conf</em>) </p></li>
+</ul>
+
+
+<pre>
+[General]
+# arch and directory can be specified on the command line.
+arch=armel
+directory=/tmp/chroot_armel
+omitrequired=false
+# same as --tidy-up option if set to true
+cleanup=true
+# retain the sources outside the rootfs for distribution
+# specify a directory to which all the .debs can be moved.
+# or override with the --source-dir option.
+retainsources=
+# same as --no-auth option if set to true
+# keyring packages listed in each debootstrap will
+# still be installed.
+noauth=true
+# extract all downloaded archives
+unpack=true
+# the order of sections is no longer important.
+# debootstrap determines which repository is used to
+# calculate the list of Priority: required packages
+debootstrap=Grip
+# the order of sections is no longer important.
+# aptsources is a list of sections to be listed
+# in the /etc/apt/sources.list.d/multistrap.sources.list
+# of the target.
+aptsources=Grip
+#configscript=config.sh
+#setupscript=setup.sh
+
+[Grip]
+packages=udev aptitude
+source=http://www.emdebian.org/grip
+keyring=emdebian-archive-keyring
+suite=lenny
+omitdebsrc=true
+</pre>
+
+<ul>
+  <li>Generate the root filesystem with multistrap </li>
+</ul>
+
+
+<pre>
+$ cd /tmp
+$ multistrap -a armel -f armel.conf -d chroot_armel
+</pre>
+
+<ul>
+  <li>Alternatively generate a root filesystem with debootstrap </li>
+</ul>
+
+
+<pre>
+  $ fakeroot debootstrap --foreign --arch=armel sid $ROOTDIR
+</pre>
+
+<ul>
+  <li>Add emulation layer </li>
+</ul>
+
+
+<pre>
+$ cp /usr/bin/qemu-arm-static chroot_armel/usr/bin
+</pre>
+
+
+<h4 id="Using_schroot">Using schroot</h4>
+
+
+<ul>
+  <li><p>Install and configure schroot (<em>/etc/schroot/schroot.conf</em>) </p></li>
+</ul>
+
+
+<pre>
+[chroot_armel]
+description=Debian armel cross chroot
+directory=/tmp/chroot_armel
+users=$USER
+groups=sbuild
+root-groups=root
+aliases=default
+</pre>
+
+<ul>
+  <li>In order to bypass a QEmu limitation mapping lower memory addresses, you should configure
+    your system with: </li>
+</ul>
+
+
+<pre>
+  $ sudo sh -c "echo 0 &gt; /proc/sys/vm/mmap_min_addr"
+</pre>
+
+<ul>
+  <li>schroot into the root filesystem as user (any time) </li>
+</ul>
+
+
+<pre>
+$ schroot -c chroot_armel
+</pre>
+
+
+
+<h4 id="Using_fakechroot">Using fakechroot</h4>
+
+
+<ul>
+  <li>Create a symlink as root under /lib, otherwise it does not work </li>
+</ul>
+
+
+<pre>
+  $ sudo ln -sf /tmp/chroot_armel/lib/ld-linux.so.3 /lib/ld-linux.so.3
+</pre>
+
+<ul>
+  <li>Execute chroot as follows ignoring ERROR messages </li>
+</ul>
+
+
+<pre>
+$ LD_LIBRARY_PATH=$(pwd)/chroot_armel/usr/lib/fakechroot fakechroot /usr/sbin/chroot $(pwd)/chroot_armel/ /bin/pwd
+</pre>
+
+
+
+<h4 id="Configuring_the_new_system_.28target_specific.29">Configuring the new system (target
+  specific)</h4>
+
+
+  <p>The system you have just created needs a few tweaks so you can use it for specific tasks. The
+    following steps need to be done as root, as the files touched are owned by root. </p>
+
+<ol type="1">
+  <li><p>First create a fixed symlink to the directory where the new system was bootstrapped: </p>
+
+<pre>
+# ln -sfn /full/path/to/debian_armel_wheezy/ /armelfs_debian
+</pre></li>
+  <li><p>Mount the proc filesystem on the target so the next commands can run properly: </p>
+
+<pre>
+# mount -t proc proc /armelfs_debian/proc
+</pre></li>
+</ol>
+
+
+
+<h4 id="Serial_console">Serial console</h4>
+
+
+<ol type="1">
+  <li><p>Edit /armelfs_debian/etc/inittab and add the following line at the bottom: </p>
+
+<pre>
+T0:23:respawn:/sbin/getty -L ttyS0 115200 vt100
+</pre>
+
+<p>also comment out the following lines (virtual consoles are not needed for our purposes): </p>
+
+<pre>
+1:2345:respawn:/sbin/getty 38400 tty1
+2:23:respawn:/sbin/getty 38400 tty2
+3:23:respawn:/sbin/getty 38400 tty3
+4:23:respawn:/sbin/getty 38400 tty4
+5:23:respawn:/sbin/getty 38400 tty5
+6:23:respawn:/sbin/getty 38400 tty6
+</pre></li>
+  <li><p>Create the "ttyS0" device node on the target so the serial console can be used: </p>
+
+<pre>
+# chroot /armelfs_debian sh -c "cd /dev; ./MAKEDEV ttyS0"
+</pre></li>
+</ol>
+
+
+
+<h4 id="Networking">Networking</h4>
+
+
+<p>Copy the /etc/hosts file from the host to the target system, so networking can work properly 'inside the chroot: </p>
+
+<pre>
+# cp /etc/hosts /armelfs_debian/etc/
+</pre>
+
+
+
+<h4 id="Apt">Apt</h4>
+
+
+<ol type="1">
+  <li><p>Run apt-setup to create a new /etc/apt/sources.list for the target: </p>
+
+<pre>
+# LC_ALL=C chroot /armelfs_debian apt-setup
+</pre></li>
+  <li><p>Select "edit sources list by hand" and add the following entries: </p>
+
+<pre>
+deb http://ftp.debian.org/debian/ wheezy main contrib non-free
+deb-src http://ftp.debian.org/debian/ wheezy main contrib non-free
+</pre>
+
+    Feel free to use other mirrors (as long as it supports the target platform). </li>
+  <li>After downloading the packages list, it will ask whether you want to add other sources. Select
+    "no". </li>
+</ol>
+
+  <p>Done! You can now install other packages using <tt>apt-get&nbsp;install&nbsp;&lt;package&gt;</tt>
+    as usual. </p>
+
+
+
+<h4 id="References">References</h4>
+
+
+<ul>
+  <li><p><a href="http://azure.humbug.org.au/%7Eaj/blog/debian/debootstrap">http://azure.humbug.org.au/~aj/blog/debian/debootstrap</a> </p></li>
+  <li><p><a href="https://wiki.debian.org/QemuUserEmulation">QemuUserEmulation</a> </p></li>
+  <li>debootstrap(8) manpage </li>
+</ul>
+
+
+
+<h3 id="Real_Hardware.2Fcdebootstrap_approach">Real Hardware/cdebootstrap approach</h3>
+
+<p>We will: </p>
+
+<ul>
+  <li>Run cdeboostrap (or debootstrap) to set up the basic root filesystem </li>
+  <li>boot into it, mounting it over NFS </li>
+  <li>Install everything again in order to get all the post-install scripts run </li>
+</ul>
+
+  <p>This is a rather brute-force approach but it works. This was tested with the Oct 2006 version
+    of cdebootstrap in unstable. </p>
+
+<pre>
+# cdebootstrap --arch=armel testing /testing-armel-chroot http://ftp.uk.debian.org/debian/
+</pre>
+
+  <p>I found that if you didn't specify a mirror then it just stopped after 4 lines and failed ot
+    find a Packages file. </p>
+
+  <p>this will unpack everything (into '/testing-armel-chroot') then error out. </p>
+
+  <p>make sure that your testing-armel-chroot dir is accessible over NFS by editing /etc/exports
+    and running exportfs -r to re-read the config then exportfs to check it is exported. Export it
+    with options rw,no-root-squash,async. </p>
+
+  <p>No device files have been created so you will need to create /dev/ttyS0 at least: </p>
+
+<pre>
+# mknod /testing-armel-chroot/dev/ttyS0 c 4 64"
+</pre>
+
+  <p> or in my case </p>
+
+<pre>
+# mknod /testing-armel-chroot/dev/ttyAMA0 c 204 16
+</pre>
+
+  <p>Now start up your hardware with an NFS-capable kernel with kernel arguments something like:</p>
+
+<pre>
+# root=/dev/nfs nfsroot=hostname:/testing-armel-chroot init=/bin/sh console=/dev/ttyS0
+</pre>
+
+  <p>You need to specify /bin/sh as the init because there is no inittab file and even if you add one
+    you won't be able to login because login/pam are not set up properly. </p>
+
+  <p>Once you have a prompt you can </p>
+
+<pre>
+# cd /var/cache/boostrap
+</pre>
+
+  <p> and run all the install scripts.</p>
+
+  <p>One way to do this (there may well be a better way) is just to do <tt>dpkg&nbsp;-i&nbsp;*.deb</tt>
+    which re-installs everything. In order to avoid base-files failing to install over itself I did
+    <tt>rm&nbsp;/var/mail</tt> before this. I found that dpkg gave the error
+    <tt>dpkg:&nbsp;dpkg&nbsp;-&nbsp;error:&nbsp;PATH&nbsp;is&nbsp;not&nbsp;set</tt> so in fact the
+    command line to use is </p>
+
+<pre>
+# PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin dpkg -i *.deb
+</pre>
+
+ <p>(get the path by doing <tt>set</tt> ) </p>
+
+ <p>This mostly works but some packages fail to install and you get to go back and do </p>
+
+<pre>
+# PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin dpkg -i &lt;packages which failed&gt;
+</pre>
+
+ <p>once you have got everything in, you should have a standard debian rootfs for the target arch. </p>
+
+  <p>And it works for me. There is no editor or networking installed after this so you can't do much
+    without installing some more packages. </p>
+
+
+
+<h4 id="Second_attempt_using_debootstrap">Second attempt using debootstrap</h4>
+
+
+  <p>deboostrap is equivalent to cdebootstrap, but is shell rather than c. Again you need to give a
+    mirror that has the packages for your architecture otherwise it will give about 4 lines of output
+    and then stop when it fails to find packages files. Your existing sources.list does not appear
+    to get used as a default. </p>
+
+
+<pre>
+# debootstrap --verbose --arch armel --foreign --variant=buildd sid sid-armel-chroot http://ftp.uk.debian.org/debian/
+</pre>
+
+  <p>So, as above create a suitable serial console dev file: </p>
+
+<pre>
+# mknod /sid-armel-chroot/dev/ttyAMA0 c 204 16
+</pre>
+
+  <p>Then boot into the new chroot, and install everything again, as above. Making debootstrap at
+    least fill in the package database so that we could run all the install scripts more neatly
+    would be good. I'm sure debootstrap could do this for us. </p>
+
+
+
+<h3 id="Unpacking_method">Unpacking method</h3>
+
+<p>We will: </p>
+
+<ul>
+  <li>Prepare a package set from the Emdebian repository and download the .deb files using
+    debootstrap --foreign </li>
+  <li>Unpack each .deb using dpkg to create a filesystem image </li>
+  <li>Outline how this filesystem needs to be tweaked to support init with the reduced package
+    set </li>
+</ul>
+
+  <p>emsandbox is a wrapper for debootstrap that tries to handle the issues around --foreign. The
+    weakness of the normal --second-stage support in debootstrap is that it puts a
+    <strong>large</strong> burden on the target device. Downloaded packages are copied into the root
+    filesystem unchanged, then unpacked, configured and installed on the real device. Recent versions
+    of emsandbox use an "unpacking" method that avoids the need to carry the .deb package files into
+    the actual installed root filesystem tarball. This reduces the size of the rootfs tarball and 
+    decreases the workload for the target device. </p>
+
+  <p>emsandbox uses the Emdebian repository where package dependencies have been modified to support
+    a much smaller root filesystem - around 24Mb installed instead of 180Mb - and the method can be
+    extended to make even smaller images by using uClibc or not using apt etc. </p>
+
+  <p>This method can only support such small images if the appropriate packages already exist in the
+    Emdebian repository or some other repository that can be used by debootstrap. emsandbox uses
+    debootstrap to resolve the dependencies of the base and required packages but the normal 
+    --second-stage is much less work (consisting primarily of <tt>dpkg&nbsp;--configure&nbsp;-a</tt>).
+    --second-stage itself is still used but is generally just a hook for machine:variant
+    customisation scripting. </p>
+
+
+
+<h4 id="Issues_with_the_final_filesystem_image">Issues with the final filesystem image</h4>
+
+
+  <p>By modifiying the basic set of packages used by debootstrap, the normal Debian init support needs
+    to be hacked. Principally, using busybox instead of coreutils and sysv-rc means that runlevels
+    are not supported and <tt>/etc/inittab</tt> needs to be compatible with busybox. </p>
+
+  <p>Other components of a standard Debian debootstrap environment may also be missing, e.g.
+    <tt>/sys/</tt>. emsandbox can create these directories for you via the <tt>suite&nbsp;script</tt>
+    that is used for debootstrap. </p>
+
+
+
+<h4 id="Issues_with_replacing_debconf_with_cdebconf">Issues with replacing debconf with cdebconf</h4>
+
+
+<p>See Debian bug <a href="https://bugs.debian.org/451130" title="Closed in cdebconf/0.157: 
+#451130: cdebconf deb does not initalise the template database, which is needed to work out of the 
+box">451130</a>. emsandbox will use a workaround to ensure that cdebconf initialises the debconf
+  database until <a href="https://bugs.debian.org/451130" title="Closed in cdebconf/0.157: #451130: 
+cdebconf deb does not initalise the template database, which is needed to work out of the 
+box">451130</a> is closed. The command is: </p>
+
+<pre>
+chroot $BUILDPLACE /usr/lib/cdebconf/debconf-loadtemplate /usr/share/debconf/demo /usr/share/debconf/demo.templates
+</pre>
+
+  <p>To use cdebconf at all, an environment variable also needs to be exported: </p>
+
+<pre>
+DEBCONF_USE_CDEBCONF=true
+export DEBCONF_USE_CDEBCONF
+</pre>
+
+  <p>Normal debconf behaviour can be disabled using the expected debconf environment variable
+    support: </p>
+
+<pre>
+DEBIAN_FRONTEND=noninteractive
+DEBCONF_NONINTERACTIVE_SEEN=true
+export DEBIAN_FRONTEND DEBCONF_NONINTERACTIVE_SEEN
+</pre>
+
+
+
+<h4 id="A.2Fetc.2Fgroup_and_.2Fetc.2Fpasswd">/etc/group and /etc/passwd</h4>
+
+
+  <p>Minimal versions of these files <strong>must</strong> exist before
+    <tt>dpkg&nbsp;--configure&nbsp;-a</tt> is run, principally because the unpacking method avoids
+    the need for packages to be processed in a particular sequence so emsandbox cannot rely on files
+    being created in the postinst or preinst maintainer scripts. This also allows emsandbox to
+    support arbitrary package sets where the packages that would create these files on a normal
+    Debian box are simply omitted. </p>
+
+  <p>Support for creating these files is available via emsandbox using the <tt>suite&nbsp;script</tt>
+    support in debootstrap. </p>
+
+
+
+<h4 id="ash.2C_not_bash">ash, not bash</h4>
+
+
+  <p>busybox does not support bash, so all shell code used by emsandbox must be POSIX compliant -
+    do not use bashisms. </p>
+
+
+
+<h4 id="busybox_applets.2C_not_coreutils">busybox applets, not coreutils</h4>
+
+
+  <p>Various commands in Debian have a wider option set than the busybox equivalent. Examples are
+    numerous but some of the most common include: </p>
+
+<ul>
+  <li>fgrep does not support -x </li>
+  <li>start-stop-daemon does not support --oknodo or --retry </li>
+  <li>... </li>
+</ul>
+
+  <p>Packages using such options will be patched in the Emdebian version - note that this may cause
+    unexpected behaviour, in which case a bug should be filed against the package in Debian,
+    requesting support for the busybox implementation, using <tt>embug&nbsp;--prepare</tt>. </p>
+
+
+
+<h4 id="starting_init_processes">starting init processes</h4>
+
+
+  <p>Various packages will put scripts into <tt>/etc/init.d/</tt> and expect those scripts to be
+    symlinked in directories like <tt>/etc/rc2.d/</tt> etc. which will not exist in a busybox init
+    due to the lack of runlevel support. Work is ongoing in emsandbox to create a usable support 
+    mechanism for this issue but will probably involve using <tt>/etc/rcS.d/</tt> to hold the
+    symlinks and calling each via the <tt>/etc/init.d/rcS</tt> script. Again, the
+    <tt>suite&nbsp;script</tt> will provide support for setting up these symlinks. </p>
+
+
+
+<h4 id="Outputting_messages_to_the_user">Outputting messages to the user</h4>
+
+
+  <p>This method still uses debootstrap so the normal STDOUT file descriptor is wrapped within
+    debootstrap functions. </p>
+
+<p>To output to the user, use debootstrap support functions: </p>
+
+<pre>
+info INSTCORE "message"
+</pre>
+
+
+
+<h4 id="Calling_processes_within_debootstrap">Calling processes within debootstrap</h4>
+
+
+  <p>Other functions are also available, like <tt>in_target</tt> to ensure that a process is actioned
+    within the filesystem image using the chroot command. </p>
+
+
+
+<h4 id="Method">Method</h4>
+
+
+  <p>Instead of a complicated set of shell instructions in the --second-stage function, the intention
+    is to provide a series of shell functions accessible via emsandbox and empbuilderlib from
+    emdebian-tools to provide the necessary support. The <tt>suite&nbsp;script</tt> is a shell
+    script called by debootstrap and which normally describes how debootstrap should create a chroot
+    for the Debian suite, i.e. testing, unstable, etc. Emdebian co-opts this debootstrap support to
+    describe how debootstrap should create a filesystem image using the package set available from
+    Emdebian. In effect, emsandbox tells debootstrap that each customised emsandbox filesystem image
+    is a different suite of Debian. The first part of the <tt>suite&nbsp;script</tt> simply sets out
+    the names of the packages to be downloaded from the Emdebian repository by debootstrap. This is
+    the <tt>work_out_debs&nbsp;()</tt> function. </p>
+
+
+<pre>
+work_out_debs () {
+
+        required="busybox dpkg libstdc++6 libgcc1 libc6 cdebconf
+        libdebian-installer4 zlib1g libnewt0.52 libslang2"
+
+        base="apt gpgv libncurses5 libreadline5 readline-common mktemp
+        debconf-shell debianutils makedev base-passwd whiptail
+        gnupg udev base-files debian-archive-keyring udhcpc udhcpd sysv-rc
+        util-linux module-init-tools initscripts"
+
+}
+</pre>
+
+  <p>The distinction between <strong>required</strong> and <strong>base</strong> is lost if the
+    unpacking method is used but debootstrap does require that some packages exist in each section.
+    (In normal debootstrap, <strong>required</strong> packages are partially unpacked,
+    <strong>base</strong> are not but the .debs are retained for both sets.) </p>
+
+  <p>To solve problems of code duplication, a set of common functions is available in empbuilderlib
+    that can be called as part of the <tt>first_stage_install&nbsp;()&nbsp;</tt> function in the
+    <tt>suite&nbsp;script</tt>. </p>
+
+  <p>The eventual <tt>suite&nbsp;script</tt> can look something like this: </p>
+
+
+<pre>
+mirror_style release
+download_style apt
+
+work_out_debs () {
+
+        required="busybox dpkg libstdc++6 libgcc1 libc6 cdebconf
+        libdebian-installer4 zlib1g libnewt0.52 libslang2"
+
+        base="apt gpgv libncurses5 libreadline5 readline-common mktemp
+        debconf-shell debianutils makedev base-passwd whiptail
+        gnupg udev base-files debian-archive-keyring udhcpc udhcpd sysv-rc
+        util-linux module-init-tools initscripts"
+}
+
+first_stage_install () {
+        . /usr/lib/emdebian-tools/empbuilderlib
+        extract $required
+        dpkg_support
+        dummy_fstab
+        dummy_resolvconf
+        dummy_hostname
+        dummy_hosts
+        setup_devices
+        make_proc
+        make_varlog
+        make_varspool
+        info INSTCORE "Setting up dpkg"
+        x_feign_install dpkg
+        info INSTCORE "Unpacking debootstrapped environment"
+        unpack_debootstrap
+}
+
+second_stage_install () {
+        if [ -f datestring ]; then
+                TIME=`cat datestring`
+                info INSTCORE "Setting approximate time of $TIME"
+                date -s $TIME
+        fi
+        info INSTCORE "Running ldconfig..."
+        in_target /sbin/ldconfig
+        info INSTCORE "Running depmod..."
+        in_target depmod
+        setup_cdebconf
+        info INSTCORE "Configuring ..."
+        in_target dpkg --configure -a
+        if [ ! -e "$TARGET/etc/localtime" ]; then
+                ln -sf /usr/share/zoneinfo/UTC "$TARGET/etc/localtime"
+        fi
+        if [ -f 0x97BB3B58.txt ]; then
+                rm 0x97BB3B58.txt
+        fi
+        info BASESUCCESS "Emdebian base system installed successfully."
+}
+</pre>
+
+  <p>The main work is carried out in <tt>unpack_debootstrap</tt> which feigns the unpacking and
+    installation of the .deb packages using <tt>dpkg</tt> support <strong>but without running any
+      maintainer scripts, including preinst</strong>. This allows emsandbox to create an almost
+    functional filesystem image, leaving only the absolute minimum amount of work to be done on
+    the target device before rebooting. </p>
+
+  <p>Via support for <tt>emsecondstage</tt>, each stage can be customised with your own shell
+    functions - <strong>as long as no bashisms are used</strong>. Each emsandbox filesystem image
+    can also use a different <tt>suite&nbsp;script</tt> so each machine:variant has full support
+    over the contents of the root filesystem. </p>
+
+  <p>Note that none of the emsandbox / empbuilderlib support functions are available within
+    <tt>second_stage_install&nbsp;()</tt> - only standard debootstrap functions exist (and those are
+    removed once <tt>debootstrap&nbsp;--second-stage</tt> completes). </p>
+
+
+
+<h4 id="approximate_time_and_SecureApt">approximate time and SecureApt</h4>
+
+
+  <p>The above snippet includes a time handler in <tt>second_stage_install&nbsp;()&nbsp;</tt> which
+    is a bit of an oddity. It uses support in emsandbox to create an approximate time string within
+    the filesystem image as a file called <tt>/datestring</tt>. The intention is to allow a sensible,
+    approximate, time to be set on the device without requiring network access. Otherwise, getting
+    the correct time would be the only stage in the installation that would require a network
+    connection. <tt>ntp</tt> is available to any Emdebian device and includes <tt>ntpdate-debian</tt>
+    so that once a working network connection becomes available, the current time can be set
+    precisely. Without even an approximate time, various parts of the Debian setup can get confused -
+    especially relating to GnuPG keys or signature verification (gpg doesn't like timestamps in 1970
+    when verifying signatures made 30 years 'into the future'). This support is needed for
+    <a href="https://wiki.debian.org/SecureApt">SecureApt</a> configuration. </p>
+
+  <p>0x97BB3B58.txt is the Emdebian Archive Keyring as gpg armoured text, it is added to
+    <tt>apt-key</tt> during the postinst configuration of the <tt>debian-archive-keyring</tt> package
+    in Emdebian to provide <a href="https://wiki.debian.org/SecureApt">SecureApt</a> support. </p>
+
+  <p><tt>/datestring</tt> uses a time format supported by the busybox implementation of
+    <tt>date</tt>: </p>
+
+<pre>
+        date +%m%d%H%M%Y
+</pre>
+
+
+
+<h4 id="Installing_the_image">Installing the image</h4>
+
+
+  <p>Current methods involve using existing support on the device (in my case a balloon3). The
+    intention is to be able to support any method of copying the filesystem image tarball onto the
+    device, including using the Debian Installer. For this to work, all necessary setup needs to
+    be retained within the packages themselves or the <tt>suite&nbsp;script</tt> via emsandbox
+    machine:variant support. </p>
+
+  <p>D-I would then handle the filesystem image created by emsandbox and calls
+    <tt>emsecondstage</tt> which is installed by emsandbox to merge the machine:variant support
+    with <tt>debootstrap&nbsp;--second-stage</tt>. D-I would use the interactive form of cdebconf
+    support. For this to work, Emdebian needs to rebuild the D-I udebs so that the D-I code itself
+    is reduced in size. </p>
+
+<hr>
+
+  <p> <a href="https://wiki.debian.org/CategoryEmdebian">CategoryEmdebian</a></p>
+
+
+<div id="footer">
+  <p id="pageinfo" lang="en">EmDebian/CrossDebootstrap  (last edited 2016-05-25 18:25:02 by
+    <span title="MartinTeufel"><a class="nonexistent" href="https://wiki.debian.org/MartinTeufel"
+				  title="MartinTeufel">?</a>MartinTeufel</span>)</p>
+
+<ul id="credits">
+  <li><a href="https://moinmo.in/" title="This site uses the MoinMoin Wiki software.">MoinMoin
+      Powered</a></li>
+  <li><a href="https://moinmo.in/Python" title="MoinMoin is written in Python.">Python Powered</a></li>
+  <li>Debian Wiki <a href="https://wiki.debian.org/Teams/DebianWiki">team</a>, <a
+      href="https://bugs.debian.org/wiki.debian.org">bugs</a> and
+    <a href="https://git.debian.org/?p=collab-maint/wiki.debian.org.git;a=summary">config</a>
+    available.</li>
+  <li>Hosting provided by <a href="https://www.dg-i.net/">Dembach Goo Informatik GmbH &amp; Co
+      KG</a></li>
+</ul>
+

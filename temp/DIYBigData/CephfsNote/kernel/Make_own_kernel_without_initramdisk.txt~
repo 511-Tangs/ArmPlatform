@@ -1,0 +1,9 @@
+1. Get VM kernel version
+wget -c "https://cdn.kernel.org/pub/linux/kernel/v4.x/linux-4.9.36.tar.xz"
+
+2. decompress kernel file
+tar -Jxvf linux-4.9.36.tar.xz 
+
+3. Backup origin kernel source
+
+cp -a linux-4.9.36 linux-4.9.36.orig 

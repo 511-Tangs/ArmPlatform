@@ -1,0 +1,17 @@
+wget http://download.qemu-project.org/qemu-2.9.0.tar.xz
+sudo tar -zxvf /src/fs/rootfs/devuan-armhf-defaultrootfs.tgz -C rootfs/
+sudo tar -Jxvf qemu-src/qemu-2.9.0.tar.xz -C rootfs/tmp/
+sudo dd if=/dev/zero of=./rootfs/var/swap bs=1M count=4096 
+sudo mkswap rootfs/var/swap 
+cat<<EOF| sudo chroot rootfs/
+mount -t proc proc /proc
+mount -t sysfs sys /sys
+mount -o bind /dev /dev
+mount -o bind /dev/pts /dev/pts
+EOF
+sudo chroot rootfs
+cd /tmp/
+apt-get update ;apt-get install build-essential git libtool pkg-config intltool-debian flex bison
+
+apt-get install libaio-dev libbluetooth-dev libbrlapi-dev libbz2-dev libcap-dev libcap-ng-dev libcurl4-gnutls-dev libgtk-3-dev libibverbs-dev libjpeg62-turbo-dev libncurses5-dev librbd-dev librdmacm-dev libsasl2-dev libsdl1.2-dev libseccomp-dev libsnappy-dev libssh2-1-dev libvde-dev libvdeplug-dev libvte-2.90-dev libxen-dev liblzo2-dev valgrind xfslibs-dev libnfs-dev libiscsi-dev libncursesw5-dev vde2 
+

@@ -1,0 +1,634 @@
+<HTML>
+  <HEAD><Title>A Tiny Cloud For BigData</Title></HEAD>
+  <Body>
+
+    <h3>Good News</h3>
+
+     <P> Since the beginning of August 2017, we have been trying to stabilize our 
+         tiny cloud.  Up to now, (Nov 4 2017), I think we have already had a rather 
+         stable cloud environment.  A few quirks here and there are expected and, 
+         with your help, we will try our best to eliminate them.  Two or three years 
+         would be a reasonable time span.
+
+     <P> In order for our students (graduate and undergraduate, alike) to get used 
+         to arm based computing environment, in 511, ac02 upto ac06 are replaced by 
+         odroid-xu4 based hosts.  Also, the public services are offered through 
+         the av02 upto av06 (kvm based) VMs.  We encourage everybody to login and 
+         play with it.  Your participations and feedbacks are deeply appreciated.
+
+     <P> The details log can be found in: <a href="./MyNote.html" target="_b">here</a>.
+         In the beginning, you may feel its contents is unintelligible.  Get used to 
+         it, gradually, you may find <b>dmesg</b> is a rather friendly tool for 
+         depicting a live system.
+    <h3>Advantages</h3>
+
+<OL>
+  <LI> NT$ 10,000 for 1TB storage space, upto 180 TBs in the 192.168.*.* IP range.  
+         And inside this cloud, add more computing slaves, NT$ 7,000 each, we can 
+         reasonably have as many extra (small or medium sized) computing clusters 
+         as possible.  And <b>Best of all:</b> We can clone as many such clouds as 
+         we wish.
+
+  <LI> Redundancy
+
+  <LI> The nature of plug and play.
+
+  <LI> Energy and space efficiency.
+
+  <LI> The spare parts are not too expensive to stock.
+</OL>   
+
+    <h3>Cons</h3> 
+
+<OL>
+  <LI> Arm based computing environment is <b>not</b> standardized.  
+
+       <P> The Linux kernel source is usually maintained by the SBC, single board 
+           computer, vendor.  For the reason of best hardware performance, we tend 
+           to compile our own linux kernel via the source fetched from the vendor's 
+           website.  
+
+       <P> Each SBC has its own built-in devices. The 
+<a href="https://github.com/hardkernel/linux/blob/odroidxu4-4.9.y/arch/arm/boot/dts/exynos5422-odroidxu4.dts" 
+target="_b">dts (device tree source)</a>, also <a href="https://github.com/hardkernel/linux/blob/odroidxu4-4.9.y/arch/arm/boot/dts/exynos5422-odroidxu4-kvm.dts" 
+target="_b">XU4 board device tree source for KVM</a>, are device tree source anchors 
+relevant to odroid-xu4 SBC.  Unlike x86_64 linux kernel, when booting SBC, after loading 
+linux kernel, initrd (initial ram disk), we also need to load dtb, device tree blob or 
+ device tree binary, compiled during linux kernel compilation process.  
+
+<PRE>
+ac02:~$ ls -l /boot/dtb/*
+-rw-r--r-- 1 root root 42882 Oct 11 16:15 /boot/dtb/exynos5250-arndale.dtb
+-rw-r--r-- 1 root root 40521 Oct 11 16:15 /boot/dtb/exynos5250-smdk5250.dtb
+-rw-r--r-- 1 root root 45770 Oct 11 16:15 /boot/dtb/exynos5250-snow.dtb
+-rw-r--r-- 1 root root 45806 Oct 11 16:15 /boot/dtb/exynos5250-snow-rev5.dtb
+-rw-r--r-- 1 root root 42568 Oct 11 16:15 /boot/dtb/exynos5250-spring.dtb
+-rw-r--r-- 1 root root 14205 Oct 11 16:15 /boot/dtb/exynos5260-xyref5260.dtb
+-rw-r--r-- 1 root root 29540 Oct 11 16:15 /boot/dtb/exynos5410-odroidxu.dtb
+-rw-r--r-- 1 root root 22864 Oct 11 16:15 /boot/dtb/exynos5410-smdk5410.dtb
+-rw-r--r-- 1 root root 51803 Oct 11 16:15 /boot/dtb/exynos5420-arndale-octa.dtb
+-rw-r--r-- 1 root root 63287 Oct 11 16:15 /boot/dtb/exynos5420-peach-pit.dtb
+-rw-r--r-- 1 root root 52189 Oct 11 16:15 /boot/dtb/exynos5420-smdk5420.dtb
+-rw-r--r-- 1 root root 62360 Oct 11 16:15 /boot/dtb/exynos5422-odroidxu3.dtb
+-rw-r--r-- 1 root root 61381 Oct 11 16:15 /boot/dtb/exynos5422-odroidxu3-lite.dtb
+-rw-r--r-- 1 root root 61570 Oct 11 16:15 /boot/dtb/exynos5422-odroidxu4.dtb
+-rw-r--r-- 1 root root 61714 Oct 11 16:15 /boot/dtb/exynos5422-odroidxu4-kvm.dtb
+-rw-r--r-- 1 root root  7744 Oct 11 16:15 /boot/dtb/exynos5440-sd5v1.dtb
+-rw-r--r-- 1 root root  8277 Oct 11 16:15 /boot/dtb/exynos5440-ssdk5440.dtb
+-rw-r--r-- 1 root root 63750 Oct 11 16:15 /boot/dtb/exynos5800-peach-pi.dtb
+ac02:~$ cat /boot/boot.cmd | grep 'load mmc ${mmcbootdev}:${mmcbootpart}'
+      . 
+      . 
+      . 
+load mmc ${mmcbootdev}:${mmcbootpart} ${kerneladdr} zImage
+load mmc ${mmcbootdev}:${mmcbootpart} ${initrdaddr} uInitrd
+load mmc ${mmcbootdev}:${mmcbootpart} ${dtbaddr} dtb/exynos5422-odroidxu4-kvm.dtb
+av02:~$ ls -l /boot/dtb/exynos5422-odroidxu4.dtb
+-rw-r--r-- 1 root root 54606 Sep 29 01:27 /boot/dtb/exynos5422-odroidxu4.dtb
+</PRE>
+
+
+       <P> For mobility reason, in our tiny cloud, all services, internal or external 
+           alike, will be provided by all types of VMs.  For better performace reason, 
+           all of our VMs will be running on the fastest disk available today, and ssd 
+           is the solely candidate we have found so far.  After booting, It is 
+           represented by the <code>/dev/sda</code> device and mounted on the 
+           <code>/src4</code> directory in any host in our cloud.  The types of VMs 
+           are enormous.  
+
+       <P> For easy of maintenance, the linux kernels for all of our 
+           VMs will be based on the release provided by devuan:
+           <a href="http://d1m/merged/pool/DEBIAN/main/l/linux/" target="_b">
+linux-image-4.9.0-4-armmp-lpae_4.9.51-1_armhf.deb</a>, mp-lpae: multiplatform, large 
+           physical address extension.  Or say, we delegate our software maintenance 
+           job to devuan.  Unlike the physical host, when you boot a VM by specifying 
+           the machine model to be "virt", it uses the built-in (abstracted) device 
+           tree. 
+
+<PRE>
+$ qemu-system-arm -M virt ....
+</PRE>
+
+<P> Qemu's machine "virt" creates a device tree on the fly (implemented in <a target="_b"
+ href="http://git.qemu.org/?p=qemu.git;a=blob;f=hw/arm/virt.c">virt.c</a>).  If you 
+wonder how the device tree looks like you can browse it under /proc/device-tree in 
+your guest, (a symbolic link to /sys/firmware/devicetree/base).  The following is the 
+output of the <b>dmesg</b> command from av02, an arm VM
+
+<PRE>
+av02:~$ sudo dmesg
+[    0.000000] Booting Linux on physical CPU 0x0
+[    0.000000] Linux version 4.9.0-4-armmp-lpae (debian-kernel@lists.debian.org) (gcc version 6.3.0 20170516 (Debian 6.3.0-18) ) #1 SMP Debian 4.9.51-1 (2017-09-28)
+[    0.000000] CPU: ARMv7 Processor [412fc0f3] revision 3 (ARMv7), cr=30c5387d
+[    0.000000] CPU: div instructions available: patching division code
+[    0.000000] CPU: PIPT / VIPT nonaliasing data cache, PIPT instruction cache
+[    0.000000] OF: fdt:Machine model: linux,dummy-virt
+[    0.000000] efi: Getting EFI parameters from FDT:
+[    0.000000] efi: UEFI not found.
+[    0.000000] cma: Reserved 16 MiB at 0x000000007f000000
+[    0.000000] Memory policy: Data cache writealloc
+[    0.000000] On node 0 totalpages: 262144
+[    0.000000] free_area_init_node: node 0, pgdat c10e5c40, node_mem_map ef6f9000
+[    0.000000]   DMA zone: 1728 pages used for memmap
+[    0.000000]   DMA zone: 0 pages reserved
+[    0.000000]   DMA zone: 196608 pages, LIFO batch:31
+[    0.000000]   HighMem zone: 65536 pages, LIFO batch:15
+[    0.000000] psci: probing for conduit method from DT.
+[    0.000000] psci: PSCIv0.2 detected in firmware.
+[    0.000000] psci: Using standard PSCI v0.2 function IDs
+[    0.000000] psci: Trusted OS migration not required
+[    0.000000] percpu: Embedded 14 pages/cpu @ef6c7000 s27724 r8192 d21428 u57344
+[    0.000000] pcpu-alloc: s27724 r8192 d21428 u57344 alloc=14*4096
+[    0.000000] pcpu-alloc: [0] 0 [0] 1 [0] 2 
+[    0.000000] Built 1 zonelists in Zone order, mobility grouping on.  Total pages: 260416
+[    0.000000] Kernel command line: console=ttyAMA0 root=/dev/nfs nfsroot=140.120.8.99:/nfs/vm-rfs/av-rfs ip=140.120.8.202::140.120.8.1:255.255.255.0::eth0 rdinit=/init 
+[    0.000000] PID hash table entries: 4096 (order: 2, 16384 bytes)
+[    0.000000] Dentry cache hash table entries: 131072 (order: 7, 524288 bytes)
+[    0.000000] Inode-cache hash table entries: 65536 (order: 6, 262144 bytes)
+[    0.000000] Memory: 978584K/1048576K available (8192K kernel code, 1025K rwdata, 2256K rodata, 2048K init, 338K bss, 53608K reserved, 16384K cma-reserved, 245760K highmem)
+[    0.000000] Virtual kernel memory layout:
+                   vector  : 0xffff0000 - 0xffff1000   (   4 kB)
+                   fixmap  : 0xffc00000 - 0xfff00000   (3072 kB)
+                   vmalloc : 0xf0800000 - 0xff800000   ( 240 MB)
+                   lowmem  : 0xc0000000 - 0xf0000000   ( 768 MB)
+                   pkmap   : 0xbfe00000 - 0xc0000000   (   2 MB)
+                   modules : 0xbf000000 - 0xbfe00000   (  14 MB)
+                     .text : 0xc0008000 - 0xc0a00000   (10208 kB)
+                     .init : 0xc0e00000 - 0xc1000000   (2048 kB)
+                     .data : 0xc1000000 - 0xc1100464   (1026 kB)
+                      .bss : 0xc1102000 - 0xc1156bcc   ( 339 kB)
+[    0.000000] Hierarchical RCU implementation.
+[    0.000000] 	Build-time adjustment of leaf fanout to 32.
+[    0.000000] 	RCU restricting CPUs from NR_CPUS=8 to nr_cpu_ids=3.
+[    0.000000] RCU: Adjusting geometry for rcu_fanout_leaf=32, nr_cpu_ids=3
+[    0.000000] NR_IRQS:16 nr_irqs:16 16
+[    0.000000] GICv2m: range[mem 0x08020000-0x08020fff], SPI[80:143]
+[    0.000000] arm_arch_timer: Architected cp15 timer(s) running at 24.00MHz (virt).
+[    0.000000] clocksource: arch_sys_counter: mask: 0xffffffffffffff max_cycles: 0x588fe9dc0, max_idle_ns: 440795202592 ns
+[    0.000003] sched_clock: 56 bits at 24MHz, resolution 41ns, wraps every 4398046511097ns
+[    0.000011] Switching to timer-based delay loop, resolution 41ns
+[    0.000547] Console: colour dummy device 80x30
+[    0.000567] Calibrating delay loop (skipped), value calculated using timer frequency.. 48.00 BogoMIPS (lpj=120000)
+[    0.000577] pid_max: default: 32768 minimum: 301
+[    0.000865] Security Framework initialized
+[    0.000874] Yama: disabled by default; enable with sysctl kernel.yama.*
+[    0.000911] AppArmor: AppArmor disabled by boot time parameter
+[    0.000974] Mount-cache hash table entries: 2048 (order: 1, 8192 bytes)
+[    0.000981] Mountpoint-cache hash table entries: 2048 (order: 1, 8192 bytes)
+[    0.002208] CPU: Testing write buffer coherency: ok
+[    0.002251] ftrace: allocating 27513 entries in 81 pages
+[    0.040941] CPU0: thread -1, cpu 0, socket 0, mpidr 80000000
+[    0.040960] Setting up static identity map for 0x40200000 - 0x40200098
+[    0.044986] EFI services will not be available.
+[    0.064672] CPU1: thread -1, cpu 1, socket 0, mpidr 80000001
+[    0.083766] CPU2: thread -1, cpu 2, socket 0, mpidr 80000002
+[    0.083942] Brought up 3 CPUs
+[    0.083957] SMP: Total of 3 processors activated (144.00 BogoMIPS).
+[    0.083963] CPU: All CPU(s) started in SVC mode.
+[    0.085047] devtmpfs: initialized
+[    0.087438] VFP support v0.3: implementor 41 architecture 4 part 30 variant f rev 0
+[    0.087677] clocksource: jiffies: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 9556302231375000 ns
+[    0.087691] futex hash table entries: 1024 (order: 4, 65536 bytes)
+[    0.088322] pinctrl core: initialized pinctrl subsystem
+[    0.089426] NET: Registered protocol family 16
+[    0.092251] DMA: preallocated 256 KiB pool for atomic coherent allocations
+[    0.093481] No ATAGs?
+[    0.093495] hw-breakpoint: debug architecture 0x0 unsupported.
+[    0.093966] Serial: AMBA PL011 UART driver
+[    0.102335] 9000000.pl011: ttyAMA0 at MMIO 0x9000000 (irq = 54, base_baud = 0) is a PL011 rev1
+[    0.241585] console [ttyAMA0] enabled
+[    0.263850] HugeTLB registered 2 MB page size, pre-allocated 0 pages
+[    0.269843] vgaarb: loaded
+[    0.271383] media: Linux media interface: v0.10
+[    0.272819] Linux video capture interface: v2.00
+[    0.274481] pps_core: LinuxPPS API ver. 1 registered
+[    0.276009] pps_core: Software ver. 5.3.6 - Copyright 2005-2007 Rodolfo Giometti <giometti@linux.it>
+[    0.278834] PTP clock support registered
+[    0.281485] clocksource: Switched to clocksource arch_sys_counter
+[    0.339751] VFS: Disk quotas dquot_6.6.0
+[    0.341197] VFS: Dquot-cache hash table entries: 1024 (order 0, 4096 bytes)
+[    0.356611] NET: Registered protocol family 2
+[    0.358965] TCP established hash table entries: 8192 (order: 3, 32768 bytes)
+[    0.361394] TCP bind hash table entries: 8192 (order: 4, 65536 bytes)
+[    0.364106] TCP: Hash tables configured (established 8192 bind 8192)
+[    0.366454] UDP hash table entries: 512 (order: 2, 16384 bytes)
+[    0.368755] UDP-Lite hash table entries: 512 (order: 2, 16384 bytes)
+[    0.371106] NET: Registered protocol family 1
+[    0.372694] PCI: CLS 0 bytes, default 64
+[    0.373077] Unpacking initramfs...
+[    1.571584] Freeing initrd memory: 27596K
+[    1.572947] kvm [1]: HYP mode not available
+[    1.575885] audit: initializing netlink subsys (disabled)
+[    1.577832] audit: type=2000 audit(1.505:1): initialized
+[    1.580572] workingset: timestamp_bits=14 max_order=18 bucket_order=4
+[    1.583098] zbud: loaded
+[    1.587985] bounce: pool size: 64 pages
+[    1.589412] Block layer SCSI generic (bsg) driver version 0.4 loaded (major 247)
+[    1.592068] io scheduler noop registered
+[    1.593281] io scheduler deadline registered
+[    1.594786] io scheduler cfq registered (default)
+[    1.599736] pl061_gpio 9030000.pl061: PL061 GPIO chip @0x0000000009030000 registered
+[    1.605363] Serial: 8250/16550 driver, 4 ports, IRQ sharing disabled
+[    1.608986] Serial: AMBA driver
+[    1.612337] libphy: Fixed MDIO Bus: probed
+[    1.614188] mousedev: PS/2 mouse device common for all mice
+[    1.617341] rtc-pl031 9010000.pl031: rtc core: registered pl031 as rtc0
+[    1.621320] ledtrig-cpu: registered to indicate activity on CPUs
+[    1.624041] NET: Registered protocol family 10
+[    1.626187] mip6: Mobile IPv6
+[    1.627261] NET: Registered protocol family 17
+[    1.628607] mpls_gso: MPLS GSO support
+[    1.629786] ThumbEE CPU extension supported.
+[    1.631072] Registering SWP/SWPB emulation handler
+[    1.633416] registered taskstats version 1
+[    1.634833] zswap: loaded using pool lzo/zbud
+[    1.636576] ima: No TPM chip found, activating TPM-bypass!
+[    1.638909] input: gpio-keys as /devices/platform/gpio-keys/input/input0
+[    1.641182] rtc-pl031 9010000.pl031: setting system clock to 2017-11-21 03:04:15 UTC (1511233455)
+[    1.644196] sr_init: No PMIC hook to init smartreflex
+[    1.645785] sr_init: platform driver register failed for SR
+[    1.647757] PM: Hibernation image not present or could not be loaded.
+[    1.648062] uart-pl011 9000000.pl011: no DMA platform data
+[    1.651583] Freeing unused kernel memory: 2048K
+[    1.701613] systemd-udevd[77]: starting version 215
+[    1.704694] random: systemd-udevd: uninitialized urandom read (16 bytes read)
+[    1.819668]  vda: vda1 vda2 vda3 vda4
+[    1.975807] random: fast init done
+[    1.983213] FS-Cache: Loaded
+[    1.995463] RPC: Registered named UNIX socket transport module.
+[    1.997474] RPC: Registered udp transport module.
+[    1.998905] RPC: Registered tcp transport module.
+[    2.000445] RPC: Registered tcp NFSv4.1 backchannel transport module.
+[    2.013387] FS-Cache: Netfs 'nfs' registered for caching
+[    7.110918] systemd-udevd[277]: starting version 215
+[    8.154982] 9pnet: Installing 9P2000 support
+[   13.094631] EXT4-fs (vda1): mounted filesystem with ordered data mode. Opts: (null)
+[   13.103538] EXT4-fs (vda2): mounted filesystem with ordered data mode. Opts: (null)
+[   13.112328] EXT4-fs (vda3): mounted filesystem with ordered data mode. Opts: (null)
+[   13.120477] EXT4-fs (vda4): mounted filesystem with ordered data mode. Opts: (null)
+[   16.092845] Installing knfsd (copyright (C) 1996 okir@monad.swb.de).
+[   23.308047] ip_tables: (C) 2000-2006 Netfilter Core Team
+[   23.490728] 9p: Installing v9fs 9p2000 file system support
+[   23.493081] FS-Cache: Netfs '9p' registered for caching
+[  501.666825] random: crng init done
+</PRE>
+</p>
+
+  <LI> It can't be tweaked.
+
+       <P> The hardware of SBC is fixed on arrival. You can not add more ram or 
+           ethercard to it, as you can in the x86 based machines.  Hence, very 
+           often, an SBC machine will be a single purpose gadget.  Case in point: 
+           if you use an odroid-xu4 box as a ceph osd, (object storage device), 
+           the maximum disk it can carry is 1T, since, as a rule of thumb, the 
+           management data for 1G storage needs 1M memory and an odroid-xu4 box 
+           has only 2GB built-in memory. 
+
+<PRE>
+ceph-osd0:~$ df
+Filesystem     1K-blocks    Used Available Use% Mounted on
+udev               10240       0     10240   0% /dev
+tmpfs              76480     104     76376   1% /run
+/dev/vda2       11831544 6628640   4582368  60% /
+tmpfs               5120       0      5120   0% /run/lock
+tmpfs             152960       0    152960   0% /run/shm
+/dev/vda1         482922  190144    267844  42% /boot
+/dev/vdb       976762584 5287764 969392812   1% /var/lib/ceph/osd/ceph-0
+usr-local        5095040  122908   4693604   3% /usr/local
+hsu@ceph-osd0:~$ ls -l /var/lib/ceph/osd/ceph-0
+total 5242916
+drwxr-xr-x 1 ceph ceph          0 Nov  2 17:12 async_snap_test
+-rw-r--r-- 1 ceph ceph         37 Nov  2 17:11 ceph_fsid
+drwxr-xr-x 1 ceph ceph       5282 Nov  3 22:00 current
+-rw-r--r-- 1 ceph ceph         37 Nov  2 17:11 fsid
+-rw-r--r-- 1 ceph ceph 5368709120 Nov  6 10:11 journal
+-rw------- 1 ceph ceph         56 Nov  2 17:11 keyring
+-rw-r--r-- 1 ceph ceph         21 Nov  2 17:11 magic
+-rw-r--r-- 1 ceph ceph          6 Nov  2 17:11 ready
+drwxr-xr-x 1 ceph ceph         26 Nov  2 17:11 snap_1
+drwxr-xr-x 1 ceph ceph         42 Nov  2 17:11 snap_2
+-rw-r--r-- 1 ceph ceph          4 Nov  2 17:11 store_version
+-rw-r--r-- 1 ceph ceph         53 Nov  2 17:11 superblock
+drwxr-xr-x 1 ceph ceph          0 Nov  2 17:12 sync_snap_test
+-rw-r--r-- 1 ceph ceph          0 Nov  2 17:11 sysvinit
+drwxr-xr-x 1 ceph ceph          0 Nov  2 17:12 test_subvol
+-rw-r--r-- 1 ceph ceph         10 Nov  2 17:11 type
+-rw-r--r-- 1 ceph ceph          2 Nov  2 17:11 whoami
+</PRE>
+  <LI> Kernel and Software customizations are a necessity.
+
+    <OL>
+      <LI>Linux Kernel customization
+
+          <P> The customization for odroid-xu4 linux kernel was necessary upto 4.9.46, 
+              (Aug 31, 2017).  Since 4.9.47, we may download the source of linux kernel 
+              from <a target="_b" 
+ href="https://github.com/hardkernel/linux/tree/odroidxu4-4.9.y">hardkernel/linux</a> 
+              and compile it directly.
+      <LI>Qemu customization
+
+          <P> 
+      <LI>U-boot customization
+
+          <P> 
+      <LI>Emacs customization
+
+          <P> 
+      <LI>Virtual Machine Installation
+
+<P> <b>Note: (11/12/2017)</b> I spent last few days to recall my experiences from the 
+    last two years and two hours to successfully install and test ArmVirt.  In this 
+    session, we also learn how to install a real operating system, although we are 
+    actually installing a VM.
+
+<PRE>
+ # This installation is done on x86 machine, <b>qemu-system-arm</b> command is used to 
+ # emulate armhf VM in the x86 environment.
+ $ mkdir /src4/KVM/ArmVirt; cd /src4/KVM/ArmVirt
+ # Debian current installer is newer than Devuan.
+ $ wget -O installer-vmlinuz http://http.us.debian.org/debian/dists/jessie/main/installer-armhf/current/images/netboot/vmlinuz
+ $ wget -O installer-initrd.gz http://http.us.debian.org/debian/dists/jessie/main/installer-armhf/current/images/netboot/initrd.gz 
+ # The following link is the current installer-armhf, newer than jessie one.  But, We 
+ # have rather bad experiences and awful feeling about debian software after jessie. 
+ # Even though we chose jessie one, <b>systemd</b> still sneaked into our installation.
+ # To our teaching assistants: Help us get rid of it!  Thanks.
+ # <a href="http://http.us.debian.org/debian/dists/stable/main/installer-armhf/current/images/netboot/" target="_b">stable installer-armhf</a>
+ # The next Devuan package can not be installed in x86 machine, wrong architecture!
+ # <a href="http://d1m/merged/pool/DEBIAN/main/d/debian-installer/" target="_b">Dev1 Installer</a>
+ # And there is no installer-armhf in our devuan mirror.
+ $ qemu-img create Arm-Guest.img 6G 
+ # Make sure the space we got is clean and its size is 6G.
+ $ dd if=/dev/zero of=./Arm-Guest.img bs=1M count=6000 
+ $ qemu-system-arm -M virt -m 1024 \
+     -kernel installer-vmlinuz \
+     -initrd installer-initrd.gz \
+     -drive if=none,file=./Arm-Guest.img,format=raw,id=hd \
+     -device virtio-blk-device,drive=hd \
+     -netdev user,id=mynet \
+     -device virtio-net-device,netdev=mynet \
+     -nographic -no-reboot
+ # Timezone: other, asia, Taiwan 
+ # Mirror: Taiwan, nchc
+ # User Full Name:  Felix hsu 
+ # User account:    hsu
+ # Manual partition disk 
+ #    1st 512 MB    /boot
+ #    2nd 5.2 GB    /
+ #    3rd rest      /swap
+ #################################################################################
+ # Sorry, systemd was installed, no good.  Need to get rid of it.
+ # There are a few cavets about Debian Jessie
+ #    1st: Without swapping space, installation may fail. The swapping space 
+ #         really depends on the purpose of VM.
+ #    2nd: The ether card maybe renamed without warning. After booting our ArmVirt,
+ #         I checked the ether card, it is still called eth0.  But, how about next 
+ #         boot? I am not so sure.
+ #    3rd: Newer kernel (linux 4.1 up to 4.8) may fail to boot by qemu-system-arm.
+ #         At least, it did happen on Rpi2. Also, on my Rpi2 box, I broke it after 
+ #         system upgrade, and never tried to repair my Rpi2.
+ #    4th: The kernel (3.16) is too old, linux kernels 4.9.50 and up are smoother
+ #################################################################################
+ # Also choose the Xface X window manager, default SSH server, and standard system 
+ # utilities are included.
+ #################################################################################
+ # Installing <b>libguestfs-tools</b> needs to install too many extra packages.  It is 
+ # not worthwhile.  Using "$ sudo fdisk -l Arm-Guest.img" to check offset, mount its
+ # boot partition to /mnt/tmp and copy its linux kernel and initrd to the directory
+ # /src4/KVM/ArmVirt would be easier.   
+ $ sudo fdisk -l Arm-Guest.img
+[sudo] password for hsu: 
+         . 
+         . 
+         . 
+Device         Boot    Start      End  Sectors  Size Id Type
+Arm-Guest.img1          2048   999423   997376  487M 83 Linux
+Arm-Guest.img2        999424 11155455 10156032  4.9G 83 Linux
+Arm-Guest.img3      11155456 12285951  1130496  552M 82 Linux swap / Solaris
+ $ BootOffset=$((2048 * 512))
+ $ echo $BootOffset
+1048576
+ $ RootOffset=$((999424 * 512))
+ $ echo $RootOffset
+511705088
+ $ sudo mount -o loop,offset=1048576 ./Arm-Guest.img /mnt/tmp 
+ $ cp /mnt/tmp/initrd.img-3.16.0-4-armmp-lpae .
+ $ cp /mnt/tmp/vmlinuz-3.16.0-4-armmp-lpae .
+ $ ls -l
+total 6174748
+-rw-r--r-- 1 hsu hsu 6291456000 Nov 12 20:39 Arm-Guest.img
+-rw-r--r-- 1 hsu hsu   12831419 Nov 12 20:38 initrd.img-3.16.0-4-armmp-lpae
+-rw-r--r-- 1 hsu hsu   12174685 Jul 20 17:26 installer-initrd.gz
+-rw-r--r-- 1 hsu hsu    3187480 Jul 20 17:25 installer-vmlinuz
+-rw-r--r-- 1 hsu hsu    3270520 Nov 12 20:38 vmlinuz-3.16.0-4-armmp-lpae
+ $ sudo umount /mnt/tmp 
+ # It took me 2 hours to finish the installation.
+ $ qemu-system-arm -M virt -m 1024 \
+       -kernel vmlinuz-3.16.0-4-armmp-lpae \
+       -initrd initrd.img-3.16.0-4-armmp-lpae \
+       -append 'root=/dev/vda2' \
+       -drive if=none,file=./Arm-Guest.img,format=raw,id=hd \
+       -device virtio-blk-device,drive=hd \
+       -netdev user,id=mynet \
+       -device virtio-net-device,netdev=mynet \
+       -nographic
+ # I did boot this ArmVirt successfully in x86_64 machine.
+</PRE>  
+
+<P> A few things left to do is:
+
+<OL>
+  <LI> The fake init process is impersonated by <b>systemd</b>. We must replace it by 
+       the genuine <b>init</b> package.  But this need the network to be ready.
+  <LI> Write a shell script to configure this VM raw image and produce the scripts 
+       for booting and shuting down this VM.  Modifying our trusted Configure-KVM 
+       shell script will be better solution, I think.
+  <LI> The performance of this arm-based VM running in X86_64 environment would be 
+       rather sluggish, since <b>qemu-system-arm</b> is emulating arm CPU on our 
+       X86_64 environment.
+</OL>
+
+          <P> The emmc storage, ssd disk, (I think some of USB disks, too, since they 
+              also use uas [USB Attached SCSI] interface), use ssd format to read/write 
+              disk.  The effect is that the performance deteriorates rapidly, if you 
+              create and delete files on these disks often, since it always find the 
+              blank sectors, first.  The end result is, eventually, the file storage 
+              sectors won't be sequential anymore.  Hence, We prefer to cross-compile 
+              software for arm-based SBCs if possible at all. On the other hand, we 
+              have rather decent x86 environment, such as enough memory and disk space.  
+              And very fast CPU.
+
+          <P> After software compilation, before installing them to SBC, if possible 
+              at all, we will test it on our emulated ArmVirt, first.  So, even if 
+              only for the software testing purpose, this new VM is really worthwile.
+
+          <P> By the way, there are more than 50 vendors selling arm-based SBCs.  And 
+              Samsung is one of them and it owns 28 models.
+
+<PRE>
+$ ls -l /boot/dtb-4.9.0-4-armmp-lpae/*dtb | wc -l
+417
+av02:~$ ls -l /boot/dtb-4.9.0-4-armmp-lpae | grep exyn | wc -l
+28
+</PRE>
+
+          <P> <b>Reference:</b> <a href="./InstallingDebianOnARMVirtBoard.html" 
+              target="_b">Installing Devuan on ARM "virt" board</a>
+    </OL>
+  <LI> I don't like products produced by Samsung.
+
+          <P> Anything produced by it, its quality is to be desired.  (Just recall the 
+              famous G7 event!)  But, I must admit, up to now (11/17/2017), odroid-xu4 
+              is the only candidate!
+
+          <P> <b>Notes: 11/23/2017 (3 out 0f 15)</b>
+
+      <OL>
+         <LI>  One was damaged by erroneous I/O
+         <LI>  The other has defect USB3.0 port
+         <LI>  One was damaged by electricity outage (on 11/19/2017)
+      </OL></P> 
+
+  <LI> Trial and error.
+</OL>   
+
+    <h3>A Tiny Cloud For BigData</h3>
+
+    <OL>
+      <LI><h4>Our Clouds: An Overall Description</h4>
+
+          <P><h5>We have two cloud types:</h5>
+
+            <UL>
+              <LI> Cloud For OpenSystem Courses: (ac02-ac06)
+
+<P> Maybe the term "cluster" would be more appropriate.  And, probably, we will not 
+    artificially turn it to be a cloud.
+
+<P> Last checked on Nov 12, 2017.  Both the hosts (ac02-ac06) and VMs (av02-av06) are 
+    healthy.  We can clean up <code>/src2/KVM</code> and give each VM two more cpus.
+
+<PRE>
+av02:~$ df /
+Filesystem                      1K-blocks    Used Available Use% Mounted on
+140.120.8.99:/nfs/vm-rfs/av-rfs   8191488 2096384   5659264  28% /
+av02:~$ uname -a
+Linux av02 4.9.0-4-armmp-lpae #1 SMP Debian 4.9.51-1 (2017-09-28) armv7l GNU/Linux
+# The original filesystem from nfs0
+nfs:~$ df /nfs/vm-rfs/av-rfs
+Filesystem     1K-blocks    Used Available Use% Mounted on
+/dev/loop0       8191416 2096364   5659240  28% /nfs/vm-rfs/av-rfs
+nfs:~$ ls -l /nfs/vm-rfs/av-rfs
+total 92
+drwxr-xr-x  2 root root  4096 Aug 13 19:55 bin
+drwxr-xr-x  4 hsu  hsu   4096 Oct 23 18:40 boot
+drwxr-xr-x  4 root root  4096 Aug 13 19:08 dev
+drwxr-xr-x 76 hsu  hsu   4096 Oct 25 16:17 etc
+drwxr-xr-x  9 root root  4096 Oct 25 16:16 home
+lrwxrwxrwx  1 root root    34 Oct 23 18:23 initrd.img -> boot/initrd.img-4.9.0-4-armmp-lpae
+lrwxrwxrwx  1 root root    34 Oct 23 18:39 initrd.img.old -> boot/initrd.img-4.9.0-4-armmp-lpae
+drwxr-xr-x 16 root root  4096 Aug 14 14:27 lib
+drwx------  2 root root 16384 Oct  7 15:26 lost+found
+drwxr-xr-x  2 root root  4096 Aug 13 19:09 media
+drwxr-xr-x  3 root root  4096 Oct 16 17:14 mnt
+drwxr-xr-x  2 root root  4096 Aug 13 19:09 opt
+drwxr-xr-x  2 root root  4096 May  9  2016 proc
+drwx------  6 root root  4096 Oct  9 19:19 root
+drwxr-xr-x 11 root root  4096 Aug 14 14:13 run
+drwxr-xr-x  2 root root  4096 Aug 25 15:52 sbin
+drwxr-xr-x  2 root root  4096 Sep 12 23:25 src1
+drwxr-xr-x  2 root root  4096 Aug 13 19:09 srv
+drwxr-xr-x  2 root root  4096 May 29  2015 sys
+drwxrwxrwt  2 root root  4096 Oct 31 10:08 tmp
+drwxr-xr-x 10 hsu  hsu   4096 Aug 21 15:57 usr
+drwxr-xr-x 11 root root  4096 Aug 25 17:00 var
+lrwxrwxrwx  1 root root    31 Oct 23 18:23 vmlinuz -> boot/vmlinuz-4.9.0-4-armmp-lpae
+lrwxrwxrwx  1 root root    31 Oct 23 18:39 vmlinuz.old -> boot/vmlinuz-4.9.0-4-armmp-lpae
+</PRE>
+
+<P> <b>Caveat:</b> A lot of our own software packages have not been ported to this 
+    cluster yet.
+
+              <LI> Cloud For BigData Laboratory: (host2 upto host6)
+
+<P> <b>Note on 11/06/2017:</b> I believed that the btrfs filesystem on the disk 
+    <code>/dev/sdb</code> of host6 was damaged.  The ceph virtual storage cluster is 
+    not completely online, yet.  I will document it after the defect is resolved.
+
+              <LI> The Glue: (nfs0)
+
+<P> <b>Note on 11/06/2017:</b> This VM is healthy.  It is running on 3 CPUs with 1G 
+    memory.
+
+<P> <b>Note on 11/12/2017:</b> The "/" filesystem of nfsganesha is too full (66%).  
+       Clean some useless backups. NFS-Ganesha Release = V2.4.1, not 2.5.3.  Why?
+
+<P> <b>Note on 11/17/2017:</b> 
+       I understand it now. Reasons: Gcc-6 is the worst compiler ever produced, and 
+       the BeLoved Debian shamelessly followed suit.  Due to insane security reason, 
+       PIE (position independent executable), PIC (position independent code) are 
+       forced on our throats by RH.  A lot of .a (archive) libraries are not PIE or 
+       PIC ready, yet. <b>libc-2.24.so</b> is a buggy C shared object library which 
+       ReadHat has no intention to fix it, (and it fits its business model).  It is 
+       buggy since 2005, (must be earlier), as far as I can recall!
+
+              <LI> Entrance of cloud: host1
+                <UL>
+                  <LI> The Gateway:
+
+<PRE>
+host1:~$ find /etc -name "*quagga*" 2>/dev/null
+/etc/rc1.d/K01quagga
+/etc/quagga
+/etc/rc0.d/K01quagga
+/etc/pam.d/quagga
+/etc/logrotate.d/quagga
+/etc/init.d/quagga
+/etc/rc2.d/S02quagga
+/etc/rc4.d/S02quagga
+/etc/rc3.d/S02quagga
+/etc/rc5.d/S02quagga
+/etc/rc6.d/K01quagga
+host1:~$ ls -l /etc/quagga
+total 12
+-rw-r----- 1 quagga quagga 991 Sep  7 15:59 daemons
+-rw-r----- 1 quagga quagga 945 Sep  7 15:59 debian.conf
+-rw-r--r-- 1 root   root   583 Sep  7 15:59 zebra.conf
+                  <LI> The shared filesystems (via nfs)
+host1:~$ fdisk -l /srv/nfs/0/NFSfilesystem0.img /srv/nfs/1/NFSfilesystem2.img
+Disk /srv/nfs/0/NFSfilesystem0.img: 200 GiB, 214748364800 bytes, 419430400 sectors
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+Disklabel type: dos
+Disk identifier: 0x249ece51
+
+Device                         Boot Start       End   Sectors  Size Id Type
+/srv/nfs/0/NFSfilesystem0.img1       2048 419430399 419428352  200G 83 Linux
+Disk /srv/nfs/1/NFSfilesystem2.img: 200 GiB, 214748364800 bytes, 419430400 sectors
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+Disklabel type: dos
+Disk identifier: 0xc0065479
+
+Device                         Boot Start       End   Sectors  Size Id Type
+/srv/nfs/1/NFSfilesystem2.img1       2048 419430399 419428352  200G 83 Linux
+</PRE>
+                </UL>
+            </UL>
+      <LI><h4>Cross Compilation</h4>
+
+          <P>For the physical <b>odroid-xu4</b> hosts, we compile our own 
+             <a href="https://github.com/hardkernel/linux/tree/odroidxu4-4.9.y" 
+             target="_b">Kernel</a>, <a href="https://git.qemu.org/qemu.git/?
+             p=qemu.git;a=tree" target="_b">Qemu</a>, and 
+             <a href="http://git.denx.de/?p=u-boot.git;a=tree" 
+             target="_b">U-Boot</a>, <a href="ftp://ftp.denx.de/pub/u-boot/" 
+             target="_b">(uboot source archives)</a>, from their sources in an 
+             <b>x86-based</b> VM
+      <LI><h4>Technical Details: Introduction To Ceph Virtual Storage</h4>
+
+          <P>
+    </OL>
+  </Body>
+</HTML>

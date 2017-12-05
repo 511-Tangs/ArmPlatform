@@ -1,0 +1,12 @@
+##### First note
+Do not using . in $PATH
+
+#### Secondary note
+
+apt-get install texinfo
+
+
+#### Thrid Note
+make qemu_arm_vexpress_defconfig ##Get vexpress defconfig
+make source
+make menuconfig

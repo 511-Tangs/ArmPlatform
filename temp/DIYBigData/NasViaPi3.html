@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head><title>Turn any hard drive into networked storage with 
+               Raspberry Pi - CNET</title>
+  </head>
+  <body>
+  <h3>Turn any hard drive into networked storage with Raspberry Pi 
+<a href="https://www.cnet.com/how-to/raspberry-pi-as-cheap-nas-solution/">(Source 
+Origin)</a></h3>
+
+   <p>A NAS solution can cost several hundred dollars. If you have an unused Raspberry 
+Pi and a few hard drives lying around, you can make one yourself without spending a 
+dime.</p>
+
+<P>Networked hard drives are super convenient. You can access files no matter what 
+computer you're on -- and even remotely.</p>
+
+<p>But they're expensive. Unless you use the Raspberry Pi.</p>
+
+<p>If you happen to have a few of hard drives laying around you can put them to good use 
+with a Raspberry Pi by creating your own, <em>very cheap</em> NAS setup. My current 
+setup is two 4TB hard drives and one 128GB hard drive, connected to my network and 
+accessible from anywhere using the Raspberry Pi.</p>
+
+<p> Here's how.</p>
+
+<h4>What you will need </h4>
+
+<img src="https://cnet4.cbsistatic.com/img/WDUTn8LW8ZXROwYVr39i5tFiQ7M=/670x503/2016/08/23/90868c1d-f0b2-4c2d-b8d1-9da2503b0816/raspberry-pi-nas-openmediavault.jpg">Photo by
+Taylor Martin/CNET
+
+<p> For starters, you need an external storage drive, such as an HDD, SSD or a flash 
+drive.</p>
+                            
+                  
+<p> You also need a Raspberry Pi. Models 1 and 2 work just fine for this application but 
+you will get a little better support from the Raspberry Pi 3. With the Pi 3, you're 
+still limited to USB 2.0 and 100Mbps via Ethernet. However, I was able to power one 
+external HDD with a Pi 3, while the Pi 2 Model B could not supply enough power to the 
+same HDD.</p>
+
+<p> In my Raspberry Pi NAS, I currently have one powered 4TB HDD, one non-powered 4TB 
+HDD and a 128GB flash drive mounted without issue. To use a Pi 1 or 2 with this, you may 
+want to consider using a powered USB hub for your external drives or using a HDD that 
+requires external power.</p>
+
+<p> Additionally, you need a microSD card -- 8GB is recommended -- and the 
+OpenMediaVault OS image, which you can 
+<a href="https://sourceforge.net/projects/openmediavault/files/Raspberry%20Pi%20images/" 
+target="_blank">download here</a>.</p>
+
+<h4>Installing the OS </h4>
+
+<p> To install the operating system, we will use the same 
+<a href="https://www.cnet.com/how-to/install-raspbian-on-a-raspberry-pi-without-noobs/" 
+target="_b">>method used for installing any OS without NOOBS</a>. In short:</p>
+
+<ul>
+  <li>Format the SD card to FAT32 using 
+      <a href="https://www.sdcard.org/downloads/formatter_4/" target="_blank">SD 
+      Formatter</a>.</li>	
+  <li>Download the <a href="https://sourceforge.net/projects/openmediavault/files/Raspberry%20Pi%20images/" target="_blank">image file</a> from Sourceforge.</li>	
+  <li>Extract it using <a href="http://www.7-zip.org/" target="_blank">7zip</a> on 
+      Windows or <a  target="_blank" 
+      href="https://itunes.apple.com/us/app/the-unarchiver/id425424353?mt=12">The 
+      Unarchiver</a> on Mac.</li>	
+  <li>Write the extracted image to the SD card using 
+      <a href="https://sourceforge.net/projects/win32diskimager/" target="_blank">Win32 
+      Disk Imager</a> on Windows or <a target="_blank" 
+      href="http://www.tweaking4all.com/news/applepi-baker-v1-9-4-update-macos-sierra-beta-2/">ApplePi-Baker</a> on Mac.</li>
+</ul>
+
+<p> More detailed installation instructions 
+<a href="https://www.cnet.com/how-to/install-raspbian-on-a-raspberry-pi-without-noobs/" 
+target="_blank">can be found here</a> for both Windows and Mac. Just substitute the 
+Raspbian image with OpenMediaVault.</p>
+
+<h4>Setup </h4>
+
+<img src="https://cnet4.cbsistatic.com/img/L7Ixvep-Cni5u6gOUca-pdopyiU=/2016/08/23/a5f39ef4-5f42-4fd0-8faa-a1dd6491dff1/openmediavault-raspberry-pi.png" width="1000">Photo 
+by  Screenshot by Taylor Martin/CNET&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+ Click the right mouse button to view this image alone.
+                                    
+
+<p> After the image has been written to the SD card, connect peripherals to the Raspberry
+    Pi. For the first boot, you need a keyboard, monitor and a local network connection 
+    via Ethernet. Next, connect power to the Raspberry Pi and let it complete the initial
+    boot process.</p>
+
+<p> Once that is finished, use the default web interface credentials to sign in. (By 
+default, the username is <strong>admin</strong> and the password is 
+<strong>openmediavault</strong>.) This will provide you with the IP address of the 
+Raspberry Pi. After you have that, you will no longer need a keyboard and monitor 
+connected to the Pi.</p>
+
+<p> Connect your storage drives to the Raspberry Pi and open a web browser on a computer 
+on the same network. Enter the IP address into the address bar of the browser and press 
+return. Enter the same login credentials again (<strong>admin</strong> for the username 
+and <strong>openmediavault</strong> for the password) and you will be taken to the web 
+interface for your installation of OpenMediaVault.</p>
+
+<h4>Mounting the disks </h4>
+
+<img style="display: block;" src="https://cnet4.cbsistatic.com/img/WDUTn8LW8ZXROwYVr39i5tFiQ7M=/670x503/2016/08/23/90868c1d-f0b2-4c2d-b8d1-9da2503b0816/raspberry-pi-nas-openmediavault.jpg">Photo by  Screenshot by Taylor Martin/CNET
+
+<p> The first thing you will want to do to get your NAS online is to mount your external 
+drives. Click <strong>File Systems</strong> in the navigation menu to the left under 
+<strong>Storage</strong>.</p>
+
+<p> Locate your storage drives, which will be listed under the  <strong>Device</strong> 
+column as something like <strong>/dev/sda1</strong> or <strong>/dev/sdc2</strong>. Click 
+one drive to select it and click <strong>Mount</strong>. After a few seconds have passed,
+ click <strong>Apply</strong> in the upper right corner to confirm the action.</p>
+
+<p> Repeat this step to mount any additional drives.</p>
+
+<h4>Creating a shared folder </h4>
+
+<img style="display: block;" src="https://cnet3.cbsistatic.com/img/rHDl1H6Ke5_0ID1_7LcuM5GNv_E=/2016/08/23/ac0a9318-c0f8-4fef-9207-ad001d388af7/openmediavault-raspberry-pi-shared-folders.png">Photo by  Screenshot by Taylor Martin/CNET
+                                       
+<p> Next, you will need to create a shared folder so that the drives can be accessed by 
+other devices on the network. To do this:</p>
+
+<ul>
+  <li>Click <strong>Shared Folders</strong> in the navigation pane under <strong>Access 
+      Rights Management</strong>.</li>	
+  <li>Click <strong>Add</strong> and give the folder a name.</li>	
+  <li>Select one of the storage drives in the dropdown menu to the right of 
+      <strong>Volume</strong>.</li>	
+  <li>Specify a path (if you want it to be different from the name).</li>	
+  <li>Click save.</li>
+</ul>
+
+<h4>Enabling SMB/CFIS </h4>
+
+<img style="display: block;" src="https://cnet1.cbsistatic.com/img/RnXFiHVTCcTSpG3zTMnhkRyybN4=/0x0:1019x692/2016/08/23/274a7b84-e6c9-4234-9cfa-27747f2b1988/openmediavault-smb-raspberry-pi.png">Photo by Screenshot by Taylor Martin/CNET
+                                
+
+<p> Finally, to access these folders and drives from an external computer on the 
+network, you need to enable SMB/CFIS.</p>
+
+<p> Click <strong>SMB/CFIS</strong> under <strong>Services</strong> in the left 
+navigation pane and click the toggle button beside <strong>Enable</strong>. Click 
+<strong>Save</strong> and <strong>Apply</strong> to confirm the changes.</p>
+
+<p> Next, click on the <strong>Shares</strong> tab near the top of the window. Click 
+<strong>Add</strong>, select one of the folders you created in the dropdown menu beside 
+<strong>Shared folder</strong> and click <strong>Save</strong>. Repeat this step for 
+shared folders you created.</p>
+
+<h4>Accessing the drives over your network </h4>
+
+<p> Now that your NAS is up and running, you need to map those drives from another 
+computer to see them. This process is different for Windows and Mac, but should only 
+take a few seconds.</p>
+
+<h4>Windows </h4>
+
+<img style="display: block;" src="https://cnet4.cbsistatic.com/img/Z5ntz0C2LaXT7oDtPN4o38nMfAM=/2016/08/23/9470edd8-fbb6-4f59-9d94-9756a88c12d1/raspberry-pi-map-network-folder-windows.png">Photo by Screenshot by Taylor Martin/CNET
+                                      
+<p> To access a networked drive on Windows, open <strong>File Explorer</strong> and 
+click <strong>This PC</strong>. Select the <strong>Computer tab</strong> and click 
+<strong>Map network drive</strong>.</p>
+
+<p> In the dropdown menu beside <strong>Drive</strong> choose an unused drive letter. In 
+the <strong>Folder</strong> field, input the path to the network drive. By default, it 
+should look something like <strong>\\RASPBERRYPI\[folder name]</strong>. (For instance, 
+one of my folders is HDD, so the folder path is <strong>\\RASPBERRYPI\HDD</strong>). 
+Click <strong>Finish</strong> and enter the login credentials. By default, the username 
+is <strong>pi</strong> and the password is <strong>raspberry</strong>. If you change or 
+forgot the login for the user, you can reset it or create a new user and password in the 
+web interface under <strong>User</strong> in <strong>Access Rights Management</strong>.
+</p>
+
+<h4>Mac </h4>
+
+<img style="display: block;" src="https://cnet1.cbsistatic.com/img/jzKErBD-Q9u9DDxb-aSGLnL9VIY=/2016/08/23/f77f4cc1-1f31-49c1-9cf3-569fffd30cdb/mount-network-drive-mac-raspberry-pi.png">
+
+<p> To open a networked folder in OS X, open <strong>Finder</strong> and press 
+<strong>Command + K</strong>. In the window that appears, type 
+<strong>smb://raspberrypi</strong> or <strong>smb://[IP address]</strong> and click 
+<strong>Connect</strong>. In the next window, highlight the volumes you want to mount 
+and click <strong>OK</strong>.</p>
+                            
+
+<p> You should now be able to see and access those drives within Finder or File Explorer 
+and move files on or off the networked drives.</p>
+
+<p> There are tons of settings to tweak inside OpenMediaVault, including the ability to 
+reboot the NAS remotely, setting the date and time, power management, a plugin manager 
+and much, much more. But if all you need is a network storage solution, you'll never 
+need to dig any deeper.</p>
+
+</body></html>

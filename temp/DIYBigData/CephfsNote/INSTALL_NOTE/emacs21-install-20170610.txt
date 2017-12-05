@@ -1,0 +1,163 @@
+diff /etc/apt/preferences.d/avoid-systemd /etc/apt/preferences.d/avoid-systemd~
+5,7d4
+< Package: libc6
+< Pin: release a=stable
+< Pin-Priority: 2000
+
+apt-get update
+apt-cache policy libc6 libc6-dev libc6-i386 libc-dev-bin libc-bin locales libc-l10n
+libc6:
+  Installed: 2.19-18+deb8u9
+  Candidate: 2.19-18+deb8u9
+  Package pin: 2.19-18+deb8u9
+  Version table:
+ *** 2.19-18+deb8u9 2000
+        500 http://packages.devuan.org/merged/ jessie/main armhf Packages
+        100 /var/lib/dpkg/status
+libc6-dev:
+  Installed: (none)
+  Candidate: 2.19-18+deb8u9
+  Version table:
+     2.19-18+deb8u9 0
+        500 http://packages.devuan.org/merged/ jessie/main armhf Packages
+libc-dev-bin:
+  Installed: (none)
+  Candidate: 2.19-18+deb8u9
+  Version table:
+     2.19-18+deb8u9 0
+        500 http://packages.devuan.org/merged/ jessie/main armhf Packages
+libc-bin:
+  Installed: 2.19-18+deb8u9
+  Candidate: 2.19-18+deb8u9
+  Version table:
+ *** 2.19-18+deb8u9 0
+        500 http://packages.devuan.org/merged/ jessie/main armhf Packages
+        100 /var/lib/dpkg/status
+locales:
+  Installed: (none)
+  Candidate: 2.19-18+deb8u9
+  Version table:
+     2.19-18+deb8u9 0
+        500 http://packages.devuan.org/merged/ jessie/main armhf Packages
+N: Unable to locate package libc6-i386
+N: Unable to locate package libc-l10n
+
+apt-get install libc6=2.19-18+deb8u9 libc6-dev=2.19-18+deb8u9 libc-dev-bin=2.19-18+deb8u9 libc-bin=2.19-18+deb8u9 locales=2.19-18+deb8u9
+
+ apt-cache policy pkg-config
+pkg-config:
+  Installed: (none)
+  Candidate: 0.28-1
+  Version table:
+     0.28-1 0
+        500 http://packages.devuan.org/merged/ jessie/main armhf Packages
+
+apt-get install pkg-config=0.28-1
+
+find /lib/arm-linux-gnueabihf/ -name "lib*so"
+/lib/arm-linux-gnueabihf/libBrokenLocale-2.19.so
+/lib/arm-linux-gnueabihf/libthread_db-1.0.so
+/lib/arm-linux-gnueabihf/libnss_hesiod-2.19.so
+/lib/arm-linux-gnueabihf/libnss_compat-2.19.so
+/lib/arm-linux-gnueabihf/libc-2.19.so
+/lib/arm-linux-gnueabihf/libmemusage.so
+/lib/arm-linux-gnueabihf/libSegFault.so
+/lib/arm-linux-gnueabihf/libnss_nisplus-2.19.so
+/lib/arm-linux-gnueabihf/libnsl-2.19.so
+/lib/arm-linux-gnueabihf/libdl-2.19.so
+/lib/arm-linux-gnueabihf/libpcprofile.so
+/lib/arm-linux-gnueabihf/librt-2.19.so
+/lib/arm-linux-gnueabihf/libnss_files-2.19.so
+/lib/arm-linux-gnueabihf/libanl-2.19.so
+/lib/arm-linux-gnueabihf/libresolv-2.19.so
+/lib/arm-linux-gnueabihf/libm-2.19.so
+/lib/arm-linux-gnueabihf/libcrypt-2.19.so
+/lib/arm-linux-gnueabihf/libpthread-2.19.so
+/lib/arm-linux-gnueabihf/libutil-2.19.so
+/lib/arm-linux-gnueabihf/libnss_dns-2.19.so
+/lib/arm-linux-gnueabihf/libcidn-2.19.so
+/lib/arm-linux-gnueabihf/libnss_nis-2.19.so
+
+dpkg-query -l |grep gcc
+ii  gcc-4.8-base:armhf             4.8.4-1                  armhf        GCC, the GNU Compiler Collection (base package)
+ii  gcc-4.9-base:armhf             4.9.2-10                 armhf        GCC, the GNU Compiler Collection (base package)
+ii  libgcc1:armhf                  1:4.9.2-10               armhf        GCC support library
+
+apt-get install gcc-4.8 g++-4.8 cpp-4.8
+
+add line on /etc/apt/sources.list
+deb-src http://packages.devuan.org/merged jessie main
+apt-get update
+apt-get build-dep xemacs21 
+The following NEW packages will be installed:
+  autoconf autoconf2.13 autotools-dev build-essential bzip2 cpp cpp-4.9
+  debhelper dpkg-dev esound-common file g++ g++-4.9 gcc gcc-4.9 gettext
+  gettext-base intltool-debian libasan1 libasound2 libasound2-data
+  libasprintf0c2 libaudiofile-dev libaudiofile1 libcanna1g libcanna1g-dev
+  libcompfaceg1 libcompfaceg1-dev libcroco3 libdb-dev libdb5.3-dev
+  libdpkg-perl libesd0 libesd0-dev libflac8 libgcc-4.9-dev libgpm-dev libgpm2
+  libice-dev libice6 libintl-perl libjbig-dev libjbig0 libjpeg-dev
+  libjpeg62-turbo libjpeg62-turbo-dev libldap-2.4-2 libldap2-dev liblzma-dev
+  libmagic1 libncurses5-dev libogg0 libpam0g-dev libpng12-0 libpng12-dev
+  libpthread-stubs0-dev libsasl2-2 libsasl2-modules-db libsigsegv2 libsm-dev
+  libsm6 libstdc++-4.9-dev libtext-unidecode-perl libtiff5 libtiff5-dev
+  libtiffxx5 libtimedate-perl libtinfo-dev libubsan0 libunistring0 libwnn6-1
+  libwnn6-dev libx11-6 libx11-data libx11-dev libxau-dev libxau6 libxaw7
+  libxaw7-dev libxcb1 libxcb1-dev libxdmcp-dev libxdmcp6 libxext-dev libxext6
+  libxml-libxml-perl libxml-namespacesupport-perl libxml-sax-base-perl
+  libxml-sax-perl libxmu-dev libxmu-headers libxmu6 libxpm-dev libxpm4
+  libxt-dev libxt6 m4 make patch po-debconf texi2html texinfo ucf x11-common
+  x11proto-core-dev x11proto-input-dev x11proto-kb-dev x11proto-xext-dev
+  xbitmaps xcursor-themes xorg-sgml-doctools xtrans-dev xz-utils zlib1g-dev
+
+apt-get install build-essential git libtool pkg-config intltool-debian flex bison
+apt-get clean
+
+cd /lib/
+ln -s arm-linux-gnueabihf/crt1.o crt1.o
+ln -s arm-linux-gnueabihf/crti.o crti.o
+ln -s arm-linux-gnueabihf/crtn.o crtn.o
+cd /usr/bin
+rm g++
+ln -s g++-4.8 g++
+ls -l g++
+lrwxrwxrwx 1 root root 7 Jun 10 10:15 g++ -> g++-4.8
+
+Add mail source for /usr/bin/mail
+#! /bin/bash
+echo "Sorry, We don't do mail in this host!"
+
+chmod +x /usr/bin/mail 
+
+cd /src1/emacs-21/objects/
+../configure  --build armv7l-pc-linux-gnu --host arm-linux-gnueabihf --with-x-toolkit=lucid  --without-xim --prefix=/usr/local CC='gcc-4.8 -fPIC' CPP='cpp-4.8 -fPIC'
+
+
+  Where should the build process find the source code?    /src1/emacs-21
+  What operating system and machine description files should Emacs use?
+        `s/gnu-linux.h' and `m/arm.h'
+  What compiler should emacs be built with?               gcc-4.8 -fPIC -g -O2
+  Should Emacs use the GNU version of malloc?             yes
+      (Using Doug Lea's new malloc from the GNU C Library.)
+  Should Emacs use a relocating allocator for buffers?    yes
+  Should Emacs use mmap(2) for buffer allocation?         no
+  What window system should Emacs use?                    x11
+  What toolkit should Emacs use?                          LUCID
+  Where do we find X Windows header files?                Standard dirs
+  Where do we find X Windows libraries?                   Standard dirs
+  Does Emacs use -lXaw3d?                                 no
+  Does Emacs use -lXpm?                                   yes
+  Does Emacs use -ljpeg?                                  yes
+  Does Emacs use -ltiff?                                  yes
+  Does Emacs use -lungif?                                 no
+  Does Emacs use -lpng?                                   yes
+  Does Emacs use X toolkit scroll bars?                   no
+
+chmod 644 src/Makefile
+Replace /usr/lib/arm-1 -gnueabihf/ to /usr/lib/arm-linux-gnueabihf/ on  src/Makefile
+make
+echo $?
+0
+make install
+echo $?
+cp psgml-jade.el /usr/local/share/emacs/site-lisp/

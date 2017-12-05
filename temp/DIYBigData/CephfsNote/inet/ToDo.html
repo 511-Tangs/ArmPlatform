@@ -1,0 +1,52 @@
+<OL>
+  <LI> Software upgrade
+  <LI> kernel upgrade
+
+  <UL> 
+    <LI> sudo emacs /etc/grub.d/08*
+    <LI> sudo rm  /etc/grub.d/08*~
+    <LI> sudo mount /dev/sdb2 /media/sdb2 
+    <LI> sudo cp  /etc/grub.d/08*  /media/sdb2/etc/grub.d
+    <LI> ls -l /media/sdb2/etc/grub.d/08*
+    <LI> sudo umount   /media/sdb2
+    <LI> sudo update-grub
+    <LI> sudo mount /dev/sdb1 /media/sdb1 
+    <LI> sudo chmod 644 /media/sdb1/grub/grub.cfg
+    <LI> sudo emacs /media/sdb1/grub/grub.cfg
+    <LI> sudo umount /media/sdb1
+  </UL>
+  <LI> kernel compilation
+  <LI> sudo mount /dev/sdb14 /media/sdb14
+<PRE>
+$ ls -l /media/sdb14/NetLab
+$ sudo mkdir  /media/sdb14/NetLab; sudo chown hsu:hsu /media/sdb14/NetLab
+$ cp /backup/NetLab/* /media/sdb14/NetLab 
+$ sudo umount  /media/sdb14
+</PRE>
+  <LI> 04/20/2016 
+
+    <UL>
+      <LI> We have not upgraded the software in disk B for a long time.
+
+          <P> Consequence: Both the <b>e2fsck</b> and <b>resize2fs</b> commands are 
+          too old. <b>ResizeRootFS</b> could not complete its job.
+
+      <LI> The command <b>/src4/KVM/bin/Config-Kvm</b> was dated "Nov 16  2014"
+
+          <P> The newest version is in <code>/backup/KVM-tool/bin/</code>.
+
+      <LI> We need to upgrade kernel from linux 4.4 to 4.5.  Also, all software 
+           packages (on both disks).
+
+          <P> We must be very careful, since all the <code>/etc/grub.d/0[89]*</code>
+              and <code>/boot/grub/grub.cfg</code> files must be modified on both disks.
+
+      <LI> Also, upgrade software for all of our VMs.  Nowadays, a tedious job.
+
+      <LI> We probably will compile <b>vdev</b> to replace <b>udev</b> pretty soon, 
+           since we can have more time to play with it.  <b>No harm done!</b>, since
+           we are doing it on VMs.  I wish we will have some <b>tough</b> ride!
+
+      <LI> Hopefully, next year, we will have new Virtualization Technique to play with.
+    </UL>
+</OL>

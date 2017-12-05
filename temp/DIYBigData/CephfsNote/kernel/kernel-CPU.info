@@ -1,0 +1,48 @@
+###kernel 4.9.13+
+
+[    0.005075] CPU0: update cpu_capacity 521
+[    0.005113] CPU0: thread -1, cpu 0, socket 1, mpidr 80000100
+[    0.090316] CPU1: update cpu_capacity 521
+[    0.090324] CPU1: thread -1, cpu 1, socket 1, mpidr 80000101
+[    0.091277] CPU2: update cpu_capacity 521
+[    0.091284] CPU2: thread -1, cpu 2, socket 1, mpidr 80000102
+[    0.092174] CPU3: update cpu_capacity 521
+[    0.092182] CPU3: thread -1, cpu 3, socket 1, mpidr 80000103
+[    0.093105] CPU4: update cpu_capacity 1526
+[    0.093113] CPU4: thread -1, cpu 0, socket 0, mpidr 80000000
+[    0.094268] CPU5: update cpu_capacity 1526
+[    0.094275] CPU5: thread -1, cpu 1, socket 0, mpidr 80000001
+[    0.095292] CPU6: update cpu_capacity 1526
+[    0.095299] CPU6: thread -1, cpu 2, socket 0, mpidr 80000002
+[    0.096243] CPU7: update cpu_capacity 1526
+[    0.096250] CPU7: thread -1, cpu 3, socket 0, mpidr 80000003
+[    0.096367] Brought up 8 CPUs
+[    0.096611] CPU: WARNING: CPU(s) started in wrong/inconsistent modes (primary CPU mode 0x1a)
+[    0.096640] CPU: This may indicate a broken bootloader or firmware.
+
+##kernel 3.10
+
+[    0.000000] [c0] CPU: ARMv7 Processor [410fc073] revision 3 (ARMv7), cr=10c5387d
+[    0.000000] [c0] CPU: PIPT / VIPT nonaliasing data cache, VIPT aliasing instruction cache
+[    0.000000] [c0] CPU EXYNOS5422 (id 0xe5422001)
+[    0.000000] [c0] PERCPU: Embedded 9 pages/cpu @c1e0b000 s14912 r8192 d13760 u36864
+[    0.000000] [c0] SLUB: HWalign=64, Order=0-3, MinObjects=0, CPUs=8, Nodes=1
+[    0.044127] [c0] CPU: Testing write buffer coherency: ok
+[    0.093416] [c0] CPU0: thread -1, cpu 0, socket 1, mpidr 80000100
+[    0.136120] [c1] CPU1: Booted secondary processor
+[    0.136147] [c1] CPU1: thread -1, cpu 1, socket 1, mpidr 80000101
+[    0.146094] [c2] CPU2: Booted secondary processor
+[    0.146120] [c2] CPU2: thread -1, cpu 2, socket 1, mpidr 80000102
+[    0.156075] [c3] CPU3: Booted secondary processor
+[    0.156103] [c3] CPU3: thread -1, cpu 3, socket 1, mpidr 80000103
+[    0.164916] [c4] CPU4: Booted secondary processor
+[    0.165800] [c4] CPU4: thread -1, cpu 0, socket 0, mpidr 80000000
+[    0.174902] [c5] CPU5: Booted secondary processor
+[    0.175786] [c5] CPU5: thread -1, cpu 1, socket 0, mpidr 80000001
+[    0.184931] [c6] CPU6: Booted secondary processor
+[    0.185815] [c6] CPU6: thread -1, cpu 2, socket 0, mpidr 80000002
+[    0.194924] [c7] CPU7: Booted secondary processor
+[    0.195809] [c7] CPU7: thread -1, cpu 3, socket 0, mpidr 80000003
+[    0.196087] [c0] Brought up 8 CPUs
+[    0.196438] [c0] CPU: All CPU(s) started in HYP mode.
+

@@ -1,0 +1,38 @@
+wget -c "https://download.ceph.com/tarballs/ceph_11.2.0.orig.tar.gz"
+##  Download web site : https://download.ceph.com/tarballs/
+
+sudo debootstrap --arch amd64 jessie cephroot http://ftp.tw.debian.org/debian
+sudo chown hsu:hsu -R cephroot
+cp /src/fs/script/chroot_armv7l.sh .
+#sudo chroot root-jessie
+chroot_armv7l start cephroot
+tar -zxvf ceph-11.2.0.tar.gz
+nano /etc/apt/sources.list ## Add src sourcelist
+cd ceph-11.2.0
+./install-deps.sh
+mkdir build
+cd build/
+cmake ..
+make
+###
+err1:"[ 34%] Building CXX object src/CMakeFiles/ceph-dencoder.dir/test/encoding/ceph_dencoder.cc.o
+virtual memory exhausted: Cannot allocate memory
+"
+solution test::
+
+test1: add swap for VM
+###########################
+dd if=/dev/zero of=/var/swap bs=1M count=10240
+mkswap /var/swap
+swapon /var/swap
+###########################
+retry make
+
+
+###ERROR
+./run-make-check.sh
+Checking hostname sanity... NOT OK
+Please fix 'hostname --fqdn', otherwise 'make check' will fail
+
+SOl: /etc/init.d/hostname.sh start
+retry ./run-make-check.sh

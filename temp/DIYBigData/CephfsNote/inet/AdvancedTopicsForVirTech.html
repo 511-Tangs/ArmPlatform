@@ -1,0 +1,64 @@
+<OL>
+  <LI>Root Filesystem Resizing: 
+      <UL>
+         <LI> UML Root Filesystem: <b>ResizeRootFS</b> in /src3/UML
+         <LI> KVM Root Filesystem: <b>start-Gparted-6-resizing</b> in /src4/KVM/bin
+      </UL>
+
+      <P> The significance: If our root filesystem templates are tested throughly, and 
+          we feel that they are stable and reliable.  We can always take any of them 
+          to clone our VMs safely and quickly.  But, very often, we need more storage 
+          space for additional special purpose software packages.
+
+  <LI> COW: Copy On Write, also known as Overlay Technique 
+
+      <P> Not suitable for VMs in a high availability cluster. It's OK for VMs in
+          high performance cluster.
+
+      <P> Also recall the failure of VM booting after software upgrading of the 
+          template Root Filesystem after creation of our overlay image.
+  <LI> <b>qemu-system-arm</b>
+
+       <P> Using <b>qemu-system-arm</b>, we may run raspberry pi2 virtual machine 
+       in our x86_64 based physical hosts.  (We need to have 4 or more cores in 
+       our motherboard to boot it successfully.) 
+
+       <P> <b>Note: (06/02/2016)</b> Still, I can't figure out why we can boot 
+         Rpi2 linux 3.18, (and Rpi2 linux 4.1, tested recently), but not Rpi2 linux 
+         4.4.
+
+       <P> This is really significant achievement.  I have created a cross-compilation 
+         VM for developing software for arm based machines in x86_64 host.  We all 
+         know a decent x86_64 based machine, (say, with 6 or more cores), has better 
+         software development environment, faster compilation speed, etc.  If we need 
+         to test the software we generated immediately, this is the solution I am 
+         aiming at.
+  <LI> <b>vdev</b>
+
+       <P> We have encountered all the difficulties imposed on us by <b>Red-Hat</b>,
+           to name a couple of it: shameless <b>systemd</b> pollution, unpredictable 
+           ethercard renaming, etc.  In the near future, we will be based our linux 
+           systems on the ones distributed by <b>devuan</b>.  At least, we can have 
+           a systemd-free system.  Our next goal is freeing ourselves from the udev
+           and dbus hazardous software traps.
+
+       <P> Our achievement:  We successfully replaced udev by vdev on our dev1 VMs.  
+           Also, we freely ,(without any fear or doubt), and successfully replaced 
+           udev by vdev, since we knew we could afford the failure without heavy 
+           penalty.  udev is a replacement for the Device File System (DevFS) starting 
+           with the Linux 2.6 kernel series
+
+      <h5>P.S.</h5>         
+
+      <P>  In order to end our class at 3.40PM sharp so that everybody had enough time 
+       to reboot our system to sda (, the first disk), I forgot to shutdown the dev1 
+       VM, the virtual machine we replaced udev by vdev.  Consequence: dev1 rootfs 
+       was damaged.  No harm done! I have fixed every Rootfs of this VM in each host.   
+
+      <P> The most severe damaged VM was the one in ac11.  The reason: A lot of attempts 
+       of booting dev1 without recovering lan, first.  I fixed it already. Everybody did 
+       a good job! Thanks.
+
+  <LI> <b>virtio, vhost</b> and <b> 9p Filesystem</b>
+
+</OL>

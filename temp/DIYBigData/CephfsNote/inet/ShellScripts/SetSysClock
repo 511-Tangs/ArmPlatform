@@ -1,0 +1,11 @@
+#! /bin/bash
+# Pulling ntp server to set system time
+
+if [ $EUID != 0 ]
+  then echo "Only Super user can execute this script."
+  exit 1
+fi
+
+# Direct ntpdate to use an unprivileged port for outgoing packets. Probably, firewall 
+# blocks incoming traffic to privileged ports.
+sudo ntpdate -u pool.ntp.org

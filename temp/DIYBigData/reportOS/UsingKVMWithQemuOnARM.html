@@ -1,0 +1,860 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en-US">
+  <head><title>Using KVM with Qemu on ARM | falstaff - yet another tech blog</title>
+  </head>
+<body>
+
+<a name="U-BootAndHYPOnARMv7"></a>
+<h3>U-Boot/Linux and HYP mode on ARMv7 
+<a href="https://falstaff.agner.ch/2016/07/03/u-bootlinux-and-hyp-mode-on-armv7/" 
+target="_b">(Source Origin)</a></h3>
+
+		
+			
+<P>Posted by <a href="https://falstaff.agner.ch/author/falstaff/">falstaff</a>
+on July 3, 2016	
+
+<p>The newer ARMv7 Cortex-A class cores such Cortex-A7, A15 and A17 come with a 
+virtualization extensions which allow to use KVM (kernel virtual machine). The NXP 
+i.MX 7Dual SoC which I worked with lately includes the ARM Cortex-A7 CPU. I went 
+ahead and tried to bring up KVM on i.MX 7. I was not really familiar with the ARMv7 
+virtualization architecture, so I had to read up on some concepts. This post 
+summarizes what I learned and gives a big picture of software support.</p>
+
+<h3>The Hypervisor mode</h3>
+
+<p>To provide hardware support for full CPU virtualization an additional privilege 
+level is required. User-space (PL0) uses the SVC (Supervisor) instruction to switch 
+to kernel-space (PL1, SVC mode). A similar separation between Kernel and hypervisor 
+is required. The ARMv7 architecture with virtualization extension calls this privilege 
+level PL2 or HYP mode.</p>
+
+<p>Linux with KVM for ARM uses this mode to provide CPU virtualization. The CPU needs 
+to be in HYP mode when Linux is booting so KVM can make use of the extension. How KVM 
+uses the HYP mode in detail is explained in <a target="_b" 
+href="http://amdm/LinuxRef/DIYBigData/KvmOnArmGuide.html#KVMOnARMArchitecture">this 
+excellent LWN article</a>. After building a kernel with KVM support, 
+I encountered this problem first: By default, the system did boot in SVC mode.</p>
+
+<pre>
+...
+Brought up 2 CPUs
+CPU: All CPU(s) started in SVC mode.
+...
+kvm [1]: HYP mode not available
+...
+</pre>
+
+<h3>Secure and Non-Secure world</h3>
+
+<P>
+<img src="https://falstaff.agner.ch/wp-content/uploads/2016/07/arm-privilege-levels.png" 
+width="510" height="329"></a>
+<br><b>ARMv7 privilege levels</b></p>
+
+
+<p>To understand how to switch into Hypervisor mode, one needs to understand the whole 
+privilege level architecture first. Notable here is that on ARMv7 CPU's the HYP mode is 
+only available in <strong>non-secure</strong> mode, by design. Any hypervisor needs 
+to operate in non-secure mode, there is no virtualization extension in secure mode. 
+<span id="more-819"></span></p>
+
+<p>An ARMv7 CPU boots in the highest privilege mode, in the secure SVC mode. But even 
+when booting Linux in secure SVC mode, the kernel is not able to switch to the 
+hypervisor mode by itself. This confused me initially, as the secure SVC mode is a 
+superior mode to any non-secure mode. The reason is that the Linux kernel just does 
+not provide the necessary infrastructure/code to switch the CPU into non-secure mode 
+and ultimately enable the hypervisor mode. Technically, I see no reason why the kernel 
+couldn't employ such an implementation. However, it would be an abuse of the 
+architecture, it would violate separation of concerns. The architecture envisions a 
+firmware running on the secure side to do that job, initialized early in boot flow e.g. 
+by the ROM or boot loader of the system. Thanks to the work of Andre Przywara, Marc 
+Zyngier and others, the boot loader U-Boot has all the infrastructure to setup a secure 
+monitor and switch the CPU into HYP mode, essentially providing such a firmware.... ARM 
+also provides a reference implementation called 
+<a href="https://github.com/ARM-software/arm-trusted-firmware">ARM trusted 
+firmware</a> that includes PSCI and also a number of other features-</p>
+
+<P><img src="https://falstaff.agner.ch/wp-content/uploads/2016/07/arm-privilege-levels-linux-u-boot.png" width="510" height="340"></a>
+<br><b>ARM privilege levels &amp; 
+Linux/KVM and U-Boot</b></p>
+
+<h4>PSCI</h4>
+
+<p>In that context the ARM PSCI (Power State Coordination Interface) should be 
+mentioned too. The interface has to be implemented by a firmware running in secure 
+mode. The upstream configuration of U-Boot for i.MX 7 uses the PSCI interface to 
+allow Linux to start secondary CPUs. Therefore U-Boot already installs a secure 
+monitor and switches the CPU into non-secure SVC mode (the configurations 
+CONFIG_ARMV7_PSCI and CONFIG_ARMV7_NONSEC were already in use). The boot log shows 
+that PSCI is available:</p>
+
+<pre>
+...
+psci: probing for conduit method from DT.
+psci: Using PSCI v0.1 Function IDs from DT
+...
+Brought up 2 CPUs
+SMP: Total of 2 processors activated (96.00 BogoMIPS).
+CPU: All CPU(s) started in SVC mode.
+...
+kvm [1]: HYP mode not available
+...
+</pre>
+
+<p>The PSCI configuration option causes U-Boot to add a node device tree specifying 
+the location of the PSCI firmware implementation. Currently, U-Boot supports the PSCI 
+interface v0.1, but there are 
+<a href="http://thread.gmane.org/gmane.comp.boot-loaders.u-boot/264880">already 
+patches</a> to support interface v1.0.</p>
+
+<h4>Boot modes</h4>
+
+<p>U-Boot allows to use the environment variable <code>bootm_boot_mode</code> to 
+choose which mode the operating system should get started. By setting the variable to 
+<code>sec</code>, U-Boot makes sure to boot it in secure mode (hence not installing 
+the provided secure monitor). I did not found direct evidence whether the CPU is in 
+secure or non-secure mode in the Linux kernel boot log. However, the PSCI messages 
+were missing (since PSCI needs a secure monitor), and subsequently the kernel was not 
+able to start the secondary CPU cores anymore. As mentioned before, even though the 
+CPU is in the highest privileged state, Linux is not able to switch to the hypervisor 
+mode by itself.</p>
+
+<pre>
+...
+Brought up 1 CPUs
+SMP: Total of 1 processors activated (48.00 BogoMIPS).
+CPU: All CPU(s) started in SVC mode.
+...
+kvm [1]: HYP mode not available
+...
+</pre>
+
+<p>To verify that the CPU is really left in secure mode, I used the following code to 
+read the <a href="http://infocenter.arm.com/help/index.jsp?
+topic=/com.arm.doc.ddi0464e/CACCIEEF.html">Secure Configuration Register</a> (SCR):</p>
+
+<pre>
+u32 val; 
+asm volatile("mrc p15, 0, %0, c1, c1, 0" : "=r" (val));
+printk("SCR %08x\n", val);
+</pre>
+
+<p>When using <code>sec</code>, this returns 0 for all bits including the NS (Non 
+Secure) bit, which means the CPU is in secure mode. But when using <code>nonsec</code>
+ to boot in non-secure mode, this read crashes the kernel since accessing the register 
+requires the CPU to be in secure mode.</p>
+
+<h3>Enable the Hypervisor mode</h3>
+
+<p>Since U-Boot already provides all necessary configuration and the i.MX 7 
+configuration already makes use of the secure monitor/PSCI, it turned out to be rather 
+simple to enable the hypervisor mode: Just by adding the additional configuration 
+option CONFIG_ARMV7_VIRT U-Boot made sure that it not only switches to non-secure mode 
+but also enables the Hypervisor mode (<a 
+href="https://www.mail-archive.com/u-boot@lists.denx.de/msg217673.html">this patch</a> 
+makes the configuration option available through Kconfig).</p>
+
+<pre>
+...
+psci: probing for conduit method from DT.
+psci: Using PSCI v0.1 Function IDs from DT
+...
+Brought up 2 CPUs
+SMP: Total of 2 processors activated (96.00 BogoMIPS).
+CPU: All CPU(s) started in HYP mode.
+CPU: Virtualization extensions available.
+...
+kvm [1]: 8-bit VMID
+kvm [1]: Hyp mode initialized successfully
+...
+</pre>
+
+<p>Yay!  In a second post I will talk more about how to use KVM on ARMv7, stay 
+tuned!</p>
+
+<p><strong>Update June 04, 2016:</strong></p>
+
+<ul>
+  <li>Fixed naming of firmware/implementation</li>
+  <li>Added link to U-Boot patch</li>
+</ul>
+
+<p><strong>Update August 22, 2016: </strong>IDMAP vs. HYP VA</p>
+
+<p>I already fixed some i.MX 7 platform specific issues to bring KVM to run, however 
+when I started to work on <a href="#UsingKVMwithQemuOnARM">the second blog post</a> 
+some days ago using v4.8-rc1 I hit yet another issue on my system:</p>
+
+<pre>
+kvm [1]: IDMAP page: 80201000
+kvm [1]: HYP VA range: 80000000:ffffffff
+kvm [1]: IDMAP intersecting with HYP VA, unable to continue
+kvm [1]: error initializing Hyp mode: -22
+</pre>
+
+<p>It turned out that when using VMSPLIT_2G, the hypervisors virtual address space 
+overlaps the location of the hypervisors page table (IDMAP), which is not safe. The 
+overlap was already there in my earlier v4.7 experiments, but only since a KVM patch 
+merged during the v4.8 merge window KVM aborts initialization in that case. It turned 
+out that using a different VMSPLIT can solve the issue, and using VMSPLIT_3G is 
+sufficient for my platform (a Toradex Colibri iMX7D). With that, KVM initializes 
+successfully again:</p>
+
+<pre>
+CPU: Testing write buffer coherency: ok 
+CPU0: thread -1, cpu 0, socket 0, mpidr 80000000
+Setting up static identity map for 0x80200000 - 0x80200058
+CPU1: thread -1, cpu 1, socket 0, mpidr 80000001
+Brought up 2 CPUs
+SMP: Total of 2 processors activated (96.00 BogoMIPS).
+CPU: All CPU(s) started in HYP mode.
+CPU: Virtualization extensions available.
+...
+kvm [1]: IDMAP page: 80201000
+kvm [1]: HYP VA range: c0000000:ffffffff
+kvm [1]: 8-bit VMID
+kvm [1]: Hyp mode initialized successfully
+kvm [1]: vgic-v2@31004000
+kvm [1]: vgic interrupt IRQ16
+kvm [1]: virtual timer IRQ19
+</pre>
+
+
+
+<a href="https://falstaff.agner.ch/category/linux/">Linux</a>, 
+<a href="https://falstaff.agner.ch/category/virtualisierung/">Virtualisierung</a>
+<a href="https://falstaff.agner.ch/tag/arm/">arm</a>, 
+<a href="https://falstaff.agner.ch/tag/armv7/">ARMv7</a>, 
+<a href="https://falstaff.agner.ch/tag/hyp/">hyp</a>, 
+<a href="https://falstaff.agner.ch/tag/kvm/">kvm</a>, 
+<a href="https://falstaff.agner.ch/tag/u-boot/">u-boot</a>
+
+<div id="nav-below">
+<P><a href="https://falstaff.agner.ch/2015/10/26/using-the-perf-utility-on-arm/" 
+target="_b">&lt;- Using the perf utility on ARM</a>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<a href="#UsingKVMwithQemuOnARM">Using KVM with Qemu on ARM -></a></div>
+
+<a name="UsingKVMwithQemuOnARM"></a>
+<h3>Using KVM with Qemu on ARM 
+<a href="https://falstaff.agner.ch/2016/08/23/using-kvm-with-qemu-on-arm/" 
+target="_b">(Source Origin)</a></h3>
+		
+			
+Posted by <a href="https://falstaff.agner.ch/author/falstaff/" title="View all 
+posts by falstaff">falstaff</a> on August 23, 2016
+							
+<p>This is part two of my blog post about Kernel-Virtual Machine (KVM) on a 32-Bit ARM 
+architecture. The post is meant as a starting point for those who want to play with 
+KVM and provide a useful collection of Qemu commands for virtualization.</p>
+
+<h4>Virtualization host setup</h4>
+
+<p>The Kernel configuration I used for my platforms Host kernel can be found 
+<a target="_b" href="https://falstaff.agner.ch/wp-content/uploads/2016/08/colibri_imx7_kvm_host_defconfig.gz">here</a>.
+ Since I run my experiments on a Toradex Colibri iMX7D module, I started with the v4.1 
+configuration of the BSP kernel and updated that to v4.8 plus enabled KVM as well as 
+KSM (Kernel same-page merging).</p>
+
+<p>As root file system I use a slightly modified version of the Angstrom distributions 
+"development-image", version 2015.12 (built from scratch with OpenEmbedded). Any recent 
+ARM root file system should do it. I let Qemu v2.6.0 preinstall (by just adding "qemu" 
+to the image and specifying ANGSTROM_QEMU_VERSION = "2.6.0" in 
+conf/distro/angstrom-v2015.12.conf).</p>
+
+<h4>Virtualization guest setup</h4>
+
+<p>For the virtualization guest setup I was looking for something minimalistic. I 
+uploaded the compiled binary of the Kernel (as 
+<a href="https://falstaff.agner.ch/wp-content/uploads/2016/08/zImage.tar">tared 
+zImage</a>) and initramfs (as 
+<a href="https://falstaff.agner.ch/wp-content/uploads/2016/08/core-image-minimal-qemuarm.cpio_.gz">cpio.gz</a>).</p>
+
+<p>I built a custom kernel directly using v4.7 sources and a modified/stripped down 
+version of the vexpress_defconfig (<a href="#virt_guest_defconfig" 
+target="_b">virt_guest_defconfig</a>).  I found it useful to look into Qemu's "virt" 
+machine setup code (<a target="_b" href="http://git.qemu.org/?p=qemu.git;a=blob;
+f=hw/arm/virt.c;h=a193b5a95b3f5ea170be1768a1a81ee305df93df;hb=HEAD">hw/arm/virt.c</a>) 
+to understand what peripherals are actually emulated (and hence what drivers are 
+actually required).<span id="more-832"></span>
+
+<a href="#QemuVirtVM" target="_b">QEMU 32-bit ARM virt board</a> <a href="#WhyVirtBoard" 
+target="_b">Why the "Virt" Board</a>? <b>Reasons:</b> This is a purely virtual platform 
+designed for use in virtual machines, and it supports PCI, virtio, a recent ARM CPU and 
+large amounts of RAM. The only thing it doesn't have out of the box is graphics, but 
+graphical programs on a fully emulated system run very slowly anyway so are best avoided.
+</p>
+
+<p>As root file system I was looking for something which I easily can spawn multiple 
+images with, e.g. a squashfs or initramfs. I ended up building Yocto Project's 
+"poky-tiny" distribution. I used the following local.conf configuration:</p>
+
+<pre>
+MACHINE ??= "qemuarm"
+PREFERRED_PROVIDER_virtual/kernel="linux-yocto"
+EXTRA_IMAGE_FEATURES ?= "debug-tweaks read-only-rootfs"
+</pre>
+
+<p>And adjusted the machine (meta/conf/machine/qemuarm.conf) slightly to suit my 
+hardware virtualization needs:</p>
+
+<pre>
++++ b/meta/conf/machine/qemuarm.conf
+@@ -3,10 +3,11 @@
+ #@DESCRIPTION: arm_versatile_926ejs
+ 
+ require conf/machine/include/qemu.inc
+-require conf/machine/include/tune-arm926ejs.inc
++require conf/machine/include/tune-cortexa7.inc
+ #require conf/machine/include/tune-arm1136jf-s.inc
+ 
+ KERNEL_IMAGETYPE = "zImage"
+ 
+-SERIAL_CONSOLES = "115200;ttyAMA0 115200;ttyAMA1"
++SERIAL_CONSOLES = "115200;ttyAMA0"
+</pre>
+
+<p>The initramfs (cpio.gz) archive ended up being just slightly above 700kB. I also 
+made a squahfs image of the same rootfs.</p>
+
+<a name="UsefulQemuCommands"></a>
+<h4>Some useful Qemu/KVM commands</h4>
+
+<p>The following command starts a virtual machine and redirects stdin/stdout directly 
+to its serial console (in this case an emulated PL011). If required, additional kernel 
+parameters can be passed using the -append option. In my case, the kernel had already 
+the required console specification ("console=ttyAMA0") built-in.</p>
+
+<pre>
+$ qemu-system-arm -enable-kvm -M virt -cpu host \
+-kernel zImage -initrd core-image-minimal-qemuarm.cpio.gz \
+-nographic -serial stdio -monitor none
+# Notice that the machine type virt is supported.
+$ qemu-system-arm -M ? | grep virt
+virt-2.6             QEMU 2.6 ARM Virtual Machine
+virt-2.7             QEMU 2.7 ARM Virtual Machine
+virt                 QEMU 2.8 ARM Virtual Machine (alias of virt-2.8)
+virt-2.8             QEMU 2.8 ARM Virtual Machine
+</pre>
+
+<p>Note that we don't need to specify a device tree... Qemu's machine "virt" creates 
+a device tree on the fly (implemented in 
+<a target="_b" href="http://git.qemu.org/?p=qemu.git;a=blob;f=hw/arm/virt.c;
+h=a193b5a95b3f5ea170be1768a1a81ee305df93df;hb=HEAD">hw/arm/virt.c</a>).
+ If you wonder how the device tree looks like you can browse it under /proc/device-tree 
+in your guest (or get the fdt binary from /sys/firmware/fdt). A boot log of the the 
+guest can be found 
+<a href="https://falstaff.agner.ch/wp-content/uploads/2016/08/linux-v4.7-virt-dmesg.txt" 
+target="_b">here</a>.</p>
+
+<p>Besides the ARM PrimeCell peripherals such as PL011 (UART, ttyAM0) or PL031 (RTC) 
+Qemu also generates 32 MMIO mapped VirtIO transport descriptors. Qemu assigns VirtIO 
+based peripherals to those descriptors dynamically. A device can be created using Qemu's 
+-device parameter. For instance, to create a VirtIO based console:</p>
+
+<pre>
+qemu-system-arm -enable-kvm -M virt -cpu host \
+-kernel zImage -initrd core-image-minimal-qemuarm.cpio.gz \
+-nographic -monitor none -serial none \
+-device virtio-serial-device -device virtconsole,chardev=char0 -chardev stdio,id=char0 \
+-append "console=hvc0"
+</pre>
+
+<p>Note that we need to set -serial none, otherwise Qemu would allocate a PL011 based 
+UART and redirect that to stdio.</p>
+
+<p>You need to make sure that a Getty gets started on /dev/hvc0 to actually get a login 
+prompt. With OpenEmbedded I got a login shell after extending SERIAL_CONSOLES (and 
+fixing a 
+<a href="http://git.openembedded.org/openembedded-core/commit/meta/recipes-core/busybox?h=master-next&amp;id=a53393082f331a613cb3eb973a07bab22cefcde8">bug 
+in the inittab generation for busybox</a>):</p>
+
+<pre>
+SERIAL_CONSOLES = "115200;ttyAMA0 115200;hvc0"
+</pre>
+
+<p>To use a VirtIO based block device as root file system, use the following command 
+line:</p>
+
+<pre>
+qemu-system-arm -enable-kvm -M virt -cpu host \
+-kernel zImage -nographic -serial stdio -monitor none \
+-drive if=none,file=core-image-minimal-qemuarm.ext4,id=rfs -device virtio-blk-device,drive=rfs \
+-append "root=/dev/vda"
+</pre>
+
+<p>Similarly a VirtIO network device can be added using</p>
+
+<pre>qemu-system-arm -enable-kvm -M virt -cpu host \
+-kernel zImage -initrd core-image-minimal-qemuarm.cpio.gz \
+-nographic -serial stdio -monitor none \
+-netdev user,id=net0 -device virtio-net-device,netdev=net0
+</pre>
+
+<p>I found the following two commands useful to get a list of VirtIO devices and the properties supported by them.</p>
+
+<pre>
+$ qemu-system-arm -M virt -device help 2&gt;&amp;1 | grep virtio
+name "vhost-scsi", bus virtio-bus
+name "virtio-9p-device", bus virtio-bus
+name "virtio-9p-pci", bus PCI, alias "virtio-9p"
+name "virtio-blk-device", bus virtio-bus
+name "virtio-blk-pci", bus PCI, alias "virtio-blk"
+name "virtio-scsi-device", bus virtio-bus
+name "virtio-scsi-pci", bus PCI, alias "virtio-scsi"
+name "virtio-net-device", bus virtio-bus
+name "virtio-net-pci", bus PCI, alias "virtio-net"
+name "virtconsole", bus virtio-serial-bus
+name "virtio-input-host-device", bus virtio-bus
+name "virtio-input-host-pci", bus PCI, alias "virtio-input-host"
+name "virtio-keyboard-device", bus virtio-bus
+name "virtio-keyboard-pci", bus PCI, alias "virtio-keyboard"
+name "virtio-mouse-device", bus virtio-bus
+name "virtio-mouse-pci", bus PCI, alias "virtio-mouse"
+name "virtio-serial-device", bus virtio-bus
+name "virtio-serial-pci", bus PCI, alias "virtio-serial"
+name "virtio-tablet-device", bus virtio-bus
+name "virtio-tablet-pci", bus PCI, alias "virtio-tablet"
+name "virtserialport", bus virtio-serial-bus
+name "virtio-gpu-pci", bus PCI, alias "virtio-gpu"
+name "vhost-vsock-device", bus virtio-bus
+name "virtio-balloon-device", bus virtio-bus
+name "virtio-balloon-pci", bus PCI, alias "virtio-balloon"
+name "virtio-crypto-device", bus virtio-bus
+name "virtio-crypto-pci", bus PCI
+name "virtio-mmio", bus System
+name "virtio-rng-device", bus virtio-bus
+name "virtio-rng-pci", bus PCI, alias "virtio-rng"
+name "virtio-gpu-device", bus virtio-bus
+$ qemu-system-arm -M virt -device virtio-net-device,help
+virtio-net-device.event_idx=bool (on/off)
+virtio-net-device.host_ecn=bool (on/off)
+virtio-net-device.guest_ufo=bool (on/off)
+virtio-net-device.x-txtimer=uint32
+virtio-net-device.mq=bool (on/off)
+virtio-net-device.status=bool (on/off)
+virtio-net-device.tx=str
+virtio-net-device.ctrl_rx_extra=bool (on/off)
+virtio-net-device.guest_ecn=bool (on/off)
+virtio-net-device.indirect_desc=bool (on/off)
+virtio-net-device.mac=str (Ethernet 6-byte MAC Address, example: 52:54:00:12:34:56)
+virtio-net-device.rx_queue_size=uint16
+virtio-net-device.guest_tso6=bool (on/off)
+virtio-net-device.guest_tso4=bool (on/off)
+virtio-net-device.guest_csum=bool (on/off)
+virtio-net-device.guest_announce=bool (on/off)
+virtio-net-device.gso=bool (on/off)
+virtio-net-device.ctrl_vq=bool (on/off)
+virtio-net-device.ctrl_rx=bool (on/off)
+virtio-net-device.ctrl_vlan=bool (on/off)
+virtio-net-device.x-txburst=int32
+virtio-net-device.csum=bool (on/off)
+virtio-net-device.mrg_rxbuf=bool (on/off)
+virtio-net-device.ctrl_guest_offloads=bool (on/off)
+virtio-net-device.any_layout=bool (on/off)
+virtio-net-device.ctrl_mac_addr=bool (on/off)
+virtio-net-device.host_tso6=bool (on/off)
+virtio-net-device.host_tso4=bool (on/off)
+virtio-net-device.host_ufo=bool (on/off)
+virtio-net-device.vlan=int32 (Integer VLAN id to connect to)
+virtio-net-device.bootindex=int32
+virtio-net-device.netdev=str (ID of a netdev to use as a backend)
+virtio-net-device.notify_on_empty=bool (on/off)
+</pre>
+
+<h4>Run many machines using Qemu and KVM</h4>
+
+<p>How many Virtual Machines running Linux can my embedded device with 
+just 512MiB of RAM execute? A little shell script and a serial 
+console over TCP should answer the question:</p>
+
+<pre>
+#!/bin/bash 
+PORT=4500
+while [[ $PORT -le 4530 ]]; do
+        echo The counter is $PORT
+        qemu-system-arm -enable-kvm -M virt -cpu host \
+          -kernel zImage -initrd core-image-minimal-qemuarm.cpio.gz \
+          -nographic -monitor none -m 24 -smp 1 \
+          -chardev socket,host=127.0.0.1,telnet,port=$PORT,server,nowait,id=char0 \
+          -serial chardev:char0 -append "console=ttyAMA0,115200 quiet" &amp;
+        PORT=$((PORT+1))
+        sleep 10
+done
+</pre>
+
+<p>With that, I could use telnet 127.0.0.1 &lt;port&gt; to connect 
+to the individual virtual machines. All machines were really responsive,
+ and CPU usage was not that high. But after 15 machines, Qemu 
+failed to allocate enough memory for more virtual machines.</p>
+
+<p>In a second try I enabled <a href="https://www.kernel.org/doc/Documentation/vm/ksm.txt">KSM</a>
+ (Kernel Samepage Merging) wich allows the host to share pages with the same content 
+across different user space processes. This should help quite a bit, since we have a 
+unpacked Kernel image for each of the virtual machine in memory...</p>
+
+<p>The feature needs to be enabled using the following command:</p>
+
+<pre>
+echo 1 &gt; /sys/kernel/mm/ksm/run
+</pre>
+
+<p>With that I reached 27 virtual machines! Not too bad...</p>
+
+<h4>A more lightweight alternative: kvmtool</h4>
+
+<p>There is a more lightweight alternative to the Qemu/KVM combination: kvmtool (with 
+KVM). I will explore this option in another blog post.</p>
+
+<div><a href="#U-BootAndHYPOnARMv7" target="_b">&lt;- U-Boot/Linux and HYP mode 
+on ARMv7</a>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<a href="#KVMWithKvmtoolOnARMv7" target="_b">KVM with kvmtool on ARMv7 -></a></div>    
+
+<P><span id="comments-addcomment"><a href="#respond">Leave a comment ?</a></span>
+<h4 id="comments">4 Comments.</h4>
+
+<ol id="thecomments">
+  <li class="comment even thread-even depth-1" id="li-comment-40298">
+	
+		
+	<cite>joe</cite>
+	<a href="https://falstaff.agner.ch/2016/08/23/using-kvm-with-qemu-on-arm/#comment-40298">April 7, 2017 at 13:55</a>
+				
+        <p>I have a question.  If you use machine "virt", but boot the guest with 
+           qemu-uefi, won't qemu-uefi create a device tree for the guest based on 
+           the host device tree?  Does this mean the guest will use devices based on 
+           the uefi created device tree (like the gic) vs the emulated gic?</p>
+           </li><!-- #comment-## -->
+
+  <li class="comment byuser" id="li-comment-40299">
+	
+		
+	<cite>falstaff</cite>
+	<a href="https://falstaff.agner.ch/2016/08/23/using-kvm-with-qemu-on-arm/#comment-40299">April 13, 2017 at 04:30</a>
+				
+	<p>Not sure, what is qemu-uefi? Is that a fork of qemu?</p>
+
+        <p>I doubt that it would create a dynamic device tree based on the hardware, 
+           regular Qemu is not doing that either afaict.</p>
+           </li><!-- #comment-## -->
+
+  <li class="comment even thread-even depth-1" id="li-comment-40302">
+	
+		
+	<cite>czur</cite>
+	<a href="https://falstaff.agner.ch/2016/08/23/using-kvm-with-qemu-on-arm/#comment-40302">June 23, 2017 at 02:29</a>
+				
+	<p>Hi, Can you give a bit more detail about how to preinstall qemu as part of 
+           the host image? I am using Yocto to build my linux kernel for cortex-A7</p>
+           </li><!-- #comment-## -->
+
+  <li class="comment byuser" id="li-comment-40303">
+	
+		
+	<cite>falstaff</cite>
+	<a href="https://falstaff.agner.ch/2016/08/23/using-kvm-with-qemu-on-arm/#comment-40303">June 27, 2017 at 06:03</a>
+				
+	<p>IMAGE_INSTALL_append = " qemu" should add Qemu to your host image.</p>
+           </li><!-- #comment-## -->
+		</ol>
+
+<a name="KVMWithKvmtoolOnARMv7"></a>
+<h3 class="title">KVM with kvmtool on ARMv7</h3>
+
+<div class="post-info-top">
+Posted by <a href="https://falstaff.agner.ch/author/falstaff/" title="View all posts 
+by falstaff" rel="author">falstaff</a> on September 5, 2016
+  <a href="#respond">Leave a comment</a> (0)
+	<a href="#comments">Go to comments</a>
+			</div>
+
+<p>In this third part about KVM on ARMv7 I use <a target="_b" 
+href="https://git.kernel.org/cgit/linux/kernel/git/will/kvmtool.git/tree/">kvmtool</a>
+ as the user-space part of the hypervisor. This lightweight hypervisor allowed me to 
+run up to 72 virtual machines...  This does not really serves any purpose other than 
+demonstrating what is possible :-). See the video in the end how that looked like.</p>
+
+<p>In 2011 Pekka Enberg announced kvmtool (native Linux KVM tool).  Initially it was 
+meant to live within the Linux kernel source tree, but it ended up in a <a target="_b" 
+href="https://git.kernel.org/cgit/linux/kernel/git/will/kvmtool.git/">separate git 
+repository on kernel.org</a>.  In between it has been ported to several architectures 
+too, including ARM and ARM64. Its binary usually goes with the name <em>lkvm.</em> It 
+strictly depends on KVM and is otherwise kept rather lean.</p>
+
+<p>Similar to the <a href="#UsingKVMwithQemuOnARM">previous blog post</a>, I used a 
+host root file system based on Angstroms development image. kvmtool was not yet 
+available in any OpenEmbedded layer, hence I had to write a new recipe (it should turn 
+up in the <a href="https://lists.yoctoproject.org/pipermail/meta-virtualization/2016-September/thread.html" 
+target="_b">meta-virtualization layer mailing list</a> soon).</p>
+
+<p>Also like in the last post I built a guest root file system using Yocto/OpenEmbedded's
+ <em>poky-tiny</em> distribution and the <em>qemuarm</em> machine. During that process 
+I found yet <a href="http://lists.openembedded.org/pipermail/openembedded-core/2016-September/126115.html">another issue</a> 
+with the generated Busybox' inittab and initramfs. With this fix in place, and the 
+changes to the <em>qemuarm</em> machine to use appropriate tuning and console (see 
+below), the resulting cpio.gz ends up at around 700kB.</p>
+
+<pre>
+--- a/meta/conf/machine/qemuarm.conf
++++ b/meta/conf/machine/qemuarm.conf
+@@ -3,10 +3,11 @@
+ #@DESCRIPTION: arm_versatile_926ejs
+ 
+ require conf/machine/include/qemu.inc
+-require conf/machine/include/tune-arm926ejs.inc
++#require conf/machine/include/tune-arm926ejs.inc
+ #require conf/machine/include/tune-arm1136jf-s.inc
++require conf/machine/include/tune-cortexa7.inc
+ 
+ KERNEL_IMAGETYPE = "zImage"
+ 
+-SERIAL_CONSOLES = "115200;ttyAMA0 115200;ttyAMA1"
++SERIAL_CONSOLES = "115200;ttyS0 115200;hvc0"
+</pre>
+
+<p>The Kernel has been built outside of OpenEmbedded using <a href="https://falstaff.agner.ch/wp-content/uploads/2016/09/virt_guest_defconfig2.gz">this 
+defconfig</a>.  I tried to keep the configuration quite minimal. One difference to the 
+Kernel I used for Qemu is that I also enabled 8250/16550 and compatible serial support 
+(SERIAL_8250, SERIAL_8250_CONSOLE and SERIAL_OF_PLATFORM). kvmtool by default emulates 
+a 16550A UART.</p>
+
+<p>If you're interested in the pre-built binaries, I uploaded the new artifacts: Linux 
+4.7 <a href="https://falstaff.agner.ch/wp-content/uploads/2016/09/">initramfs as 
+cpio.gz, defconfig, zImage as tar</a>.</p>
+
+<p>With this setup, kvmtool can start a virtual machine and passing it a initramfs with 
+as little as:</p>
+
+<pre>
+lkvm run --initrd core-image-minimal-qemuarm.cpio.gz zImage
+</pre>
+
+<p>If user-space starts a serial console (on ttyS0), after some information from lkvm a 
+login shell should appear:</p>
+
+<pre>
+root@colibriimx7:~# lkvm run --initrd core-image-minimal-qemuarm.cpio.gz zImage
+ # lkvm run -k zImage -m 320 -c 2 --name guest-1169
+ Info: Loaded kernel to 0x80008000 (2207912 bytes)
+ Info: Placing fdt at 0x8fe00000 - 0x8fffffff
+ Info: Loaded initrd to 0x8fd50818 (718821 bytes)
+ Info: virtio-mmio.devices=0x200@0x10000:36
+
+
+Poky (Yocto Project Reference Distro) 2.1+snapshot-20160904 qemuarm /dev/ttyS0
+
+qemuarm login: root
+root@qemuarm:~# poweroff
+root@qemuarm:~# 
+ # KVM session ended normally.
+</pre>
+
+<p>The <code>--params</code> option allows to pass parameters to the kernel, e.g. 
+"console=ttyS0 debug" can be helpful to get the kernel boot log. The option 
+<code>--console virtio</code> can be used to use a para-virtualized serial console 
+(in this case user-space needs to start a console on /dev/hvc0).</p>
+
+<p>kvmtool is quite neat and has lots of interesting options especially for development 
+and testing. There is not a lot of documentation, but the help commands <em>lkvm 
+help</em> and <em>lkvm help COMMAND</em> are quite usable.</p>
+
+<h3>Run many machines using kvmtool and KVM</h3>
+
+<p>This was my main purpose for trying out kvmtool: My hope is to run more virtual 
+machines than I could do with Qemu in my previous post... In this experiment, I use 
+lkvm with a serial console (the processes stdio) and start each lkvm instance in its 
+own screen session:</p>
+
+<pre>
+screen -m lkvm run -c1 -m14 --initrd core-image-minimal-qemuarm.cpio.gz zImage
+</pre>
+
+<p>Like I did when trying to start lots of machine using Qemu, I tried making use of 
+KSM (Kernel Samepage Merging) again. Initially, enabling KSM did not take any effect 
+at all.  After digging a bit through kvmtool's source code 
+<a href="https://lists.cs.columbia.edu/pipermail/kvmarm/2016-August/021286.html">a bug 
+turned up</a> which did not annotate the pages correctly using 
+<a href="http://man7.org/linux/man-pages/man2/madvise.2.html">madvise</a>.</p>
+
+<p>This video shows how I was able to start 72 VMs using kvmtool on a Toradex Colibri 
+iMX7 module with 512MiB of RAM. Halfway in the video I enable KSM. After enabling KSM, 
+the system needs a while to go through the pages and merge the same pages. So I ended 
+up starting a bunch of machines and monitor the memory usage repeatably. One could 
+probably automate the process using a script, but I left that as an exercise for 
+somebody else :-). After starting the 73nd VM (at the very end of the video), the OOM 
+(Out-Of-Memory) killer kicked in which somehow also locked up my ssh shell. The system 
+was still accessible via serial console and the other 72 VMs continued to work fine:</p>
+
+<pre>
+root@colibriimx7:~# lkvm list | grep running | wc -l
+72
+</pre>
+
+<p><iframe src="https://www.youtube.com/embed/Y_UwNkQCaTU?feature=oembed" 
+frameborder="0" width="620" height="465"></iframe></p>
+
+
+<a name="virt_guest_defconfig"></a>
+<h3>Virtual Guest Defconfig</h3>
+
+<P>Also, there is a <a href="#XvisorDefconfig" target="_b">Virt-v7 Guest Defconfig</a> 
+file provided by <b>Xvisor-next</b> project.  Compare this with the next Defconfig  
+carefully.  Maybe, merge them together?
+
+<P>
+<a href="https://falstaff.agner.ch/wp-content/uploads/2016/08/virt_guest_defconfig.gz" 
+target="_b">(Source Origin)</a>
+<PRE>
+# CONFIG_LOCALVERSION_AUTO is not set
+CONFIG_SYSVIPC=y
+CONFIG_IKCONFIG=y
+CONFIG_IKCONFIG_PROC=y
+CONFIG_LOG_BUF_SHIFT=14
+CONFIG_CGROUPS=y
+CONFIG_CPUSETS=y
+# CONFIG_UTS_NS is not set
+# CONFIG_IPC_NS is not set
+# CONFIG_PID_NS is not set
+# CONFIG_NET_NS is not set
+CONFIG_BLK_DEV_INITRD=y
+# CONFIG_RD_BZIP2 is not set
+CONFIG_PROFILING=y
+CONFIG_OPROFILE=y
+# CONFIG_BLK_DEV_BSG is not set
+# CONFIG_IOSCHED_DEADLINE is not set
+# CONFIG_IOSCHED_CFQ is not set
+CONFIG_ARCH_VIRT=y
+# CONFIG_CACHE_L2X0 is not set
+# CONFIG_ARM_ERRATA_643719 is not set
+CONFIG_SMP=y
+CONFIG_MCPM=y
+CONFIG_VMSPLIT_2G=y
+CONFIG_NR_CPUS=8
+CONFIG_AEABI=y
+CONFIG_CMA=y
+CONFIG_ZBOOT_ROM_TEXT=0x0
+CONFIG_ZBOOT_ROM_BSS=0x0
+CONFIG_CMDLINE="console=ttyAMA0"
+CONFIG_VFP=y
+CONFIG_NEON=y
+# CONFIG_CORE_DUMP_DEFAULT_ELF_HEADERS is not set
+CONFIG_NET=y
+CONFIG_PACKET=y
+CONFIG_UNIX=y
+CONFIG_INET=y
+CONFIG_IP_PNP=y
+CONFIG_IP_PNP_DHCP=y
+CONFIG_IP_PNP_BOOTP=y
+# CONFIG_IPV6 is not set
+# CONFIG_WIRELESS is not set
+CONFIG_UEVENT_HELPER_PATH="/sbin/hotplug"
+CONFIG_DEVTMPFS=y
+CONFIG_DEVTMPFS_MOUNT=y
+CONFIG_VEXPRESS_CONFIG=y
+CONFIG_BLK_DEV_RAM=y
+CONFIG_BLK_DEV_RAM_COUNT=4
+CONFIG_BLK_DEV_RAM_SIZE=16384
+CONFIG_VIRTIO_BLK=y
+# CONFIG_SCSI_PROC_FS is not set
+CONFIG_BLK_DEV_SD=y
+CONFIG_SCSI_VIRTIO=y
+CONFIG_ATA=y
+# CONFIG_SATA_PMP is not set
+CONFIG_NETDEVICES=y
+CONFIG_VIRTIO_NET=y
+CONFIG_SMC91X=y
+CONFIG_SMSC911X=y
+# CONFIG_WLAN is not set
+CONFIG_INPUT_EVDEV=y
+# CONFIG_SERIO_SERPORT is not set
+CONFIG_SERIO_AMBAKMI=y
+# CONFIG_LEGACY_PTYS is not set
+CONFIG_SERIAL_AMBA_PL011=y
+CONFIG_SERIAL_AMBA_PL011_CONSOLE=y
+CONFIG_VIRTIO_CONSOLE=y
+CONFIG_HW_RANDOM_VIRTIO=y
+CONFIG_I2C=y
+CONFIG_GPIOLIB=y
+CONFIG_GPIO_SYSFS=y
+CONFIG_GPIO_PL061=y
+# CONFIG_HWMON is not set
+CONFIG_FB=y
+CONFIG_FB_ARMCLCD=y
+CONFIG_HID_DRAGONRISE=y
+CONFIG_HID_GYRATION=y
+CONFIG_HID_TWINHAN=y
+CONFIG_HID_NTRIG=y
+CONFIG_HID_PANTHERLORD=y
+CONFIG_HID_PETALYNX=y
+CONFIG_HID_SAMSUNG=y
+CONFIG_HID_SONY=y
+CONFIG_HID_SUNPLUS=y
+CONFIG_HID_GREENASIA=y
+CONFIG_HID_SMARTJOYPLUS=y
+CONFIG_HID_TOPSEED=y
+CONFIG_HID_THRUSTMASTER=y
+CONFIG_HID_ZEROPLUS=y
+CONFIG_USB=y
+CONFIG_USB_ANNOUNCE_NEW_DEVICES=y
+CONFIG_USB_MON=y
+CONFIG_USB_STORAGE=y
+CONFIG_MMC=y
+CONFIG_MMC_ARMMMCI=y
+CONFIG_NEW_LEDS=y
+CONFIG_LEDS_CLASS=y
+CONFIG_LEDS_GPIO=y
+CONFIG_LEDS_TRIGGERS=y
+CONFIG_LEDS_TRIGGER_HEARTBEAT=y
+CONFIG_LEDS_TRIGGER_CPU=y
+CONFIG_RTC_CLASS=y
+CONFIG_RTC_DRV_PL031=y
+CONFIG_VIRTIO_BALLOON=y
+CONFIG_VIRTIO_MMIO=y
+CONFIG_VIRTIO_MMIO_CMDLINE_DEVICES=y
+CONFIG_ARM_TIMER_SP804=y
+# CONFIG_IOMMU_SUPPORT is not set
+CONFIG_FW_CFG_SYSFS=y
+CONFIG_FW_CFG_SYSFS_CMDLINE=y
+CONFIG_EXT4_FS=y
+CONFIG_VFAT_FS=y
+CONFIG_TMPFS=y
+CONFIG_TMPFS_XATTR=y
+CONFIG_SQUASHFS=y
+CONFIG_SQUASHFS_LZO=y
+# CONFIG_NETWORK_FILESYSTEMS is not set
+CONFIG_NLS_CODEPAGE_437=y
+CONFIG_NLS_ISO8859_1=y
+CONFIG_DEBUG_FS=y
+CONFIG_FTRACE=y
+CONFIG_DEBUG_USER=y
+CONFIG_CRYPTO_DEFLATE=y
+CONFIG_CRYPTO_LZO=y
+# CONFIG_CRYPTO_HW is not set
+</PRE>
+
+<a name="XvisorDefconfig"></a>
+<P> See also <a target="_b" 
+href="https://github.com/avpatel/xvisor-next/blob/master/tests/arm32/virt-v7/linux/README">Xvisor README</a>. &nbsp;&nbsp;<a target="_b" 
+href="https://github.com/avpatel/xvisor-next/blob/master/tests/arm32/virt-v7/linux/linux-4.9_defconfig">linux-4.9_defconfig</a>&nbsp;&nbsp;Get a <a target="_b" 
+href="https://github.com/avpatel/xvisor-next/blob/master/tests/arm32/virt-v7/linux/README#L39">copy</a> of this defconfig and put it in <a target="_b" 
+href="https://github.com/hardkernel/linux/tree/odroidxu4-4.9.y/arch/arm/configs">Arm 
+Configs Dir</a>  By the way, is the <b>linux-4.9_defconfig</b> file automatically 
+generated from <a target="_b" 
+https://github.com/avpatel/xvisor-next/blob/master/arch/arm/configs/generic-v7-defconfig">generic-v7-defconfig</a> (140 lines) or <a target="_b" 
+https://github.com/JimmyDurandWesolowski/xvisor-next/blob/master/arch/arm/configs/generic-v7-ve-defconfig">generic-v7-ve-defconfig</a> (629 lines)?</P>
+
+<a name="QemuVirtVM"></a>
+<h4>QEMU for and on ARM cores</h4>
+
+<h3><a href="./InstallingDebianOnARMVirtBoard.html" target="_b">Installing Debian on 
+QEMU's 32-bit ARM "virt" board</a>
+
+</body></html>

@@ -1,0 +1,3720 @@
+<html>
+  <head><title>MyNote On Odroid-$u4 Cloud</title></head>
+  <body>
+
+   <OL>
+     <LI> <h4><a href="https://github.com/hardkernel/linux/tree/odroidxu4-4.9.y" 
+          target="_b">hardkernel/linux</a></h4>
+
+
+     <LI> <b>Important Notes: (11/25/2017)</b>
+
+<P> The <b>nfsganesha</b> VM has a public IP 140.120.8.98, but it can only be 
+    reached within 511.
+
+<PRE>
+amd-6:~$ ssh -X hsu@140.120.8.98
+ssh_exchange_identification: read: Connection reset by peer
+as:~$ ssh -X hsu@140.120.8.98
+ssh_exchange_identification: read: Connection reset by peer
+host6:~$ dmesg | grep 'page allocation failure'
+[264719.241206] kswapd0: page allocation failure: order:0, mode:0x2080020(GFP_ATOMIC)
+[265033.092636] kswapd0: page allocation failure: order:0, mode:0x2080020(GFP_ATOMIC)
+[265033.510845] kswapd0: page allocation failure: order:0, mode:0x2080020(GFP_ATOMIC)
+[265033.930270] kswapd0: page allocation failure: order:0, mode:0x2080020(GFP_ATOMIC)
+[265034.349680] kswapd0: page allocation failure: order:0, mode:0x2080020(GFP_ATOMIC)
+[265034.769073] kswapd0: page allocation failure: order:0, mode:0x2080020(GFP_ATOMIC)
+[348946.817387] vhost-22539: page allocation failure: order:0, mode:0x2080020(GFP_ATOMIC)
+[349206.644368] kswapd0: page allocation failure: order:0, mode:0x2080020(GFP_ATOMIC)
+[349368.349104] vhost-22539: page allocation failure: order:0, mode:0x2080020(GFP_ATOMIC)
+[350150.319826] vhost-22539: page allocation failure: order:0, mode:0x2080020(GFP_ATOMIC)
+[350151.203534] vhost-22539: page allocation failure: order:0, mode:0x2080020(GFP_ATOMIC)
+host6:~$ dmesg | grep 'Not tainted'
+[264719.247347] CPU: 4 PID: 63 Comm: kswapd0 Not tainted 4.9.58 #1
+[265033.098734] CPU: 4 PID: 63 Comm: kswapd0 Not tainted 4.9.58 #1
+[265033.518395] CPU: 4 PID: 63 Comm: kswapd0 Not tainted 4.9.58 #1
+[265033.937800] CPU: 4 PID: 63 Comm: kswapd0 Not tainted 4.9.58 #1
+[265034.357201] CPU: 4 PID: 63 Comm: kswapd0 Not tainted 4.9.58 #1
+[265034.776606] CPU: 4 PID: 63 Comm: kswapd0 Not tainted 4.9.58 #1
+[348946.823836] CPU: 3 PID: 22542 Comm: vhost-22539 Not tainted 4.9.58 #1
+[349206.650461] CPU: 4 PID: 63 Comm: kswapd0 Not tainted 4.9.58 #1
+[349368.355538] CPU: 7 PID: 22542 Comm: vhost-22539 Not tainted 4.9.58 #1
+[350150.326310] CPU: 4 PID: 22542 Comm: vhost-22539 Not tainted 4.9.58 #1
+[350151.209974] CPU: 1 PID: 22542 Comm: vhost-22539 Not tainted 4.9.58 #1
+# host3, host4, host6 have the same problems, but not host1, host2, host5. 
+# A ceph-mds is running in host3, a ceph-mon is running in host4.
+# Also, ac02 upto ac06 don't have this problem, too.  And they are rather stable.
+</PRE>
+
+     <LI> <b>Important Notes: (11/23/2017)</b>
+
+<PRE>
+ ac06:~$ dmesg | grep conntrack:
+[181433.588529] conntrack: generic helper won't handle protocol 132. Please consider loading the specific helper module.
+########################################################################################################
+# conntrack: generic helper won't handle protocol 132. Please consider loading the specific helper module.
+
+# Fixing with
+
+# echo "ip_conntrack_proto_sctp" > /etc/modules-load.d/sctp.conf
+# modprobe ip_conntrack_proto_sctp
+########################################################################################################
+</PRE>
+
+<P> I saw <b>nfsganesha</b> is running on host7.  Despite of being the ceph ganesha, it 
+    is also an nfs server.  For an nfs server, usually, it shares a lot of useful files 
+    within its cloud.  But, its rootfs is overfull (66%).  Don't you think we must give 
+    it more storage space so that it can carry more useful files to be shared?
+
+<P> Clearly, we already have the <b>nfsganesha</b> and <b>nfs0</b>, two nfs servers in 
+    our cloud.  Shall we designate one of them as a supplemental one (, at least for 
+    the load balancing purpose)?  I think, the source packages for our own software 
+    requirement should be provided by <b>nfsganesha</b>, and their software binaries 
+    should be provided by <b>nfs0</b>.
+
+<PRE>
+nfsganesha:~$$ df
+Filesystem     1K-blocks    Used Available Use% Mounted on
+udev               10240       0     10240   0% /dev
+tmpfs             102464     100    102364   1% /run
+/dev/vda2        7701288 4753924   2536540  66% /
+tmpfs               5120       0      5120   0% /run/lock
+tmpfs             204920       0    204920   0% /run/shm
+/dev/vda1         482922   95282    362706  21% /boot
+</PRE>
+
+
+     <LI> <b>Important Notes: (11/17/2017)</b>
+
+<P>   Frequently, host6 rebooted on "Jan 1 2000". And "kvm_timer_inject_irq_work" 
+      warning messages popped up so many times.  The "/" filesystem of nfsganesha
+      is too full (66%), clean some useless backups!
+
+<P>   By the way, it seems all our VMs are rather stable!
+
+<P>   I also checked ac02-ac06 and av02-av06. So far so good.  Format <b>/dev/sdb</b>, 
+      (btrfs), make a filesystem and mount it to <b>/media/sdb1</b> so that we can 
+      gather information on btrfs.
+
+     <LI> <b>Important Notes: (11/15/2017)</b>
+
+<OL>
+  <LI> On ac08
+
+<PRE>
+$ gcc -v 2>&1 | grep -o enable-default-pie
+enable-default-pie
+$ ls -l /usr/local/lib/uml/linux.uml
+-rwxr-xr-x 1 root hsu 13259856 Nov 15 16:36 /usr/local/lib/uml/linux.uml
+$ /usr/local/lib/uml/linux.uml --help
+User Mode Linux v4.9.51
+# Where did you compile this kernel? (I checked, it was done in the source 
+# directory: /src3/kernel/linux-source-4.9. Using the new gcc, i.e. gcc-6.3?
+# With gcc 6.3, we did successfully compile linux.uml, but we also  need to
+# compile some low level packages: such as dbus, libvde*, etc. to get needed
+# *.o files.  You can't use the native libraries that come with our OS.  
+# Before committing your Thesis to this new (and dangerous) gcc, probably you 
+# should take a few more tests.  But so far so good, I think.
+#######################################################################
+# For the emacs compilation, I checked that almost all the archive libraries we need 
+# are not in the PIC format.  For example: /usr/lib/x86_64-linux-gnu/libXaw3d.a
+# $ mkdir /tmp/Test; cd /tmp/Test
+# $ ar -x /usr/lib/x86_64-linux-gnu/libXaw3d.a
+# $ readelf --relocs Box.o | egrep '(GOT|PLT|JU?MP_SLOT)'
+# Downgrade gcc-6 to gcc-5 is the only reasonable solution. 
+# Emacs did compiled successfully.  But "corrupted double-linked list" nightmare 
+# resurfaced.  /lib/x86_64-linux-gnu/libc-2.24.so is the cause.
+# I saw you downgraded gcc back to 4.9.2, but your libc shared object is 2.24, 
+# your emacs binary won't be any good.
+$ file /usr/lib/x86_64-linux-gnu/libc.so
+/usr/lib/x86_64-linux-gnu/libc.so: ASCII text
+hsu@Amath-Client09:/src1/emacs-21/objects$ cat /usr/lib/x86_64-linux-gnu/libc.so
+/* GNU ld script
+   Use the shared library, but some functions are only in
+   the static library, so try that secondarily.  */
+OUTPUT_FORMAT(elf64-x86-64)
+GROUP ( /lib/x86_64-linux-gnu/libc.so.6 /usr/lib/x86_64-linux-gnu/libc_nonshared.a  AS_NEEDED ( /lib/x86_64-linux-gnu/ld-linux-x86-64.so.2 ) )
+$ nm /usr/lib/x86_64-linux-gnu/libc_nonshared.a | grep libc_csu
+0000000000000070 T __libc_csu_fini
+0000000000000000 T __libc_csu_init
+</PRE>
+
+  <LI> On av08
+
+<PRE>
+# The newly compiled kernel is online.
+av08:~$ uname -a
+Linux av08 4.9.51 #4 Wed Nov 15 16:21:39 CST 2017 x86_64 GNU/Linux
+# The software packages are upgraded to ascii for testing purpose.
+av08:~$ diff /etc/apt/sources.list /etc/apt/sources.list~
+1,5c1,5
+< deb [ arch=amd64 ] http://140.120.7.22/merged ascii main contrib 
+< deb [ arch=amd64 ] http://140.120.7.22/merged ascii-updates main contrib 
+< deb [ arch=amd64 ] http://140.120.7.22/merged ascii-backports main contrib
+< deb [ arch=amd64 ] http://140.120.7.22/merged ascii-security main contrib 
+< # deb-src http://free.nchc.org.tw/debian/ ascii main
+---
+> deb [ arch=amd64 ] http://140.120.7.22/merged jessie main contrib 
+> deb [ arch=amd64 ] http://140.120.7.22/merged jessie-updates main contrib 
+> deb [ arch=amd64 ] http://140.120.7.22/merged jessie-backports main contrib
+> deb [ arch=amd64 ] http://140.120.7.22/merged jessie-security main contrib 
+> # deb-src http://free.nchc.org.tw/debian/ jessie main
+# emacs was compiled in sd, the software development VM.  Tested, everything is fine.
+ls -l /var/log/au*
+-rw-r----- 1 root adm 500037 Nov 15 13:58 /var/log/auth.log
+-rw-r----- 1 root adm 687879 Oct 29 06:25 /var/log/auth.log.1
+</PRE>
+
+  <LI> 
+</OL>
+     <LI> <b>Important Notes: (11/10/2017)</b>
+
+<OL>
+  <LI> New harddisk in host6
+<P> I saw the /dev/sdb hard disk is a brand new one.   The previous disk was damaged
+    beyond repair?
+
+<PRE>
+host6:~$ sudo blkid /dev/sdb
+/dev/sdb: UUID="d9e2f680-61c7-40a3-baa0-897f6247988a" UUID_SUB="9c354f23-3ce9-4368-908c-1ffa37e93af8" TYPE="btrfs"
+</PRE>
+  <LI> On host5, a lot of warning messages about kvm_timer_inject_irq_work.  Hopefully, 
+       they were only warning messages.
+  <LI> On host4, If swap space is added for ceph, I suggest use disk space in /src4, 
+       since ssd disk is much faster.  Same suggestion for the /src1/swap space in 
+       host2. By the way, on host2, 145M swap space was consumed. On host4, 147M 
+       swap space was consumed.  Both these hosts are also running ceph-mon daemon.  
+       If it is for this reason, we are adding swap space, then, probably, we really 
+       need to offer the swap space from our ssd disk.
+</OL>
+    <LI> <b>Important Notes: (11/09/2017)</b>
+
+<OL>
+  <LI> The kernel for nfsganesha is too old, 4.9.30 was not very reliable.
+  <LI> The emacs in nfsganesha is brain damaged.
+  <LI> V2.3.2 is too old, 
+<a href="https://github.com/nfs-ganesha/nfs-ganesha/tree/V2.5-stable/" 
+target="_b">V2.5.3</a> is the current stable version.
+
+<PRE>
+nfsganesha:~$ /usr/bin/ganesha.nfsd -v
+ganesha.nfsd compiled on Nov  6 2017 at 16:09:37
+Release = V2.3.2
+</PRE>
+  <LI> How come you got lib64 shared objects?  We only have armhf 32 bit CPU.
+
+<PRE>
+/usr/lib64/ganesha/libfsalceph.so.4.2.0
+/usr/lib64/ganesha/libfsalceph.so.4
+/usr/lib64/ganesha/libfsalceph.so
+# Ah! Indeed, its 32 bit!
+$ file /usr/lib64/ganesha/libfsalceph.so.4.2.0
+/usr/lib64/ganesha/libfsalceph.so.4.2.0: ELF 32-bit LSB shared object, ARM, EABI5 version 1 (SYSV), dynamically linked, BuildID[sha1]=c0af54bdcde0e51640bed9141486e0ded3dbcf6e, not stripped
+</PRE>
+  <LI> I said before, you should merge this to ceph-mds, (metadata server).
+  <LI> What happens to /dev/sdb on host6?  Disk failure?
+  <LI> client4344 fsid "c465366f-0155-4e59-8e66-a98e141ef080" Isn't this the fsid of 
+       /dev/sdb in host6? 2038, 2984 what these numbers mean?
+<PRE>
+[193345.008276] libceph: client4344 fsid c465366f-0155-4e59-8e66-a98e141ef080
+[194432.998387] libceph: osd4 weight 0x10000 (in)
+[194433.001419] libceph: osd4 up
+[194809.943479] libceph: wrong peer, want 192.168.2.4:6800/2038, got 192.168.2.4:6800/2984
+</PRE>
+
+  <LI> Cepf is designed to be self-healing.  
+
+<P> <a href="http://ceph.com/outreachy2017/" target="_b">Ceph in Outreachy 2017</a>:
+Ceph is distributed, software-defined storage that allows users to turn commodity 
+hardware into a massively scalable storage cluster with no single point of failure. 
+This storage solution is able to speak object, block, and file which unifies all 
+storage needs under a single system with self-managing and self-healing characteristics. 
+</P>
+
+<P> The <code>/dev/sdb</code> in host6 apparently is broken. Did you umount this disk 
+    yourself?  In <b>host1</b>, the <b>df</b> command reports the correct file size of 
+    <code>/tmp/ceph</code>.  Is the <b>self-healing</b> characteristic of ceph a fact 
+    or a hoax?
+
+<PRE>
+host1:~$ df /tmp/ceph
+Filesystem          1K-blocks     Used  Available Use% Mounted on
+192.168.1.1:6789:/ 3907047424 29507584 3877539840   1% /tmp/ceph
+</PRE>
+
+</OL>
+
+     <LI> <b>Important Notes: (11/08/2017)</b>
+
+       <P> Except host5, still seeing "CPU Not tainted" warning message, all hosts, osd 
+           VMs, and nfs0 are healthy.  Still wondering, will an object be backed up 9 
+           times automatically? 
+
+       <P> Check ac02-ac06 and av02-av06 dmesg, they are rather healthy.  For armhf, 
+           linux kernels 4.9.50 and up are rather stable, now.
+
+       <P> A lof of messages like the next few lines.  Have you made a new filesystem? 
+           An older one has not been umounted and the new one is not mounted?
+
+<PRE>
+[116609.110658] libceph: mon1 192.168.1.2:6789 session lost, hunting for new mon
+[116609.122808] libceph: bad fsid, had 1b30856f-a2ff-4256-aa3d-cf20ab723758 got c465366f-0155-4e59-8e66-a98e141ef080
+[116609.133555] libceph: auth method 'x' error -1
+[116639.190656] libceph: mon2 192.168.1.3:6789 session lost, hunting for new mon
+[116639.203196] libceph: bad fsid, had 1b30856f-a2ff-4256-aa3d-cf20ab723758 got c465366f-0155-4e59-8e66-a98e141ef080
+[116639.213903] libceph: auth method 'x' error -1
+</PRE>
+
+<PRE>
+Just what I thought, I got this message from google:
+Sage Weil                             6 years ago
+This means the client is getting data from a different file system than it
+originally mounted. Probably you had the client mounted, rebuilt the fs
+and restarted the monitors, and now the client is confused because the
+servers were changed out from underneath it.
+
+sage
+</PRE>
+
+     <LI> <b>Important Notes: (11/06/2017)</b>
+
+<P> Apparently, the kernel has being upgraded to 4.9.58 with some difficulty.
+
+<P> I think due to the sdb disk failure in host6, the ceph storage cluster is not yet
+    completely online, the <b>df</b> command can not report the size of the filesystem:
+    <code>/tmp/cephfstest</code>.
+
+<PRE>
+host1:~$ df / /usr /src1 /src2 /src4
+Filesystem      1K-blocks    Used Available Use% Mounted on
+/dev/mmcblk0p2    2538852   87400   2302768   4% /
+/dev/mmcblk0p3    5095040 2058556   2757956  43% /usr
+/dev/mmcblk0p9   12319880  654320  11020032   6% /src1
+/dev/mmcblk0p10  14627832 5253488   8611568  38% /src2
+/dev/sda1       164090644 5371796 150313856   4% /src4
+host1:~$ df # This command just hangs
+host1:~$ ls -l /tmp # This command also hangs
+
+# Before you rebooted host6, did you umount /dev/sdb before shutting down host6?
+# I believe the btrfs on /dev/sdb was damaged. Something about wrong amount of 
+# free space is reported.  Maybe you need to re-format and make a new btrfs on 
+# /dev/sdb of host6.
+host6:~$ dmesg
+       . 
+       . 
+       . 
+[88849.763663] usb 4-1.2: USB disconnect, device number 4
+[88849.767777] sd 1:0:0:0: [sdb] tag#0 uas_zap_pending 0 uas-tag 1 inflight: CMD 
+[88849.774518] sd 1:0:0:0: [sdb] tag#0 CDB: opcode=0x28 28 00 00 16 22 00 00 00 20 00
+[88849.782076] sd 1:0:0:0: [sdb] tag#0 UNKNOWN(0x2003) Result: hostbyte=0x01 driverbyte=0x00
+[88849.790208] sd 1:0:0:0: [sdb] tag#0 CDB: opcode=0x28 28 00 00 16 22 00 00 00 20 00
+[88849.797739] blk_update_request: I/O error, dev sdb, sector 1450496
+[88849.803915] BTRFS error (device sdb): bdev /dev/sdb errs: wr 0, rd 1, flush 0, corrupt 0, gen 0
+[88849.812702] BTRFS error (device sdb): bdev /dev/sdb errs: wr 0, rd 2, flush 0, corrupt 0, gen 0
+[88849.821328] BTRFS error (device sdb): failed to read block groups: -5
+[88849.823931] sd 1:0:0:0: [sdb] Synchronizing SCSI cache
+[88849.950820] BTRFS error (device sdb): open_ctree failed
+[88850.420785] sd 1:0:0:0: [sdb] Synchronize Cache(10) failed: Result: hostbyte=0x07 driverbyte=0x00
+       . 
+       . 
+       . 
+[88953.891132] BTRFS warning (device sdb): block group 29360128 has wrong amount of free space
+[88953.897991] BTRFS warning (device sdb): failed to load free space cache for block group 29360128, rebuilding it now
+[89372.146053] blk_update_request: I/O error, dev sdb, sector 0
+host1:~$ ssh -X hsu@192.168.1.251
+hsu@192.168.1.251's password: 
+Linux ceph-nfsganesha 4.9.0-0.bpo.3-armmp-lpae #1 SMP Debian 4.9.30-2+deb9u5~bpo8+1 (2017-09-28) armv7l
+
+The programs included with the Devuan GNU/Linux system are free software;
+the exact distribution terms for each program are described in the
+individual files in /usr/share/doc/*/copyright.
+
+Devuan GNU/Linux comes with ABSOLUTELY NO WARRANTY, to the extent
+permitted by applicable law.
+Last login: Mon Nov  6 19:38:28 2017 from 192.168.1.254
+# Kernel too old.
+hsu@ceph-nfsganesha:~$ uname -a
+Linux ceph-nfsganesha 4.9.0-0.bpo.3-armmp-lpae #1 SMP Debian 4.9.30-2+deb9u5~bpo8+1 (2017-09-28) armv7l GNU/Linux
+# System kicked me out
+ceph-nfsganesha:~$ Connection to 192.168.1.251 closed by remote host.
+Connection to 192.168.1.251 closed.
+</PRE>
+
+     <P>By the way, I recall ceph-mds is metadata server, a lot of ceph filesystem 
+        information are in the metadata category.  And <b>ganesha</b> is also nfs 
+        for ceph filesystem, it should be combined with mds, i.e. we offer ganesha 
+        inside mds would be better.  I don't remember the details, but I think you 
+        can investigate it further.  Also, I recall mds could be very busy, hence, 
+        give it multiple CPUs, <b>ganesha</b> can share these CPUs.
+
+     <LI> <b>Important Notes: (11/05/2017)</b>
+
+       <P> I checked each dmesg output on ac02-ac06, av02-av-06, it seems the hosts 
+           and VMs are rather stable.  I think, we can offer one or more CPUs to each 
+           VM, because we won't use the physical hosts very often. 
+
+     <LI> <b>Important Notes: (11/02/2017)</b>
+
+       <P> I checked each dmesg output on ac02-ac06, av02-av-06, oh1, host2, host3, 
+           host4, host5, host6, nfs0. Except the first item from Notes on 11/01/2017, 
+           it is rather clean. 
+
+       <P> Almost all hosts are rebooted recently. Is it true that each ssd disk is 
+           always represented by <b>/dev/sda</b>? Otherwise, there is one sure way: 
+           Since USB hard disk is a plug and play device, we can plug the usb disk 
+           in after odroid-xu4 finishs its booting. I believe the 4.8T available 
+           space is the total of the 5 usb disks, right?
+
+<PRE>
+host1:~$ df /tmp/cephfstest
+Filesystem          1K-blocks     Used  Available Use% Mounted on
+192.168.1.1:6789:/ 4883812352 36851712 4846960640   1% /tmp/cephfstest
+# Which USB disk is out?, 1T is missing.
+host1:~$ date
+Fri Nov  3 10:30:44 CST 2017
+hsu@odxu4host1:~$ df /tmp/cephfstest
+Filesystem          1K-blocks     Used  Available Use% Mounted on
+192.168.1.1:6789:/ 3907047424 29487104 3877560320   1% /tmp/cephfstest
+host1:~$ date
+Fri Nov  3 18:55:04 CST 2017
+host1:~$ df /tmp/cephfstest
+Filesystem          1K-blocks     Used  Available Use% Mounted on
+192.168.1.1:6789:/ 4883812352 36892672 4846919680   1% /tmp/cephfstest
+##################################################
+# What causes the following horrible message:  (Not so horrible, after all!)
+# Also, I notice multiple USB 3.0 disks are recognized as "scsi host0", ssd recognized 
+# as "scsi host1", but each ssd is represented by /dev/sda and each USB 3.0 disk is 
+# represented by /dev/sdb
+host4:~$ dmesg
+       . 
+       . 
+       . 
+[93736.343808] sd 1:0:0:0: [sda] tag#1 data cmplt err -71 uas-tag 2 inflight: CMD 
+[93736.349678] sd 1:0:0:0: [sda] tag#1 CDB: opcode=0x28 28 00 02 ec 8e bf 00 00 b8 00
+[93736.389537] xhci-hcd xhci-hcd.2.auto: ERROR Transfer event for disabled endpoint or incorrect stream ring
+[93736.397659] xhci-hcd xhci-hcd.2.auto: @00000000b690e540 00000000 00000000 04000000 05038000
+[93767.530685] sd 1:0:0:0: [sda] tag#3 uas_eh_abort_handler 0 uas-tag 4 inflight: CMD OUT        . 
+       . 
+       . 
+# Same thing also happened in host6, and the timing was almost identical!
+host6:~$ dmesg
+       . 
+       . 
+       . 
+[93781.814807] sd 0:0:0:0: [sda] tag#0 data cmplt err -71 uas-tag 1 inflight: CMD 
+[93781.820661] sd 0:0:0:0: [sda] tag#0 CDB: opcode=0x28 28 00 02 5a cb 27 00 00 58 00
+[93781.828308] xhci-hcd xhci-hcd.2.auto: ERROR Transfer event for disabled endpoint or incorrect stream ring
+[93781.837725] xhci-hcd xhci-hcd.2.auto: @00000000b690e040 00000000 00000000 04000000 04038000
+[93812.856722] sd 0:0:0:0: [sda] tag#7 uas_eh_abort_handler 0 uas-tag 8 inflight: CMD IN 
+       . 
+       . 
+       . 
+# I think no harm done, but annoying.
+host6:~$ dmesg | grep 'uas_eh_bus_reset_handler success'
+[93839.910133] scsi host0: uas_eh_bus_reset_handler success
+[176506.589795] scsi host1: uas_eh_bus_reset_handler success
+</PRE>
+
+       <P> Ah! One more thing in my mind, the raid6 business caused by btrfs is on 
+           automatically.  Hence, redundant copies of a file are generated and ceph 
+           also backups objects automatically.  Could we end up, say, 6 copies of 
+           each file get stored in the ceph storage?  This would waste a lot of 
+           storage space. 
+
+       <P> One critical problem: <b>who</b> command reports the wrong last system boot 
+           time!
+
+<PRE>
+nfs:~$ uname -a
+Linux nfs 4.9.0-4-armmp-lpae #1 SMP Debian 4.9.51-1 (2017-09-28) armv7l GNU/Linux
+nfs:~$ who -b 
+         system boot  2017-11-02 16:39
+# The last system boot should be "Thu Nov  2 16:39"
+nfs:~$ last | grep reboot
+reboot   system boot  4.9.0-4-armmp-lp Thu Nov  2 16:39   still running
+reboot   system boot  4.9.0-0.bpo.3-ar Thu Nov  2 16:38 - 16:39  (00:00)
+# Before you reboot nfs0, you didn't shutdown av02 upto av06, first.
+av02:~$ who -b
+         system boot  2017-10-25 17:36
+av03:~$ who -b
+         system boot  2017-10-31 10:08
+av04:~$ who -b
+         system boot  2017-10-31 10:08
+av05:~$ who -b
+         system boot  2017-10-31 10:08
+av06:~$ who -b
+         system boot  2017-10-31 10:06
+# Av06 and all other VMs knew nfs not responding!
+$ date
+Fri Nov  3 19:13:08 CST 2017
+hsu@av06:~$ sudo dmesg | grep nfs:
+[196354.470325] nfs: server 140.120.8.99 not responding, still trying
+[196409.509950] nfs: server 140.120.8.99 OK
+[272126.950001] nfs: server 140.120.8.99 not responding, still trying
+[272261.806864] nfs: server 140.120.8.99 OK
+# 
+# I think you are lucky, none of the VMs panic.  More seriously, you are lucky 
+# that no one accessed these VMs during nfs0 rebooting.  Otherwise, if any one 
+# had issued any command and the system had tried to fetch the command from the 
+# shared filesystem (in nfs0), system crashing should be the outcome.  But, nfs0 
+# is running the 4.9.51 kernel with clean dmesg output.  As a remainder, nfs0 is 
+# running on 3 CPUs and 1GB of ram.
+nfs:~$ cat /proc/cpuinfo
+processor	: 0
+model name	: ARMv7 Processor rev 3 (v7l)
+BogoMIPS	: 48.00
+Features	: half thumb fastmult vfp edsp thumbee neon vfpv3 tls vfpv4 idiva idivt vfpd32 lpae evtstrm 
+CPU implementer	: 0x41
+CPU architecture: 7
+CPU variant	: 0x2
+CPU part	: 0xc0f
+CPU revision	: 3
+
+processor	: 1
+model name	: ARMv7 Processor rev 3 (v7l)
+BogoMIPS	: 48.00
+Features	: half thumb fastmult vfp edsp thumbee neon vfpv3 tls vfpv4 idiva idivt vfpd32 lpae evtstrm 
+CPU implementer	: 0x41
+CPU architecture: 7
+CPU variant	: 0x2
+CPU part	: 0xc0f
+CPU revision	: 3
+
+processor	: 2
+model name	: ARMv7 Processor rev 3 (v7l)
+BogoMIPS	: 48.00
+Features	: half thumb fastmult vfp edsp thumbee neon vfpv3 tls vfpv4 idiva idivt vfpd32 lpae evtstrm 
+CPU implementer	: 0x41
+CPU architecture: 7
+CPU variant	: 0x2
+CPU part	: 0xc0f
+CPU revision	: 3
+
+Hardware	: Generic DT based system
+Revision	: 0000
+Serial		: 0000000000000000
+</PRE>
+
+     <LI> <b>Important Notes: (11/01/2017)</b>
+
+       <P> Still, <code>CPU: 0 PID: 195 Comm: kworker/0:2 Not tainted 4.9.54 #1</code> 
+           string  is seen in the dmesg of host1.  And system boot time is 2017-10-11, 
+           not 2000.  The kernel in nfs0 is too old, 4.9.30-2.  Our experiences for 
+           kernel 4.9.50 and up is rather positive.  So, upgrade the kernel for nfs0 
+           should be worthwhile. <b>Note: (11/03/2017)</b> After all, it is only a 
+           warning message, am I right?
+
+<PRE>
+host1:~$ who -b
+         system boot  2017-10-11 16:29
+################################################################
+# Message extracted from /var/log/kern.log, more detail than dmesg.
+# 1815013: 504  hours (21 days) 10  minutes  13  seconds, thus why Nov  1 16:39
+# nfs0: reboot   system boot  4.9.0-4-armmp-lp Thu Nov  2 16:39   still running
+# nfs0: reboot   system boot  4.9.0-4-armmp-lp Thu Nov  2 16:39   still running
+# nfs0: root     ttyAMA0                       Thu Nov  2 16:38 - down   (00:00)
+# nfs0: reboot   system boot  4.9.0-0.bpo.3-ar Thu Nov  2 16:38 - 16:39  (00:00)
+# nfs0: hsu      pts/0        140.120.8.100    Thu Nov  2 16:29 - down   (00:09)
+# We hence conclude: nfs0 was still alive during Nov 1 16:39 to Nov 2 16:29 
+# Google <a href="https://lists.cs.columbia.edu/pipermail/kvmarm/2017-January/023070.html" target="_b">warning from the timer work function</a>
+################################################################
+Nov  1 16:39:46  kernel: [1815013.845955] ------------[ cut here ]------------
+Nov  1 16:39:46  kernel: [1815013.849348] WARNING: CPU: 0 PID: 195 at virt/kvm/arm/arch_timer.c:94 kvm_timer_inject_irq_work+0x30/0x58
+Nov  1 16:39:46  kernel: [1815013.860850] Modules linked in: ceph libceph libcrc32c rpcsec_gss_krb5 iptable_filter 9p 9pnet fscache \
+   virtio_mmio virtio_blk virtio_net virtio_ring virtio vhost_net tun vhost macvtap macvlan ipt_MASQUERADE nf_nat_masquerade_ipv4 \
+   xt_nat iptable_nat nf_conntrack_ipv4 nf_defrag_ipv4 nf_nat_ipv4 nf_nat nf_conntrack ip_tables nfsd ipv6 joydev ads7846 spidev uas \
+   spi_s3c64xx w1_gpio exynos_gpiomem wire [last unloaded: nbd]
+Nov  1 16:39:46  kernel: [1815013.897722] CPU: 0 PID: 195 Comm: kworker/0:2 Not tainted 4.9.54 #1
+Nov  1 16:39:46  kernel: [1815013.904134] Hardware name: SAMSUNG EXYNOS (Flattened Device Tree)
+Nov  1 16:39:46  kernel: [1815013.910377] Workqueue: events kvm_timer_inject_irq_work
+Nov  1 16:39:46  kernel: [1815013.915757] [<c02240cc>] (unwind_backtrace) from [<c02202b0>] (show_stack+0x10/0x14)
+Nov  1 16:39:46  kernel: [1815013.923650] [<c02202b0>] (show_stack) from [<c04aff34>] (dump_stack+0x94/0xa8)
+Nov  1 16:39:46  kernel: [1815013.931015] [<c04aff34>] (dump_stack) from [<c0236a0c>] (__warn+0xe8/0x100)
+Nov  1 16:39:46  kernel: [1815013.938109] [<c0236a0c>] (__warn) from [<c0236ad4>] (warn_slowpath_null+0x20/0x28)
+Nov  1 16:39:46  kernel: [1815013.945827] [<c0236ad4>] (warn_slowpath_null) from [<c021c760>] (kvm_timer_inject_irq_work+0x30/0x58)
+Nov  1 16:39:46  kernel: [1815013.955192] [<c021c760>] (kvm_timer_inject_irq_work) from [<c024c6e4>] (process_one_work+0x124/0x328)
+Nov  1 16:39:46  kernel: [1815013.964546] [<c024c6e4>] (process_one_work) from [<c024c920>] (worker_thread+0x38/0x4d4)
+Nov  1 16:39:46  kernel: [1815013.972778] [<c024c920>] (worker_thread) from [<c0251c40>] (kthread+0xfc/0x114)
+Nov  1 16:39:46  kernel: [1815013.980229] [<c0251c40>] (kthread) from [<c021cf68>] (ret_from_fork+0x14/0x2c)
+Nov  1 16:39:46  kernel: [1815013.987629] ---[ end trace 1459cf71f73aea99 ]---
+</PRE>
+
+       <P> I have second thought about btrfs, since long time ago, RedHat announced 
+           it would not support btrfs any more, the fact I learn today.  And Redhat 
+           did not and never would develop btrfs.  AS a matter of fact, I don't give 
+           a damn whether Redhat would support it or not.  But, now <b>ceph</b> is 
+           owned by Redhat and it announced it would abandon btrfs.  I believe I made 
+           a bad choice, although btrfs is the filesystem officially supported by the 
+           Linux Kernel, and, truly, it is an open filesystem.  I need more time to 
+           sort things out.  Sorry, I should have investigated more thoroughly!  I am 
+           so sorry!
+
+<PRE>
+# <a href="https://www.dedoimedo.com/computers/ubuntu-unity-dead-future.html" target="_b">Ubuntu Unity is dead</a>
+# <a href="http://www.omgubuntu.co.uk/2017/04/ubuntu-18-04-ship-gnome-desktop-not-unity" target="_b">Ubuntu Unity is dead</a>
+$ find /lib/modules/4.9.54 -name "*btrfs*"
+/lib/modules/4.9.54/kernel/fs/btrfs
+/lib/modules/4.9.54/kernel/fs/btrfs/btrfs.ko
+# <a href="https://en.wikipedia.org/wiki/Btrfs" target="_b">Btrfs</a>
+# <a href="https://www.virtualtothecore.com/en/2016-btrfs-really-next-filesystem/" target="_b">BTRFS: Your next filesystem?</a> Facebook, SuSe, etc. are using it heavily.
+# <a href="./PlayingWithBTRFS.html" target="_b">Playing With BTRFS</a>
+</PRE>
+
+     <LI> <b>Important Notes: (10/30/2017)</b>
+
+       <P> 
+
+<PRE>
+# host5 rebooted, still "Sat Jan  1 08:00 "
+host5:~$ last
+hsu      ttySAC2                       Mon Oct 30 14:36   still logged in
+reboot   system boot  4.9.54           Sat Jan  1 08:00   still running
+host5:~$ ls -l /dev/sd*
+brw-rw---- 1 root disk 8,  0 Jan  1  2000 /dev/sda
+brw-rw---- 1 root disk 8,  1 Jan  1  2000 /dev/sda1
+brw-rw---- 1 root disk 8,  2 Jan  1  2000 /dev/sda2
+brw-rw---- 1 root disk 8, 16 Oct 30 17:30 /dev/sdb
+</PRE>
+
+       <P> Ceph storage cluster is far from complete!  Number of monitors must be odd 
+           and at least 3 of them. Ganash is not running.  The storage disks carried 
+           by osds are not mounted, (I think even not formatted, yet).  
+     <LI> <b>Important Notes: (10/29/2017)</b>
+
+        <P> Is it true that each Manufacturer: ADATA HV100 USB disk is interfacing 
+            in <b>uas</b> protocol, HV620 is recognized as usb-storage 4-1.1:1.0? 
+            I check all our hosts (ac02-ac06, host1-host6), I think I have already 
+            confirmed the above statement.  HV100 and HV620, which one has better 
+            performance?</P>
+
+     <LI> <b>Important Notes: (10/28/2017)</b>
+
+<UL>
+  <LI> Occasionally, after rebooting, the following timers show up, why?
+
+<PRE>
+Sat Jan  1 16:08:47 CST 2000
+# I suspect that the "CPU: 3 PID: 183 Comm: kworker/3:1 Not tainted" message has 
+# something to do with this wrong time setting (after boot) in the host. Double 
+# check this! I saw the above message and also, I used the <b>ntpdate</b> command 
+# to adjust the timer for host3.
+</PRE>
+
+  <LI> I believe the storage disk (i.e. /dev/sdb) carried by each <b>osd</b> should 
+       have an <b>ext4</b> or <b>btrfs</b> made on it. Am I right?  And I think 
+       <b>btrfs</b> should be a better choice.</P>
+
+  <LI> The order of <code>/dev/sda</code> and <code>/dev/sdb</code> (in host1) is 
+    reversed, comparing to other hosts.  
+
+    <P> I believe if we shutdown and reboot oh1, the order will be correct, since ssd 
+    disk is much faster.  Sorry, occasionally, usb disk would be recognized as the 
+    "scsi host0" device and the ssd disk recognized as the "scsi host1" device.  But 
+    always, ssd disk will be represented as /dev/sda, with the only exception in 
+    <b>oh1</b>.  But the ssd disk was attached to <b>oh1</b> after the "ADATA HV620" 
+    was online and represented by <code>/dev/sda</code>.
+
+    <P> It seems the only VM in it should be <b>nfs0</b>, nothing else.  On the other 
+    hand, if running nfs0 via ssd disk has better performance, (it should be), I think 
+    we can afford it. After testing nfs0 for one week, return the space occupied by 
+    <code>/src2/KVM</code> to the system.</P>
+
+  <LI> <b>Be warned: (10/28/2017)</b> We are human being!  
+
+    <P> If things goes wrong, I want to know it precisely and immediately what and why 
+    things go wrong.  Some stupid companies (Redhat and Ubuntu) invent this, and you 
+    just follow it mindlessly?  Answer me without any hesitation, which one is usb, 
+    which one is ssd disks according to the following output.
+
+<PRE>
+host1:~$ more /etc/fstab
+       . 
+       . 
+       . 
+#/srv/nfs/0 on /dev/sda1 # nfs 0 partition
+/dev/disk/by-id/ata-TOSHIBA_MQ01ABD100M_96FTP5BXT-part1	/srv/nfs/0	ext4	
+defaults	0	0
+#/srv/nfs/1 on /dev/sda1 # nfs 0 partition
+/dev/disk/by-id/ata-TOSHIBA_MQ01ABD100M_96FTP5BXT-part2	/srv/nfs/1	ext4	
+defaults	0	0
+# SSD for KVM
+/dev/disk/by-id/ata-PLEXTOR_PX-256S3C_P02725108063-part1 /src4 ext4 defaults 0 0
+       . 
+       . 
+       . 
+# Only from the output of dmesg we can figure out /dev/sda is massive usb disk, 
+#  /dev/sdb uses the uas protocol, hence ssd disk.  When one of your storage 
+#  devices is in trouble, the output of /etc/fstab is not that helpful!
+host1:~$ dmesg
+[    6.593990] scsi host0: usb-storage 4-1.1:1.0
+[1373083.289569] scsi host1: uas
+</PRE>
+
+  <LI> The message we had only seen in <b>host3</b> now shows up <b>(only)</b> in 
+    <b>host5</b>
+
+<PRE>
+host5:~ last
+# I suspect if the booting time is "Jan  1 2000" CPU... Not tainted message could 
+# show up from time to time.
+reboot   system boot  4.9.54           Sat Jan  1 08:00   still running
+$ ls -l /dev/sd*
+brw-rw---- 1 root disk 8,  0 Jan  1  2000 /dev/sda
+brw-rw---- 1 root disk 8,  1 Jan  1  2000 /dev/sda1
+brw-rw---- 1 root disk 8,  2 Jan  1  2000 /dev/sda2
+brw-rw---- 1 root disk 8, 16 Jan  1  2000 /dev/sdb
+host5:~ $ dmesg 
+       . 
+       . 
+       . 
+[13327.069512] ------------[ cut here ]------------
+[13327.072688] WARNING: CPU: 3 PID: 183 at virt/kvm/arm/arch_timer.c:94 kvm_timer_inject_irq_work+0x30/0x58
+[13327.084066] Modules linked in: iptable_filter ipt_MASQUERADE nf_nat_masquerade_ipv4 iptable_nat nf_conntrack_ipv4 \
+   nf_defrag_ipv4 nf_nat_ipv4 nf_nat nf_conntrack ip_tables 9p 9pnet fscache virtio_mmio virtio_blk virtio_net virtio_ring \
+   virtio vhost_net tun vhost macvtap macvlan nfsd ipv6 joydev ads7846 spidev spi_s3c64xx exynos_gpiomem w1_gpio wire uas
+[13327.115074] CPU: 3 PID: 183 Comm: kworker/3:1 Not tainted 4.9.54 #1
+[13327.121191] Hardware name: SAMSUNG EXYNOS (Flattened Device Tree)
+[13327.127263] Workqueue: events kvm_timer_inject_irq_work
+[13327.132479] [<c02240cc>] (unwind_backtrace) from [<c02202b0>] (show_stack+0x10/0x14)
+[13327.140193] [<c02202b0>] (show_stack) from [<c04aff34>] (dump_stack+0x94/0xa8)
+[13327.147384] [<c04aff34>] (dump_stack) from [<c0236a0c>] (__warn+0xe8/0x100)
+[13327.154305] [<c0236a0c>] (__warn) from [<c0236ad4>] (warn_slowpath_null+0x20/0x28)
+[13327.161849] [<c0236ad4>] (warn_slowpath_null) from [<c021c760>] (kvm_timer_inject_irq_work+0x30/0x58)
+[13327.171044] [<c021c760>] (kvm_timer_inject_irq_work) from [<c024c6e4>] (process_one_work+0x124/0x328)
+[13327.180221] [<c024c6e4>] (process_one_work) from [<c024c920>] (worker_thread+0x38/0x4d4)
+[13327.188280] [<c024c920>] (worker_thread) from [<c0251c40>] (kthread+0xfc/0x114)
+[13327.195559] [<c0251c40>] (kthread) from [<c021cf68>] (ret_from_fork+0x14/0x2c)
+[13327.203059] ---[ end trace e4c6723d76e89477 ]---
+       . 
+       . 
+       . 
+</PRE>
+
+  <LI> Why every <code>/dev/sda1</code> starts at sector 65535? Waste 32 M.
+
+<PRE>
+$ sudo fdisk -l /dev/sda
+[sudo] password for hsu: 
+Disk /dev/sda: 238.5 GiB, 256060514304 bytes, 500118192 sectors
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 33553920 bytes
+Disklabel type: dos
+Disk identifier: 0x52fea253
+
+Device     Boot     Start       End   Sectors  Size Id Type
+/dev/sda1           65535 335609854 335544320  160G 83 Linux
+/dev/sda2       335609855 500118191 164508337 78.5G 83 Linux
+# /dev/mmcblk0p1 starts at 8192
+host4:~$ sudo fdisk -l /dev/mmcblk0
+Disk /dev/mmcblk0: 58.2 GiB, 62537072640 bytes, 122142720 sectors
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+Disklabel type: dos
+Disk identifier: 0xfaa94bb0
+
+Device          Boot    Start       End   Sectors  Size Id Type
+/dev/mmcblk0p1           8192   1056767   1048576  512M 83 Linux
+/dev/mmcblk0p2        1056768   6275071   5218304  2.5G 83 Linux
+</PRE>
+
+  <LI> I think the unresolved "Not tainted" message causes the following awful message 
+       to show up. (I can not trace this anymore, the <b>dmesg</b> output is no longer
+       available!)
+
+<PRE>
+host4:~$ dmesg
+       . 
+       . 
+       . 
+[1401259.113448] Unhandled fault: asynchronous external abort (0x1211) at 0x00000000
+[1401259.119461] pgd = cfbda580
+[1401259.122308] [00000000] *pgd=4f3c1003, *pmd=00000000
+[1401404.620566] Unhandled fault: asynchronous external abort (0x1211) at 0x00000000
+       . 
+       . 
+       . 
+# <a href="https://lkml.org/lkml/2017/1/4/759" target="_b">fix asynchronous external abort</a>
+</PRE>
+</UL>
+
+     <LI> <b>Important Notes: (10/27/2017)</b>
+
+<PRE>       
+host4:~$ ls -l /dev/sd*
+brw-rw---- 1 root disk 8,  0 Oct 27 17:19 /dev/sda
+brw-rw---- 1 root disk 8, 16 Oct 27 18:01 /dev/sdb
+host4:~$ sudo fdisk -l /dev/sda
+[sudo] password for hsu: 
+Disk /dev/sda: 931.5 GiB, 1000204886016 bytes, 1953525168 sectors
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+Disklabel type: dos
+Disk identifier: 0xf63055c9
+# It seems the usual ssd disk: Product: ASMT1051,  Manufacturer: asmedia
+# I saw the ssd disks are also identified as usb, but SuperSpeed  ones.
+# The second disk is also USB one? From dmesg, Direct-Access  ADATA HV100 
+# Same Manufacturer: ADATA  But, it seems this gadget uses uas interface: scsi host1: uas
+# usb 4-1.1: cmd cmplt err -71
+       . 
+       . 
+       . 
+[1388148.172380] scsi host1: uas
+[1388148.175223] scsi 1:0:0:0: Direct-Access     ADATA    HV100    9201 PQ: 0 ANSI: 6
+[1388148.335200] sd 1:0:0:0: Attached scsi generic sg1 type 0
+[1388178.484428] sd 1:0:0:0: tag#1 uas_eh_abort_handler 0 uas-tag 2 inflight: CMD IN 
+[1388178.490525] sd 1:0:0:0: tag#1 CDB: opcode=0xa0 a0 00 00 00 00 00 00 00 10 00 00 00
+[1388182.464451] sd 1:0:0:0: tag#0 uas_eh_abort_handler 0 uas-tag 1 inflight: CMD 
+[1388182.470283] sd 1:0:0:0: tag#0 CDB: opcode=0x0 00 00 00 00 00 00
+[1388183.494403] scsi host1: uas_eh_bus_reset_handler FAILED to get lock err -16
+[1388183.500051] sd 1:0:0:0: Device offlined - not ready after error recovery
+       . 
+       . 
+       . 
+host4:~$ sudo fdisk -l /dev/sdb
+fdisk: cannot open /dev/sdb: No such device or address
+# <b>Note: (10/28/2017)</b> I am sure that /dev/sdb is actually a 1TB usb disk, not 
+# the expected ssd one!
+# <b>Note: (10/27/2017)</b> replacing "ADATA HV100" by ASMT1051 is the only resonable 
+# solution, I think.
+</PRE>     
+  
+     <LI> <b>Important Notes: (10/26/2017)</b>
+
+     <P> Rebooting host5 is necessary before you connect sda and sdb to it, since 
+
+<PRE>       
+host5:~$ dmesg
+      . 
+      . 
+CPU: 3 PID: 420 Comm: kworker/3:1 Not tainted 4.9.54 #1
+      . 
+      . 
+host5:~$ ls -l /dev/sd*
+ls: cannot access /dev/sd*: No such file or directory
+# I suggest that you attach ssd first to host5, and then the usb3 disk to it.
+# It could be a bad usb cable.
+# Other clue: <a href="https://bbs.archlinux.org/viewtopic.php?id=125831" target="_b">Other Clue</a>
+[   39.671556] sd 4:0:0:0: rejecting I/O to offline device
+[   39.671582] sd 4:0:0:0: [sdb]  Result: hostbyte=0x01 driverbyte=0x00
+      . 
+      . 
+Ok, i've finally figured it out.  If I understand it correctly, the problem lies in the slow 
+initialization of the drive's firmware to be ready to be scanned by the usb_storage kernel 
+module. If you look at the output of "cat /sys/module/usb_storage/parameters/delay_use" it 
+shows the value "1" (second). The default value for the kernel 3.3 should be "5" as stated 
+here: <a href="https://www.mjmwired.net/kernel/Documentation/kernel-parameters.txt#4262" target="_b">delay_use</a> So you can either add the parameter "usb-storage.delay_use=5" to the kernel 
+or add "options usb_storage delay_use=5" to some custom .conf file in the modprobe.d directory. 
+If you chose the latter method and have the module usb_storage put in the MODULES array in 
+mkinitcpio.conf (because of the booting process being stuck while the drive is attached) at 
+the same time, don't forget to also uncomment the FILES array and have the custom file from 
+modprobe.d be incorporated there otherwise the delay_use option won't apply since the 
+usb_storage module is already loaded by intiramfs with default options. Now I can re-attach 
+the drive how many times i want and the drive is allways detected by fdisk, parted and thus 
+by KDE device notifier too. And what more I don't have to have the drive attached during boot 
+but I can do it later when system is already on and it still gets detected.
+</PRE>   
+
+     <P>     
+
+     <LI> <b>Important Notes: (10/25/2017)</b>
+
+       <P> The timer for host3 is completely out of sync!
+
+<PRE>       
+host3:~$ date
+Sat Jan  1 16:08:47 CST 2000
+hsu@odxu4host3:~$ last
+hsu      pts/0        140.120.8.100    Sat Jan  1 16:06   still logged in
+hsu      pts/0        140.120.8.100    Sat Jan  1 09:41 - 09:41  (00:00)
+hsu      pts/0        140.120.8.100    Sat Jan  1 09:30 - 09:30  (00:00)
+hsu      pts/0        140.120.8.100    Sat Jan  1 09:16 - 09:22  (00:06)
+hsu      pts/0        140.120.8.100    Sat Jan  1 08:01 - 08:36  (00:35)
+hsu      pts/2        140.120.8.100    Sat Jan  1 08:00 - 08:01  (00:00)
+reboot   system boot  4.9.54           Sat Jan  1 08:00   still running
+host3:~$ dmesg 
+      . 
+      . 
+[17717.184576] WARNING: CPU: 3 PID: 201 at virt/kvm/arm/arch_timer.c:94 \
+kvm_timer_inject_irq_work+0x30/0x58
+      . 
+      . 
+# Reset the timer!
+host3:~$ which ntpdate
+/usr/sbin/ntpdate
+hsu@odxu4host3:~$ sudo ntpdate 140.120.1.2
+[sudo] password for hsu: 
+25 Oct 22:39:16 ntpdate[5652]: step time server 140.120.1.2 offset 562227730.998996 sec
+host3:~$ date
+Wed Oct 25 22:40:06 CST 2017
+</PRE>       
+
+       <P> Watch out the /src2 filesystem of host2. It is too full!  If possible at all,
+           move ceph-related stuff to ssd disk.  Each ceph-related VM must has its own 
+           rootfs.  Samething happens fot host3  <code>67% /src2</code>.
+
+       <P> The actual file size of <code>/src4/KVM/Image/av02-local.img</code>
+	 is not correct.  <b>/src4</b> only used 480M, but only <b>155G</b>
+	 space available.  I think you should use <b>$ dd if=/dev/zero ...</b>
+	 to create a clean empty image, first.
+
+<PRE>       
+ac02:~$ ls -l /src4/KVM/Image
+total 387792
+-rw-r--r-- 1 hsu hsu 8589934592 Oct 25 08:26 av02-local.img
+ac02:~$ df /src4
+Filesystem     1K-blocks   Used Available Use% Mounted on
+/dev/sda1      164090644 480800 155204852   1% /src4
+</PRE>       
+
+     <LI> <b>Important Notes: (10/23/2017)</b> 
+
+         <P> I saw the kernel for av02 is vmlinuz-4.9.0-4-armmp-lpae, now.  Moreover, 
+             I read through the output of <b>dmesg</b>.  Only two red strings, much 
+             better than 4.9.30.
+
+<PRE>
+[    1.507729] kvm [1]: HYP mode not available
+[    1.586379] sr_init: platform driver register failed for SR
+</PRE> 
+
+         <P> Also, since both the av-rfs and guest-rfs root filesystems are online in 
+             nfs0, I think: first, taking all the guests and avs offline.  Then
+
+<PRE>
+ $ sudo chroot /nfs/vm-rfs/guest-rfs 
+ $ sudo aptitude update; sudo aptitude safe-upgrade 
+ $ sudo aptitude clean; deborphan  
+ $ sudo apt-get autoremove; sudo apt-get autoclean 
+ $ exit 
+ # We than scp vmlinuz and initrd.img to related hosts' KVM/Kernel/nfsvm-rfsguest-rfs
+ # directory.  But carefully examining the initrd.img files in host4 and host6, they 
+ # are different
+ host6:~$ ls -l /src2/KVM/Kernel/nfscephceph-rfs/initrd.img
+-rw-r--r-- 1 hsu hsu 28354990 Oct 16 23:02 /src2/KVM/Kernel/nfscephceph-rfs/initrd.img
+ host4:~$ ls -l /src2/KVM/Kernel/nfsvm-rfsguest-rfs/initrd.img
+-rw-r--r-- 1 hsu hsu 28354946 Oct  9 13:03 /src2/KVM/Kernel/nfsvm-rfsguest-rfs/initrd.img
+ # Can these two initrd.img files be unified?  If so, the maintenance job will be much 
+ # simplified.  But, I doubt it.
+</PRE>
+
+         <P> By the way, the performance of ceph virtual storage system is rather 
+             critical for our cloud.  The ceph related VMs should not share their 
+             root filesystems via nfs0.  If possible at all, create a universal root 
+             filesystem in the nfs0 server, and copy it to each individual <b>ssd</b> 
+             disk.  In other words,  each ceph VM has its own rfs copied from the 
+             master root filesystem stored in nfs0. <b>According to our experience</b>: 
+             when sharing root filesystem from nfs0, too much cached data can block 
+             some or all of the ceph clients. This does happen, we has encountered it!
+
+     <LI> <b>Important Notes: (10/22/2017)</b> 
+
+         <P><code>linux-image-4.9.0-4-armmp-lpae_4.9.51-1_armhf.deb</code> is already
+            available in our mirror. It features linux kernel 4.9.51, much better than 
+            4.9.30.  Upgrade the rootfs in <code>/nfs/vm-rfs/av-rfs</code>  and 
+            <code>/nfs/vm-rfs/guest-rfs</code>.  Also the <b>zImage</b> and 
+            <b>initrd.img</b> in all virtual machines' Kernel directories, (such as: 
+            <code>/src2/KVM/Kernel</code> or <code>/src4/KVM/Kernel</code>), must be 
+            upgraded accordingly.  Hopefully, we will create our VMs on ac02-ac06 
+            based on this new kernel.</P> 
+
+         <P>Probably, you need to record all the files and rootfs you ever modified (in 
+            the cloud and ac02-ac06 hosts) in the whole upgrading process.</P>  
+
+     <P>I diff the zImage files in <code>ac02:/src4/KVM/Kernel/nfsvm-rfsav-rfs</code>
+        and <code>av02:/boot/zImage</code>.  They are identical!  But, the command 
+        <b>qemu-system-arm</b> loads the one in <b>ac02</b>!  But, the initrd file 
+        <code>/boot/initrd.img-4.9.0-0.bpo.3-armmp-lpae</code> must be carefully 
+        handled.  I have some ideas, but they must be verified.
+
+     <LI> <b>Important Notes: (10/21/2017)</b>  
+
+       <P> Again, ac09 is no longer available. It happens almost every week. Check 
+           its <code>/var/log/au*</code> and <code>/var/log/kern.log*</code> files 
+           carefully.</P>
+
+
+     <LI> <b>Important Notes: (10/20/2017)</b>  
+
+<PRE>
+ac02:/src4/KVM$ ls -l bin data DebianNetFiles Image Kernel network-av02
+bin:
+total 80
+-rwxr-xr-x 1 hsu hsu 58065 Oct 19 16:24 Configure-KVM
+-rwxr-xr-x 1 hsu hsu  7310 Oct  9 16:56 NFSupdate
+-rwxr-xr-x 1 hsu hsu  2847 Oct  9 13:19 start-av02-AsDaemon.sh
+-rwxr-xr-x 1 hsu hsu  2492 Oct  9 13:19 start-av02.sh
+-rwxr-xr-x 1 hsu hsu  3314 Oct  9 13:19 stop-av02.sh
+
+data:
+total 4
+-rw------- 1 hsu hsu 5 Oct 17 11:11 av02.pid
+
+DebianNetFiles:
+total 88
+-rw-r--r-- 1 hsu hsu  814 Oct  5 19:42 DebianNet-Light.txt
+-rw-r--r-- 1 hsu hsu 6345 Oct  5 19:42 DebianNet-pkgs.txt
+       . 
+       . 
+       . 
+-rw-r--r-- 1 hsu hsu 1661 Oct  5 19:42 ssh_config
+-rw-r--r-- 1 hsu hsu 2452 Oct  5 19:42 sshd_config
+
+Image:
+total 342784
+-rw-r--r-- 1 hsu hsu 8589934592 Oct 20 19:17 av02-local.img
+# <a href="#AvLocalImg" target="_b">AvLocalImg</a>
+
+Kernel:
+total 8
+drwxr-xr-x 2 hsu hsu 4096 Oct  9 13:19 av02
+drwxr-xr-x 2 hsu hsu 4096 Oct  9 13:19 nfsvm-rfsav-rfs
+
+network-av02:
+total 4
+srwxr-xr-x 1 hsu hsu    0 Oct 17 11:11 MonSock
+srwxr-xr-x 1 hsu hsu    0 Oct 17 11:11 qga.sock
+drwxr-sr-x 2 hsu hsu 4096 Oct 17 11:11 vde0
+</PRE>
+     <LI> <b>Important Notes: (10/19/2017)</b>  
+
+       <P> Sorry, it seems <b>ceph storage cluster</b> encountered a lot of problems.
+
+<PRE>
+ac02:~$ dmesg | grep 'protocol 47'
+[238813.829147] conntrack: generic helper won't handle protocol 47. Please consider loading the specific helper module.
+# <a href="https://www.linuxquestions.org/questions/linux-networking-3/port-forward-gre-and-pptp-using-iptables-210334/" target="_b">protocol 47 solution</a>
+# Prefix ip was replaced by nf (meaning netfilter)
+ac02:~$ find /lib/modules -name "*conntrack_pptp*"
+/lib/modules/4.9.54/kernel/net/netfilter/nf_conntrack_pptp.ko
+/lib/modules/4.9.47/kernel/net/netfilter/nf_conntrack_pptp.ko
+ac02:~$ find /lib/modules -name "*nat_pptp*"
+/lib/modules/4.9.54/kernel/net/ipv4/netfilter/nf_nat_pptp.ko
+/lib/modules/4.9.47/kernel/net/ipv4/netfilter/nf_nat_pptp.ko
+# In ac02, /dev/sdb1 should be mounted to /media/sdb1
+host2:~$ dmesg | grep loop0p1
+[263212.045743] EXT4-fs (loop0p1): warning: mounting fs with errors, running e2fsck is recommended
+[263212.055624] EXT4-fs (loop0p1): mounted filesystem with ordered data mode. Opts: (null)
+[263212.100567] EXT4-fs error (device loop0p1): ext4_validate_block_bitmap:384: comm mv: bg 1: bad block bitmap checksum
+[263212.113793] EXT4-fs error (device loop0p1) in ext4_free_blocks:4907: Filesystem failed CRC
+host3:~$ dmesg
+     . 
+     . 
+     . 
+[609761.413396] WARNING: CPU: 2 PID: 200 at virt/kvm/arm/arch_timer.c:94 \
+kvm_timer_inject_irq_work+0x30/0x58
+[609761.424852] Modules linked in: iptable_filter ipt_MASQUERADE nf_nat_masquerade_ipv4 iptable_nat \
+nf_conntrack_ipv4 \
+nf_defrag_ipv4 nf_nat_ipv4 nf_nat nf_conntrack ip_tables 9p 9pnet fscache virtio_mmio virtio_blk virtio_net virtio_ring \
+virtio vhost_net tun vhost macvtap macvlan rpcsec_gss_krb5 nfsd ipv6 joydev ads7846 spidev uas spi_s3c64xx w1_gpio \
+exynos_gpiomem wire
+[609761.469406] CPU: 2 PID: 200 Comm: kworker/2:1 Tainted: G        W       4.9.54 #1
+[609761.476936] Hardware name: SAMSUNG EXYNOS (Flattened Device Tree)
+[609761.483104] Workqueue: events kvm_timer_inject_irq_work
+[609761.488392] [<c02240cc>] (unwind_backtrace) from [<c02202b0>] (show_stack+0x10/0x14)
+[609761.496185] [<c02202b0>] (show_stack) from [<c04aff34>] (dump_stack+0x94/0xa8)
+[609761.503464] [<c04aff34>] (dump_stack) from [<c0236a0c>] (__warn+0xe8/0x100)
+[609761.510478] [<c0236a0c>] (__warn) from [<c0236ad4>] (warn_slowpath_null+0x20/0x28)
+[609761.518103] [<c0236ad4>] (warn_slowpath_null) from [<c021c760>] (kvm_timer_inject_irq_work+0x30/0x58)
+[609761.527379] [<c021c760>] (kvm_timer_inject_irq_work) from [<c024c6e4>] (process_one_work+0x124/0x328)
+[609761.536647] [<c024c6e4>] (process_one_work) from [<c024c920>] (worker_thread+0x38/0x4d4)
+[609761.544794] [<c024c920>] (worker_thread) from [<c0251c40>] (kthread+0xfc/0x114)
+[609761.552158] [<c0251c40>] (kthread) from [<c021cf68>] (ret_from_fork+0x14/0x2c)
+[609761.559758] ---[ end trace af084409f9bd4f1e ]---
+[650315.018697] ------------[ cut here ]------------
+     . 
+     . 
+     . 
+# This message showed 8 times
+$ dmesg | grep 'CPU: 2 PID: 200 Com'
+[483600.530379] CPU: 2 PID: 200 Comm: kworker/2:1 Not tainted 4.9.54 #1
+[516556.337758] CPU: 2 PID: 200 Comm: kworker/2:1 Tainted: G        W       4.9.54 #1
+[552370.399625] CPU: 2 PID: 200 Comm: kworker/2:1 Tainted: G        W       4.9.54 #1
+[609761.469406] CPU: 2 PID: 200 Comm: kworker/2:1 Tainted: G        W       4.9.54 #1
+[650315.065878] CPU: 2 PID: 200 Comm: kworker/2:1 Tainted: G        W       4.9.54 #1
+[660574.730895] CPU: 2 PID: 200 Comm: kworker/2:1 Tainted: G        W       4.9.54 #1
+[688738.978185] CPU: 2 PID: 200 Comm: kworker/2:1 Tainted: G        W       4.9.54 #1
+[735077.265806] CPU: 2 PID: 200 Comm: kworker/2:1 Tainted: G        W       4.9.54 #1
+host3:~$ ps l -p 200
+F   UID   PID  PPID PRI  NI    VSZ   RSS WCHAN  STAT TTY        TIME COMMAND
+1     0   200     2  20   0      0     0 -      S    ?          0:54 [kworker/2:
+host6:~$ date
+Mon Oct 23 19:15:59 CST 2017
+host6:~$ dmesg
+     . 
+     . 
+     . 
+[75657.200762] scsi host1: uas_eh_bus_reset_handler FAILED to get lock err -16
+[75657.206237] sd 1:0:0:0: Device offlined - not ready after error recovery
+[75657.212946] sd 1:0:0:0: Device offlined - not ready after error recovery
+[75657.219614] sd 1:0:0:0: rejecting I/O to offline device
+[75657.224817] sd 1:0:0:0: rejecting I/O to offline device
+[75657.229989] sd 1:0:0:0: rejecting I/O to offline device
+[75657.235190] sd 1:0:0:0: rejecting I/O to offline device
+[75657.240390] sd 1:0:0:0: [sdb] Read Capacity(16) failed: Result: hostbyte=0x01 driverbyte=0x00
+[75657.240428] sd 1:0:0:0: rejecting I/O to offline device
+[75657.251109] xhci-hcd xhci-hcd.2.auto: ERROR Transfer event for disabled endpoint or incorrect stream ring
+[75657.251116] xhci-hcd xhci-hcd.2.auto: @00000000b690ef60 00000000 00000000 04000000 04058001
+[75657.251191] xhci-hcd xhci-hcd.2.auto: ERROR Transfer event for disabled endpoint or incorrect stream ring
+[75657.251197] xhci-hcd xhci-hcd.2.auto: @00000000b690ef70 00000000 00000000 04000000 04078001
+[75657.251220] usb 4-1.1: cmd cmplt err -71
+[75657.293692] sd 1:0:0:0: [sdb] Sense not available.
+[75657.298441] sd 1:0:0:0: rejecting I/O to offline device
+[75657.303661] sd 1:0:0:0: rejecting I/O to offline device
+[75657.308841] sd 1:0:0:0: rejecting I/O to offline device
+[75657.314057] sd 1:0:0:0: [sdb] Read Capacity(10) failed: Result: hostbyte=0x01 driverbyte=0x00
+[75657.322535] sd 1:0:0:0: [sdb] Sense not available.
+[75657.327295] sd 1:0:0:0: rejecting I/O to offline device
+[75657.332516] sd 1:0:0:0: rejecting I/O to offline device
+[75657.337698] sd 1:0:0:0: rejecting I/O to offline device
+[75657.342911] sd 1:0:0:0: [sdb] Write Protect is off
+[75657.347657] sd 1:0:0:0: [sdb] Mode Sense: 00 00 00 00
+     . 
+     . 
+     . 
+host6:~$ ls -l /dev/sda
+brw-rw---- 1 root disk 8, 0 Oct 18 14:53 /dev/sda
+# Should you format the usb raw disk, first?  The default disk is for Microsoft?
+# Also, two partitions on this disk, the first partition has only 128M?
+host6:~$ sudo fdisk -l /dev/sda
+[sudo] password for hsu: 
+Disk /dev/sda: 931.5 GiB, 1000204886016 bytes, 1953525168 sectors
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 4096 bytes
+I/O size (minimum/optimal): 4096 bytes / 33553920 bytes
+Disklabel type: gpt
+Disk identifier: 1C03B22E-2F2C-4A52-B910-F2DBD9E6DF6B
+</PRE>
+
+     <LI> <b>Important Notes: (10/18/2017)</b>  
+  
+          <P> The modification (10/19/2017 on ac02) of <b>Configure-KVM</b> seems OK.
+              Have you tested? More comments in this script are needed.  If this 
+              script is useful and stable, it will be maintained indefinitely.  You 
+              do yourself a favor by providing suitable comments in proper places.
+
+          <P> In start*Vm*.sh script, <b>virtio_mmio</b> is only valid in armhf 
+              architecture, not in X86 environment.  Also, the option for sharing 
+              filesystem via 9p protocol: <code>-device virtio-9p-device</code> 
+              is not working in X86 environment either.  In X86, it should be 
+              <code>-device virtio-9p-pci</code></p>  
+
+          <P> I believe in your Configue-Kvm shell script, you must test whether 
+              the host's architecture is x86 or armhf, first. And then write your 
+              shell scripts accordingly.
+
+<PRE>
+ hsu@Amath-Client02:~$ uname -a | grep -o arm
+arm
+ # How about arm64? Still use the string <code>-device virtio-9p-device</code>?
+ Amath-Client20:~$ uname -a | grep -o x86
+x86
+ # I tested it. With the following modifications, I can start cb and ssh to it:
+hsu@Amath-Host00:~$ diff start-CrossBuild-AsDaemon.sh start-CrossBuild-AsDaemon.sh.orig
+13c13
+< MOD="vhost_net virtio_net virtio_blk  9p"
+---
+> MOD="vhost_net virtio_net virtio_blk virtio_mmio 9p"
+52c52
+< start5="-fsdev local,security_model=passthrough,id=fsdev0,path=/usr/local -device \
+virtio-9p-pci,id=fs0,fsdev=fsdev0,mount_tag=usr-local "
+---
+> start5="-fsdev local,security_model=passthrough,id=fsdev0,path=/usr/local -device \
+virtio-9p,id=fs0,fsdev=fsdev0,mount_tag=usr-local  "
+</PRE>
+
+     <LI> <b>Important Notes: (10/16/2017)</b>  
+
+<P> One thing we totally forget: The swap space for each host: 2 to 3 Gb.  Should it be 
+    created in ssd disk, since it is the fastest storage?  How about VMs? For nfs0, it 
+    seems we still have 80% available memory space.
+
+<PRE>
+nfs0:~$ cat /proc/meminfo
+MemTotal:        1024612 kB
+MemFree:           66656 kB
+MemAvailable:     817444 kB
+nfs0:~$ sudo dmesg
+       .
+       .
+       .
+INFO: task jbd2/vdb1-8:785 blocked for more than 120 seconds
+       .
+       .
+       .
+<a href="https://ask.openstack.org/en/question/63980/kernel-errortask-jbd2vda1-8207-blocked-for-more-than-120-seconds/" target="_b">jbd2/vda1 blocked </a> 
+# Probably, we need to know the reason of rapid increase in the amount of cache.
+[515920.041062] RPC: fragment too large: 369295618
+</PRE>
+
+<a name="AvLocalImg"></a>
+<PRE>
+ac02:$ cd /src4/KVM/Image
+$ ls -l
+total 342412
+-rw-r--r-- 1 hsu hsu 8589934592 Oct 16 16:10 av02-local.img
+$ sudo modprobe nbd max_part=8
+$ sudo qemu-nbd --connect=/dev/nbd0 av02-local.img
+$ sudo fdisk -l /dev/nbd0
+        . 
+        . 
+        . 
+Device      Boot    Start      End Sectors Size Id Type
+/dev/nbd0p1          2048  4194303 4192256   2G 83 Linux
+/dev/nbd0p2       4194304  8388607 4194304   2G 83 Linux
+/dev/nbd0p3       8388608 12582911 4194304   2G 83 Linux
+/dev/nbd0p4      12582912 16777215 4194304   2G 83 Linux
+$ cd /sys/devices/virtual/block/nbd0 
+$ ls -l | grep nbd
+drwxr-xr-x 4 root root    0 Oct 16 16:17 nbd0p1
+drwxr-xr-x 4 root root    0 Oct 16 16:17 nbd0p2
+drwxr-xr-x 4 root root    0 Oct 16 16:17 nbd0p3
+drwxr-xr-x 4 root root    0 Oct 16 16:17 nbd0p4
+# We need to mount filesystem to /mnt/tmp.  If /mnt/tmp does not exist, create it
+# $ ls -l /mnt/tmp ; if does not exists, then issue the next command.
+# sudo mkdir /mnt/tmp
+$ sudo mount /dev/nbd0p1 /mnt/tmp
+$ ls -l /mnt/tmp
+total 724
+drwxr-xr-x 3 root        root       4096 Aug 14 14:13 acpi
+-rw-r--r-- 1 root        root       2981 Aug 13 19:17 adduser.conf
+-rw-r--r-- 1 root        root         44 Oct 11 13:10 adjtime
+drwxr-xr-x 2 root        root       4096 Aug 13 19:58 alternatives
+drwxr-xr-x 6 hsu         hsu        4096 Oct  9 13:19 apt
+        . 
+        . 
+        . 
+# /dev/nbd0p1 is the /etc directory.
+$ sudo umount /mnt/tmp
+$ sudo mount /dev/nbd0p2 /mnt/tmp
+$ ls -l /mnt/tmp
+total 52
+drwxr-xr-x  2 root root   4096 Oct 16 06:25 backups
+drwxr-xr-x  7 root root   4096 Aug 13 19:58 cache
+drwxr-xr-x 26 root root   4096 Aug 25 15:52 lib
+drwxrwsr-x  2 root staff  4096 May  9  2016 local
+lrwxrwxrwx  1 root root      9 Aug 25 17:00 lock -> /run/lock
+drwxr-xr-x  5 root root   4096 Oct 16 06:25 log
+drwx------  2 root root  16384 Oct  5 19:34 lost+found
+drwxrwsr-x  2 root mail   4096 Aug 13 19:09 mail
+drwxr-xr-x  2 root root   4096 Aug 13 19:09 opt
+lrwxrwxrwx  1 root root      4 Aug 25 17:00 run -> /run
+drwxr-xr-x  4 root root   4096 Aug 13 19:50 spool
+drwxrwxrwt  2 root root   4096 Oct  5 19:09 tmp
+# /dev/nbd0p2 is the <b>local</b> /var filesystem
+$ sudo umount /mnt/tmp
+$ sudo mount /dev/nbd0p3 /mnt/tmp
+$ ls -l /mnt/tmp
+total 40
+drwxr-xr-x 4 1001 1001  4096 Oct 10 23:42 guest1
+drwxr-xr-x 4 1002 1002  4096 Oct 10 23:43 guest2
+drwxr-xr-x 4 1003 1003  4096 Oct  5 19:26 guest3
+drwxr-xr-x 4 1004 1004  4096 Oct  5 19:26 guest4
+drwxr-xr-x 4 1005 1005  4096 Oct  5 19:27 guest5
+drwxr-xr-x 8 hsu  hsu   4096 Oct 16 16:09 hsu
+drwx------ 2 root root 16384 Oct  5 19:34 lost+found
+# /dev/nbd0p3 is the <b>local</b> /home filesystem
+$ sudo umount /mnt/tmp
+$ sudo mount /dev/nbd0p4 /mnt/tmp
+$ ls -lia /mnt/tmp
+total 32
+   2 drwxr-xrwx 5 root root  4096 Oct 16 16:17 .
+3687 drwxr-xr-x 3 root root  4096 Oct 16 10:17 ..
+  13 drwxrwxrwt 2 root root  4096 Oct 11 13:48 .ICE-unix
+  11 drwx------ 2 root root 16384 Oct  5 19:34 lost+found
+  12 drwxrwxrwt 2 root root  4096 Oct 11 13:48 .X11-unix
+# /dev/nbd0p4 is the <b>local</b> /tmp filesystem
+$ sudo umount /mnt/tmp
+$ cd /src4/KVM
+$ sudo qemu-nbd --disconnect /dev/nbd0 
+$ sudo rmmod nbd 
+$ ls -l /sys/devices/virtual/block/nbd0
+# No such file or directory 
+# I think the 3rd point in the /src4/KVM/Tutorial.txt file is misleading
+# 3. White Image will auto create an local image for nfs rootfs if it exist.
+# In fact, in a live system, /etc, /var, /home, /tmp must be the local ones.
+# The rest ommands were issued in av02
+av02:~$ cat /etc/mtab
+sysfs /sys sysfs rw,nosuid,nodev,noexec,relatime 0 0
+proc /proc proc rw,nosuid,nodev,noexec,relatime 0 0
+udev /dev devtmpfs rw,relatime,size=10240k,nr_inodes=57410,mode=755 0 0
+devpts /dev/pts devpts rw,nosuid,noexec,relatime,gid=5,mode=620,ptmxmode=000 0 0
+tmpfs /run tmpfs rw,nosuid,noexec,relatime,size=50544k,mode=755 0 0
+140.120.8.99:/nfs/vm-rfs/av-rfs / nfs rw,relatime,vers=3,rsize=131072,wsize=131072,namlen=255,\
+hard,nolock,proto=tcp,port=2049,timeo=7,retrans=10,sec=sys,local_lock=all,addr=140.120.8.99 0 0
+tmpfs /run/lock tmpfs rw,nosuid,nodev,noexec,relatime,size=5120k 0 0
+tmpfs /run/shm tmpfs rw,nosuid,nodev,noexec,relatime,size=101080k 0 0
+/dev/vda1 /etc ext4 rw,relatime,data=ordered 0 0
+/dev/vda2 /var ext4 rw,relatime,data=ordered 0 0
+/dev/vda3 /home ext4 rw,relatime,data=ordered 0 0
+/dev/vda4 /tmp ext4 rw,relatime,data=ordered 0 0
+rpc_pipefs /run/rpc_pipefs rpc_pipefs rw,relatime 0 0
+usr-local /usr/local 9p ro,sync,dirsync,relatime,trans=virtio,version=9p2000.L 0 0
+$ df /
+Filesystem                      1K-blocks    Used Available Use% Mounted on
+140.120.8.99:/nfs/vm-rfs/av-rfs   8191488 2067200   5688448  27% /
+</PRE>
+
+     <LI> <b>Important Notes: (10/14/2017)</b>
+
+          <P> The variable <b>ftdaddr</b> in the boot.cmd file seems misspelled. 
+              Shouldn't it be <b>fdtaddr</b>, standing for <b>flat device tree</b>? 
+              <b>Note: (10/21/2017)</b> I saw you use the name <b>dtbaddr</b>.  I 
+              think this name is OK.  But, in the internet, it seems <b>fdtaddr</b> 
+              is the norm (12,100 vs 1,180).
+          </P>
+
+<PRE>
+av02:~$ ls -l /var/log/au*
+-rw-r----- 1 root adm 591093 Oct 21 22:02 /var/log/auth.log
+-rw-r----- 1 root adm 354463 Oct 15 06:25 /var/log/auth.log.1
+nfs:~$ ls -l /var/log/au*
+-rw-r----- 1 root adm 420615 Oct 21 22:04 /var/log/auth.log
+-rw-r----- 1 root adm 330371 Oct 15 06:25 /var/log/auth.log.1
+</PRE>
+
+          <P> We are in trouble!  See the sizes of auth.log files? Check the IPs 
+              reported in the <b>last</b> command carefully.  These IPs are the 
+              ones who ever successfully login-ed.</P>
+
+     <LI> <b>Important Notes: (10/13/2017)</b>
+
+       <P> Export 4 virtual disks, only see 3 mounted ones: /nfs/ceph, /nfs/vm-rfs, and 
+           /nfs/common. I think something wrong here.   Also before shutting down nfs, 
+           must umount /nfs/vm-rfs/av-rfs and /nfs/vm-rfs/guest-rfs, first.  By the way, 
+           what is <b>/dev/vde</b>?
+
+       <P> The differences among: /nfs/ceph/template/av-template.ext4.gz, 
+           /nfs/common/template/av-template.tgz, /nfs/vm-rfs/template/av-template.ext4?
+
+<PRE>
+     .
+     .
+     .
+host1:/src2/KVM/bin$ more start-nfs-AsDaemon.sh
+start7="-drive if=none,id=hdd4,file=/srv/nfs/1/NFSfilesystem3.img,format=raw -de
+vice virtio-blk-device,drive=hdd4  "
+screen -r ${NAME} -X stuff $"$start7"
+start7="-drive if=none,id=hdd3,file=/srv/nfs/1/NFSfilesystem2.img,format=raw -de
+vice virtio-blk-device,drive=hdd3  "
+screen -r ${NAME} -X stuff $"$start7"
+start7="-drive if=none,id=hdd2,file=/srv/nfs/0/NFSfilesystem1.img,format=raw -de
+vice virtio-blk-device,drive=hdd2  "
+screen -r ${NAME} -X stuff $"$start7"
+start7="-drive if=none,id=hdd1,file=/srv/nfs/0/NFSfilesystem0.img,format=raw -de
+vice virtio-blk-device,drive=hdd1  "
+screen -r ${NAME} -X stuff $"$start7"
+start7="-drive if=none,id=hdd0,file=../Image/nfs.img,format=raw -device virtio-b
+lk-device,drive=hdd0  "
+     .
+     .
+     .
+nfs:~$ ls -l /dev/vd*
+brw-rw---- 1 root disk 254,  0 Oct 11 16:30 /dev/vda
+brw-rw---- 1 root disk 254,  1 Oct 11 16:30 /dev/vda1
+brw-rw---- 1 root disk 254,  2 Oct 11 16:30 /dev/vda2
+brw-rw---- 1 root disk 254, 16 Oct 11 16:30 /dev/vdb
+brw-rw---- 1 root disk 254, 17 Oct 11 16:30 /dev/vdb1
+brw-rw---- 1 root disk 254, 32 Oct 11 16:30 /dev/vdc
+brw-rw---- 1 root disk 254, 33 Oct 11 16:30 /dev/vdc1
+brw-rw---- 1 root disk 254, 48 Oct 11 16:30 /dev/vdd
+brw-rw---- 1 root disk 254, 49 Oct 11 16:30 /dev/vdd1
+brw-rw---- 1 root disk 254, 64 Oct 11 16:30 /dev/vde
+nfs:~$ more /etc/fstab
+     .
+     .
+     .
+# NFSfilesystem0.img was on /dev/vdb during installation for ceph template
+/dev/vdb1 /nfs/ceph       ext4    defaults        0       2
+# NFSfilesystem1.img was on /dev/vdc during installation for common template
+/dev/vdc1 /nfs/vm-rfs     ext4    defaults        0       2
+# NFSfilesystem2.img was on /dev/vdc during installation for common template
+/dev/vdd1 /nfs/common     ext4    defaults        0       2
+# NFSfilesystem3.img was on /dev/vdc during installation for common template
+# /dev/vdc1 /nfs/common     ext4    defaults        0       2 
+# If someone creates a lot of dirty files and directories in <b>rootfs</b>? 
+nfs:~$ df /nfs/ceph/template/rootfs
+Filesystem     1K-blocks     Used Available Use% Mounted on
+/dev/vdb1      205374440 14697544 180174804   8% /nfs/ceph
+</PRE>
+
+     <LI> <b>Important Notes: (10/12/2017)</b>
+
+       <P> <b>Important Notes: (10/13/2017 [22:32])</b>
+           For unknown reason, I can remotely login av02, av07, av08, nfs0, etc. And 
+           the hosts.deny files of av07, av08, nfs0, etc. are still the classical 
+           ones.  If none of us have done anything, then it must be the fault of 
+           Chunghwa Telecom.  <b>(Province of China)</b>?  I believe Chunghwa Telecom 
+           was impersonated by Red China, our network was in a hail.
+
+       <P> I can remotely login av02.  But I still can't remotely login av07, av08,
+           nfs0, these are VMs.  What's happening?  Also, apparently, ac09 is down, 
+           why?  The contents of /etc/hosts.deny:
+
+<PRE>
+ALL: .cn, .cn.com, .cn.net, .jp, .jp.com, .jp.net, .kr, .kr.com, .kr.net
+ALL: UNKNODWN EXCEPT LOCAL
+ALL EXCEPT sshd : PARANOID EXCEPT LOCAL
+# The original contents should be:
+ALL: .cn, .cn.com, .cn.net, .jp, .jp.com, .jp.net, .kr, .kr.com, .kr.net
+ALL: UNKNOWN PARANOID EXCEPT LOCAL
+</PRE>
+
+     <LI> <b>Important Notes: (10/08/2017)</b> 
+
+<P> Now, the av02 has the right size (I think) of root filesystem.  But, guest3 
+    still export the whole <code>/nfs/ceph/</code> filesystem.  The problem I 
+    brought up is not resolved yet.  Also, rootfs of av02 has nothing to do with 
+    ceph, shouldn't be placed under /nfs/ceph.
+
+<PRE>
+guest3:~$ df /
+Filesystem                             1K-blocks     Used Available Use% Mounted on
+140.120.8.99:/nfs/ceph/template/rootfs 205374464 25748352 169124032  14% /
+av02:~$ df /
+Filesystem                             1K-blocks     Used Available Use% Mounted on
+140.120.8.99:/nfs/ceph/vm-rfs/rootfs     8191424  2067136   5688512  27% /
+</PRE> 
+
+<P> Should you put the scripts <b>start-odxu4guest1-AsDaemon.sh</b>, 
+    <b>start-guest1-AsDaemon.sh</b>, <b>startVMAsDeamon.sh</b> in <b>oh1</b>?  I 
+    thought <b>oh1</b> is simply an entry point of cloud, a gateway, and a host 
+    for running the nfs server, nothing more! Would it be too busy to handle 
+    anything else? <b>Yes on oh1 (10/14/2017)</b>: I saw everything else is gone. 
+    
+
+<P> I notice that <b>nfs0</b> is started with only 1 core, <code>-smp 1</code>. But, 
+    it serves all the VMs whose root filesystems are shared from <b>nfs0</b>. Giving 
+    it 2 or 3 cores should be a fair game.  But, I believe networking will be the 
+    bottle neck. Also, this VM only has 512M of memory, <code>-m 512M</code> and it 
+    serves 205G data (in theory) to its clients. I believe it deserves at least 1G 
+    of memory space. But, I believe you should not run any more VMs, (say, more 
+    services), in this host. <b>Yes on nfs0 (10/14/2017)</b>: I saw 3 cpus and 1G 
+    memory.  It seems two emacs sessions are brought up (simultaneously) on av02 and 
+    guest3 a little bit faster.
+
+     <LI> <b>Important Notes: (10/07/2017)</b> 
+
+<P> The storage usage of <code>oh1:/src2</code> is 78%, almost full.  The sizes 
+    of all <code>initrd.img</code> and  <code>zImage</code> files in the 
+    <code>oh1:/src2/KVM/kernel</code> directory are all the same.  And I checked 
+    some of these files are really identical. <b>(10/14/2017):</b> The storage 
+    usage of <code>oh1:/src2</code> is reduced to 38%.
+
+<PRE>
+$ diff /src2/KVM/Kernel/guest1/initrd.img /src2/KVM/Kernel/nfsguest1/initrd.img
+$ diff /src2/KVM/Kernel/guest1/zImage /src2/KVM/Kernel/nfsguest1/zImage
+</PRE>
+
+<P> Shouldn't they be symbolic links?
+
+<UL>
+  <LI> Save a lot of disk space.  More importantly,
+  <LI> Maintenance and kernel upgrade will be much easier.
+  <LI> The image files in the <code>oh1:/src2/KVM/Image</code> directory 
+       must be documented in a README file. And, delete the ones no longer 
+       in use.  Sooner or later, you will forget the purpose of each image 
+       file and the obsoleted image files piled up.
+  <LI> I posed the message for cleaning storage space on 10/05/2017, so far, 
+       nothing has been done.
+  <LI> The cloud in <b>oh1</b> is far from complete.  If it is not finished 
+       on 10/31/2017, it will be too late, since you will not have enough 
+       time for debugging.  So far, It is <b>me</b> who is doing the debugging 
+       for the whole cloud for you.
+  <LI> The kernel released by Odroid is Linux 4.9.52, ten days ago.  Your kernel 
+       is still one month ago!! <b>(10/14/2017):</b>I saw Linux 4.9.54 is running. 
+       And from the output of dmesg, the kernel has been running for more than 3 
+       days, it seems there are no alarming messages piling up.
+
+<PRE>
+host1:~$ uname -a
+Linux odxu4host1 4.9.47 #1 SMP PREEMPT Mon Sep 4 14:15:33 CST 2017 armv7l GNU/Linux
+</PRE>
+</UL>
+
+<P> I believe the second nfs, <b>nfs1</b>, should not be placed in the same 
+    host as the <b>nfs0</b>.  Reason: In case the service of <b>nfs0</b> is 
+    unavailable, it is plausible the host <b>oh1</b> is at fault.  Or, maybe 
+    I misunderstand the purpose of these two images in <b>oh1</b>.
+
+<PRE>
+host1:~$ ls -l /srv/nfs/0/NFSfilesystem*.img
+-rw-r--r-- 1 hsu hsu 214748364800 Oct  7 08:38 /srv/nfs/0/NFSfilesystem0.img
+-rw-r--r-- 1 hsu hsu 214748364800 Oct  7 10:32 /srv/nfs/0/NFSfilesystem1.img
+</PRE>
+
+<P> <b>I suggest: (10/14/2017)</b> Merge <code>/dev/vdb1</code> and 
+    <code>/dev/vdd1</code>, i.e. <code>/nfs/ceph</code> and <code>/nfs/common</code> 
+    to NFSfilesystem0.img.  Put our source code in <code>NFSfilesystem2.img</code>.  
+    When we don't need to access the source code, don't mount it.  But, write shell 
+    scripts so that we can mount and unmount it anytime we wish.  We keep the storage
+    <code>NFSfilesystem3.img</code> empty.  In some cases, we need more empty storage 
+    space badly, this can be the one to mount and unmount at will.
+
+     <LI> <b>Important Notes: (10/06/2017)</b> 
+
+<P> Something wrong about the <b>/</b> filesystem of av02, 205G, 16G used. Guest3 
+    has the same problem.  I see the problem now.  This is inherited from the whole 
+    <code>/nfs/ceph</code> filesystem of nfs0.  It is too dangerous!  If some 
+    students carelessly create a huge file or create a directory with a lot of 
+    subdirectories and files. Very quickly, the nfs0 will be too dirty and its 
+    performance will deteriorate and the network will be too busy in carrying 
+    useless packets.</P>  
+
+<PRE>
+av02:~$ df /
+Filesystem                           1K-blocks     Used Available Use% Mounted on
+140.120.8.99:/nfs/ceph/vm-rfs/rootfs 205374464 16193728 178678656   9% /
+guest3:~$ df /
+Filesystem                             1K-blocks     Used Available Use% Mounted on
+140.120.8.99:/nfs/ceph/template/rootfs 205374464 16193728 178678656   9% /
+NFSserver:~$ df /dev/vdb1
+Filesystem     1K-blocks     Used Available Use% Mounted on
+/dev/vdb1      205374440 16193744 178678604   9% /nfs/ceph
+</PRE>
+
+<P> The solution: I suggest create a virtual disk by <b>dd</b> command, make an ext4 
+    filesystem on it, and mount it to the <code>/nfs/vm-rfs/rootfs</code> directory.
+    And then create the root filesystem on it.  The guest1, guest3 in oh2 and oh3 also 
+    have the same problem.  Create <code>/nfs/guest/rootfs</code> directory, use 
+    the same procedure to create a root filesystem. [ These two filesystems have 
+    nothing to do with ceph, shouldn't be put under ceph directory. ]
+
+<P> Now, we get a new problem in hand.  If we need to shutdown nfs0 for any reason, 
+    we have to umount these two filesystems: <code>/nfs/vm-rfs/rootfs</code> and 
+    <code>/nfs/guest/rootfs</code>, first.  Also, we need to mount these two 
+    filesystems after rebooting nfs0.  But, I think this can be done in the 
+    <b>/etc/rc.local</b> file. (Is it too late? The nfs daemon should have already 
+    been started.)  For un-mounting these two filesystems, we probably can do it via 
+    modifying the <code>/etc/init.d/.depend.stop</code> file.  However, it seems these 
+    <code>/etc/init.d/.depend.[boot|start|stop]</code> files are generated automatically.
+
+<OL>
+  <LI> <a href="https://unix.stackexchange.com/questions/233187/is-there-a-standard-way-to-start-and-stop-services-on-linux/233233" target="_b">Is there 
+       a standard way to start and stop services on Linux?</a>
+  <LI> <a href="https://unix.stackexchange.com/questions/102938/how-to-regenerate-etc-init-d-depend-bootstartstop-on-debian?rq=1" target="_b">How to regenerate 
+    <code>/etc/init.d/.depend.(boot|start|stop)</code> on Debian?</a>
+</OL>
+</p>
+
+<P> It seems to me the <b>/usr/local</b> filesystem of guest3 is inherited from oh3, 
+    but timezone of guest3 is not set properly.
+
+<P> I have been urging you to finish the creation of oh1 cloud.  As you can see, after 
+    careful examination, we unravel quite a few hidden problems.
+
+     <LI> <b>Important Notes: (10/05/2017)</b> 
+
+       <P> Some of the filesystems are used well over 40%.  You may inadvertently 
+           damage them.  Clean every filesystem in the respective hosts immediately.
+
+<PRE>
+NFSserver:~$ df /
+Filesystem     1K-blocks    Used Available Use% Mounted on
+/dev/vda2        3570992 2532172    837708  76% /
+host1:~$ df /usr /src2
+Filesystem      1K-blocks     Used Available Use% Mounted on
+/dev/mmcblk0p3    5095040  2058544   2757968  43% /usr
+/dev/mmcblk0p10  14627832 10762384   3102672  78% /src2
+host2:~$ df /usr /src2
+Filesystem      1K-blocks    Used Available Use% Mounted on
+/dev/mmcblk0p3    5095040 3234816   1581696  68% /usr
+/dev/mmcblk0p10  14636024 5630112   8242728  41% /src2
+</PRE>
+
+       <P> I have no idea why there are so many ceph-related VMs on ac11, ac12, ac13 
+           running.  The ceph managed virtual storage in the odroid-xu4 cloud is the 
+           one you must work on.  I even can't see any ceph-related VM ever running 
+           in this cloud. Worst of all,  I even can't see the sdd and usb3 disks are 
+           attached in any of them.</p>
+
+     <LI> <b>Important Notes: (09/29/2017)</b> 
+
+       <P> Be ready within 2 weeks.
+
+       <UL>
+         <LI> Duplicate the <code>/nfs/ceph/template/rootfs</code> to 
+              <code>/nfs/vm-rfs/rootfs</code>
+         <LI> Porting 
+              <a href="http://amdm/LectureNotes/Diaries/Topic-OS-1-2017.html#Porting" 
+                 target="_b">the listed packages</a> to the newly duplicated rootfs.
+
+              <P>Sorry, should be porting to each physical host, since the filesystem 
+                 <code>/usr/local</code> in the VM is inherited from its physical host.
+         <LI> From ac02 to ac06, create the local image /src4/KVM/Image/av0?-local.img 
+
+              <P> This local image can and should be a duplicate (?) of the 
+                  <code>oh3:/src2/KVM/Image/guest3.img</code> file.</p>
+
+         <LI> Add users guest, guest1, guest2, guest3, guest4, guest5  to /home.
+
+         <LI> Populate HtmlTu and SrcAndData to the above directories and <b>hsu</b>
+
+         <LI> Write a shell script in /src4/KVM/bin <b>Config-av-clients.sh</b> 
+              to generate the online and offline shell scripts: start-* and stop* 
+       </UL> 
+
+       <P> On oh1, I have not seen the ceph storage management system online yet.
+           And a cluster sharing the <code>/nfs/ceph/template/rootfs</code> root 
+           filesystem.  <b>oh1</b> is far from a linux cloud!! 
+
+       <P> On the start-guest3* scripts, I think in the long run, it should be better 
+           off if you assigning string0, string1, string3, etc., separately, and 
+           document the purpose of each string? clearly.  At least, it would be easier 
+           to modify the individual strings or add new string assignments
+
+<PRE>
+# Invoke qemu with proper parameters setup
+start0="qemu-system-arm -M virt -cpu host -enable-kvm -m ${MEM} -smp 1 -serial stdio  "
+# Tell qemu where are the initrd and kernel
+start1="-initrd ../Kernel/guest3/initrd.img  -kernel ../Kernel/guest3/zImage  "
+# Setup the monitor socket
+start2="-monitor unix:${NETWORK_DIR}/MonSock,server,nowait  "
+    . 
+    . 
+    . 
+
+</PRE>
+
+     <LI><b>Important Notes: (09/24/2017), (09/14/2017)</b>
+
+<PRE>
+guest1, guest3 no longer online, crashed? And guest1, guest3 do not share the same 
+root filesystem from nfs0.  Can guest1, guest3  share the same root filesystem w/o 
+conflict?
+NFSserver:~$ sudo dmesg 
+[371388.558510] RPC: fragment too large: 1195725856
+[371388.940775] RPC: fragment too large: 369295618
+[371389.334766] RPC: fragment too large: 369295618
+[1102726.113853] RPC: fragment too large: 1195725856
+host1:~$ dmesg | grep "blk_update_request"
+[252891.900623] blk_update_request: I/O error, dev mmcblk0rpmb, sector 0
+[252892.621151] blk_update_request: I/O error, dev mmcblk0rpmb, sector 0
+[257676.165976] blk_update_request: I/O error, dev loop0, sector 0
+[259369.125459] blk_update_request: I/O error, dev loop0, sector 0
+[335741.732327] blk_update_request: I/O error, dev loop0, sector 0
+[335744.020711] blk_update_request: I/O error, dev loop1, sector 0
+[345363.713957] blk_update_request: I/O error, dev loop0, sector 0
+[345828.677708] blk_update_request: I/O error, dev loop0, sector 0
+[348452.806456] blk_update_request: I/O error, dev mmcblk0rpmb, sector 0
+[1381759.951392] blk_update_request: I/O error, dev loop1, sector 524160
+[1381759.956430] blk_update_request: I/O error, dev loop1, sector 524160
+[1381759.962792] Buffer I/O error on dev loop1p1, logical block 65264, async page read
+[1381760.004925] blk_update_request: I/O error, dev loop2, sector 524160
+[1381760.009967] blk_update_request: I/O error, dev loop2, sector 524160
+[1381760.016313] Buffer I/O error on dev loop2p1, logical block 65264, async page read
+[1381760.044854] blk_update_request: I/O error, dev loop3, sector 524160
+[1381760.049976] blk_update_request: I/O error, dev loop3, sector 524160
+[1381760.056247] Buffer I/O error on dev loop3p1, logical block 65264, async page read
+host2:~$ ssh -X hsu@192.168.1.103
+ssh_exchange_identification: read: Connection reset by peer
+# root should not login forever! No root login ever, unless filesystem recovering!!!
+NFSserver:~$ last
+root     ttyAMA0                       Mon Sep 11 13:07   still logged in
+</PRE>
+
+         <P>Guest1 is not using the rootfs on nfs0.
+
+         <P><b>Important Notes: (09/01/2017)</b> Don't use any official IP (140.120.8.*) 
+            as your VM Ip.  Also, boot hosts ac02-ac06 within 24 hours. Don't have 
+            anytime to waste.  Can login ac07, ac09 via different IPs?
+
+         <P>When login 192.168.0.254, you get back to oh1. In oh1,  you don't see 
+            any trace of this IP: 192.168.0.254. What's going on?
+
+     <LI> <b>Important Notes: (09/04/2017)</b> Who is this? 
+
+<PRE>
+# Amath-Client07, inet 140.120.8.123, an impersonated one!
+Last login: Sun Sep  3 12:02:52 2017 from 140.120.125.199
+# The following IPs are not authorized:
+140.120.8.121   Amath-Client21          ac21
+140.120.8.122   Amath-Client22          ac22
+140.120.8.123   Amath-Client23          ac23
+140.120.8.124   Amath-Client24          ac24
+</PRE>
+
+     <LI> Yes, I saw nfs0, (140.120.8.99), is online.  And the /boot directory is a 
+          separate filesystem. Using uboot to unify the booting process?  All the 
+          packages on <a href="#MinimalRequirement" target="_b">Minimal Requirement</a> 
+          are installed!? The extra disk (/dev/vde3 ?) is not yet mounted.  I am an 
+          idiot, tell me all about it.  Let Professors Chen and Yen understand the 
+          detail.  <b>Nice job!</b>
+
+          <P> I installed <b>xauth</b> in odxu4NFSserver, because of the error message:
+
+<PRE>
+# X11 forwarding request failed on channel 0
+$ sudo apt-get install xauth
+</PRE>
+
+          <P> I also added <b>xauth</b> to the list of minimal required packages.
+
+     <a name="MinimalRequirement"></a>
+     <LI> No <b>file</b> command. No <b>ispell</b> package installed, Emacs can't 
+          spell-check word online.  I <b>must</b> have it on my system.
+
+<P> Probably, we also need <b>synaptic</b>. Basically, at least, we need the default 
+    light software environment in our physical hosts and VMs so that distributed 
+    computation is feasible.  Our systems must equip with some simple software 
+    development capability.   The following items are extracted from 
+    <code>DebianNet-Light.txt</code> file.</P>
+
+<P><b>Note: (09/01/2017)</b> Shall we replace the <b>quagga</b> package by 
+      <b>nfs-common</b>?  Since <b>nfs-common</b> is needed if we want to 
+      share rootfs from nfs0.</P>
+
+<P>
+<TABLE>
+  <TR><TD>aptitude	
+      <TD>autotools-dev	
+      <TD>bisonc++	
+      <TD>bison		
+      <TD>bzip2		
+  <TR><TD>deborphan	
+      <TD>dhcp		
+      <TD>emacs		
+      <TD>fail2ban	
+      <TD>flex		
+  <TR><TD>gcc		
+      <TD>g++		
+      <TD>gfortran	
+      <TD>less		
+      <TD>libatlas-base-dev
+  <TR><TD>libatlas-test	
+      <TD>libblas-dev	
+      <TD>libblas-doc	
+      <TD>libc6-dev	
+      <TD>liblapack-doc	
+  <TR><TD>libltdl-dev	
+      <TD>libopenmpi-dev&nbsp;&nbsp;	
+      <TD>libpng12-0	
+      <TD>lynx		
+      <TD>make		
+  <TR><TD>netcat		
+      <TD>nmap		
+      <TD>openmpi-bin&nbsp;&nbsp;	
+      <TD>openmpi-dev&nbsp;&nbsp;	
+      <TD>openmpi-doc	
+  <TR><TD>openssh-client&nbsp;&nbsp;	
+      <TD>openssh-server	
+      <TD>quagga		
+      <TD>synaptic	
+      <TD>tcpdump 	
+  <TR><TD>thttpd		
+      <TD>traceroute 	
+      <TD>xauth		
+      <TD>xaw3dg          
+      <TD>xterm          
+</TABLE>
+</P>
+
+     <LI> I can't recall how the apt, aptitude package managers know our arch is armhf?
+
+<P> If we issue the "sudo aptitude update; sudo aptitude safe-upgrade", would it 
+    install or upgrade the armhf-related packages in <b>odxu4host1</b>? <b>Note:</b> 
+    I think I got it.
+
+<PRE>
+$ diff /etc/apt/sources.list /etc/apt/sources.list.orig
+1c1
+< deb [ arch=armhf ] http://tw.mirror.devuan.org/merged jessie main contrib non-free
+---
+> deb http://tw.mirror.devuan.org/merged jessie main contrib non-free
+4c4
+< deb [ arch=armhf ] http://tw.mirror.devuan.org/merged jessie-updates main contrib non-free
+---
+> deb http://tw.mirror.devuan.org/merged jessie-updates main contrib non-free
+7c7
+< deb [ arch=armhf ] http://tw.mirror.devuan.org/merged jessie-backports main contrib non-free
+---
+> deb http://tw.mirror.devuan.org/merged jessie-backports main contrib non-free
+10c10
+< deb [ arch=armhf ] http://security.debian.org/ jessie/updates main contrib non-free
+---
+> deb http://security.debian.org/ jessie/updates main contrib non-free
+</PRE>
+
+     <LI> Is this <b>odxu4host1</b> host booted via <b>u-boot</b>?
+
+<P> Sorry, I have a hard time to figure it out.  
+
+
+<P> I think I got it back: The u-boot binary resides in the <a target="_b" 
+    href="#UbootInFirstSector">first sectors</a> of the eMMC card.  This sector, 
+    similar to the MBR sector in x86, is not inside the range of the root filesystem.
+    Check the <a href="#UbootInFirstSector" target ="_b">summary</a> of arm SBC booting.
+
+<P> <b>Question:</b> The difference between 
+    <code>/boot/initrd.img-4.9.35-odroidxu4</code> and 
+    <code>/boot/uInitrd-4.9.35-odroidxu4</code>?  Which one is <br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; invoked while booting the kernel?
+<PRE>
+ # Extracted from /src3/Xvisor/HTML/CompilingLinuxKernelForARM.html. (Check host ac13.)
+ $ sudo mkimage -A arm -O linux -T ramdisk -a 0x0 -e 0x0 -n initrd.img-${kver}  -d initrd.img-${kver}  uInitrd-${kver} 
+ $ sudo cp uInitrd-${kver}  /media/boot/uInitrd
+</PRE>
+
+     <LI> U-boot, default bootloader in arm
+
+<P>We hope that, in the <b>arm</b> environment, uboot will replace the role of grub in 
+x86_64.  
+
+<h5>Reference:</h5> 
+
+<OL>
+  <LI><a target="_b" 
+href="http://amdm/LinuxRef/DIYBigData/BuildingKernelForOdroid-Xu4.html#GetMoreOutOfUboot">Get 
+More Out Of UBoot</a> 
+
+     <P>Hopefully, we may unify the boot process of our hosts and guest VMs via 
+        <b>u-boot</b>. But, the kernels for hosts and guest VMs must be compiled 
+        separately.  And for the kernel of guest VM, use the simplest defconfig 
+        mentioned above.  This will simplify the system maintenance of guest VMs, 
+        a lot. [ <b>Note: (08/28/2017)</b> We use the <b>armmp-lpae</b> package,
+        (<b>arm</b> <b>m</b>ulti-<b>p</b>latform, <b>l</b>arge <b>p</b>hysical 
+         <b>a</b>ddress <b>e</b>xtension), released by devuan as our <b>virt guest</b> 
+         system. So far so good. Reference: 
+         <a href="./InstallingDebianOnARMVirtBoard.html" target="_b">Installing 
+         Debian On ARM Virt Board</a> ]
+     </P>
+
+<PRE>
+guest1:~$ uname -a
+Linux odxu4guest1 4.9.0-0.bpo.3-armmp-lpae #1 SMP Debian 4.9.30-2+deb9u2~bpo8+1 (2017-06-27) armv7l GNU/Linux
+</PRE>
+
+  <LI><a href="http://amdm/LinuxRef/DIYBigData/ARMUbootQemu.html" 
+      target="_b">Qemu Uboot Arm</a>
+
+      <P>As far as I can recall, the root filesystems for ceph-osd, ceph-mon, ceph-mds 
+         are rather similar.  We probably can design a unique filesystem for each of 
+         the osd, mon, mds type clients, store them in a <b>nfs server</b>.  Using the 
+         technique introduced in this article, we share the suitable root filesystem 
+         for all these ceph clients.  But, the log message for each client is quite 
+         different.  We need to mount a <b>local var</b> filesystem for each client.
+         The benifit: <b>Easing system management burden.</b></P>
+
+      <P>By the way, pretty soon, our cloud would consists of more than 20 physical 
+         hosts.  We need 20 or more ceph-osd clients. Could you image the tedious 
+         job for upgrading each VM's filesystem by hand?</P>
+
+      <P>We have more complicated problem for data analytic compute slaves.  But their 
+         minimal requirement should be the same as we <a href="#MinimalRequirement" 
+         target="_b">mentioned</a> before.  
+
+  <LI><a href="http://git.denx.de/?p=u-boot.git;a=tree" 
+      target="_b">uboot source</a>
+</OL>
+
+<a name="SummaryBootProcess"></a>
+<h4>Summary of boot process</h4>
+
+<OL>
+  <a name="UbootInFirstSector"></a>
+  <LI> Stage 1 (Secondary Program Loader / SPL)
+
+       <P> SPL is responsible for board initialization, loading the u-boot binary 
+           ("secondary program") and handling the control flow over to the u-boot 
+           main program. The secondary program loader (SPL) and the u-boot binary 
+           reside in the first sectors of the eMMC card. ODROID devices use  eMMC 
+           module for storing the SPL and u-boot binary.</P>
+
+       <P><a href="http://elixir.free-electrons.com/linux/latest/source/Documentation/mmc/mmc-dev-parts.txt" target="_b">MMC (MultiMediaCard) Device Partitions</a>
+       </P> 
+
+<PRE>
+$ ls -l /sys/block/mmcblk?boot?/force_ro
+-rw-r--r-- 1 root root 4096 Aug 27 21:58 /sys/block/mmcblk0boot0/force_ro
+-rw-r--r-- 1 root root 4096 Aug 27 21:58 /sys/block/mmcblk0boot1/force_ro
+hsu@odxu4host1:~$ cat /sys/block/mmcblk0boot0/force_ro
+1
+</PRE>
+
+<a href="https://forum.odroid.com/viewtopic.php?f=54&t=5117#p41484" 
+   target="_b">Inaccessible Boot Sectors</a>
+
+<hr>
+<P> Lets explain how stuff works so you can understand too and perform better.
+
+<P> eMMC has two separated flash memory for bootloaders.  We'll call them as boot0 and 
+boot1. Each of those sectors have 4Mbyte of flash memory that aren't part of the whole 
+eMMC "disk".
+
+<P> The reason that eMMC works that way is because on consumer devices if you consumer 
+trashes the data on the eMMC you have a bootloader that will boot into some sort of 
+magic method to restore the data via the PC.  Hence why its separated.
+
+<P> We on ODROID don't use boot1. So you can safely ignore boot1.
+
+<P> When you are extracting an image from the eMMC.  You can choose just to extract the 
+"disk" part of it, that is the big part. That is <code>/dev/mmcblk0</code>
+
+<P> You'll also find <code>/dev/mmcblk0boot0</code>.  This is the 4mbyte place that I 
+told you where the bootloaders are. In this space there is: bl1, bl2(its the spl part 
+of the U-Boot), U-Boot, U-Boot variables and Trustzone Software.
+
+<a href="https://github.com/hardkernel/u-boot/tree/odroidxu3-v2012.07/sd_fuse/hardkernel_1mb_uboot" target="_b">bl1, bl2, tzaw</a> from hardkernel</P>
+
+<P><img src="http://i.imgur.com/jAfs95x.png" width="800"><br><br>
+
+<UL>
+  <LI> <a href="https://wiki.tizen.org/Quick_guide_for_odroidxu4" target="_b">Quick 
+          guide for odroidxu4</a>   
+  <LI> <a href="https://odroidinc.com/blogs/news/odroid-xu4-full-version-of-the-manual" 
+          target="_b">odroid-xu4 manual</a> 
+  <LI> Actually, there is one more mysterious partition:
+
+<PRE>
+$  ls -l /dev/mmc*rpmb
+brw-rw---- 1 root disk 179, 48 Oct 11 16:29 /dev/mmcblk0rpmb
+# It's the Replay Protected Memory Block. Basically, its a small portion of the internal 
+# eMMC which is set aside for storing keys, etc. Yes, its encrypted, and I don't even 
+# think there is a standard filesystem there for you to mount, regardless.
+# 
+# I believe its something which is intended to be setup one time only, by the 
+# manufacturer. I don't think the kernel could even overwrite it, if it wanted to (it 
+# doesn't look like a normal block device)
+#
+# In short, skip it entirely and enjoy faster boot-times :)
+# 
+# I saw the failure messages of block update of this partition several times.  But the 
+# system was already faded, or say paniced.
+</PRE>
+</UL>
+
+<P> Nothing else is store on boot0.  Everything else will be stored on 
+<code>/dev/mmcblk0</code>
+
+<P> You can:
+
+<OL>
+  <LI> Backup just the "disk" part and ignore the bootloaders since we do offer 
+       bootloader recovery procedure.
+  <LI> Backup disk and bootloaders (boot0) in that case you don't have to set the 
+       force_to
+</OL>
+
+<P> If you are extracting the image. You don't have to touch force_ro as force_ro will 
+only imply in read only access to boot0 and boot1
+
+<PRE>
+dd if=/dev/mmcblk.... of=./myimg.img
+</PRE>
+
+
+<P> if you are restoring a previous image and If you are writing just the "disk" part. 
+You don't have to touch force_ro.  If you are writing to boot0 you do have to change 
+force_ro to make boot0 writeable.
+
+<PRE>
+dd if=myimg.img of=/dev/mmcblk0....
+</PRE>
+
+
+<P> eMMC is like 3 memory blocks and a controller. and a Controller that does wearing 
+level control and another sorcery like trim, zero'ing...
+
+
+<PRE>
+Memory block 1 - 4Mbyte - Boot0
+Memory block 2 - 4Mbyte - Boot1
+Memory block 3 - 8/16/...GB - "disk"
+</PRE>
+
+<P> I hope this clarify your questions on how the eMMC works.
+
+
+<P> Note that if you are using an SDCard there's no boot0/boot1 and the bootloaders 
+are just there in the SD (in the very beginning of it, first 2Mbyte).
+<hr>
+
+
+  <LI> Stage 2 (u-boot)
+       <p>At this stage of booting, the u-boot main program is executed.  U-boot first
+          looks for a custom environment stored at a reserved space on the eMMC module,
+          or falls back to the compile-time default environment if needed.  At this 
+          time, you can interrupt the automatic boot process by pressing a key on your 
+          serial console, which starts an interactive u-boot shell.  The u-boot variable 
+          called <code>bootdelay</code> specifies the number of seconds to wait for a 
+          keypress before continuing automatic boot.</p>
+
+       <p>The automatic boot process executes a special u-boot macro called 
+          <code>bootcmd</code>, which loads and executes the following procedures:
+
+<ol>
+  <li>(opt.) a custom u-boot environment: <code>uEnv.txt</code></li>
+  <li>(opt.) a precompiled u-boot macro: <code>boot.scr</code></li>
+  <li>the kernel image, e.g. <code>uImage</code></li>
+  <li>(opt.) the device tree binary, e. g. <code>meson8b_odroidc.dtb</code></li>
+  <li>(opt.) the initial ramdisk, e. g. <code>uInitrd</code></li>
+</ol></p>
+
+<PRE>
+guest1:~$ ls -l /boot
+total 62852
+-rw-r--r-- 1 hsu  hsu      1730 Aug 12 06:17 boot.cmd
+-rw-r--r-- 1 root root     1802 Aug 20 08:05 boot.scr
+-rw-r--r-- 1 root root   190192 Jul 20 11:01 config-4.9.0-0.bpo.3-armmp-lpae
+lrwxrwxrwx 1 root root       28 Aug 20 08:05 dtb -> dtb-4.9.0-0.bpo.3-armmp-lpae
+drwxr-xr-x 3 root root    20480 Aug 14 07:54 dtb-4.9.0-0.bpo.3-armmp-lpae
+-rw-r--r-- 1 root root 28639950 Aug 20 08:05 initrd.img-4.9.0-0.bpo.3-armmp-lpae
+drwx------ 2 root root     4096 Aug 13 13:26 lost+found
+-rw-r--r-- 1 root root  3021932 Jul 20 11:01 System.map-4.9.0-0.bpo.3-armmp-lpae
+-rw-r--r-- 1 hsu  hsu       180 Aug 13 13:29 uEnv.txt
+lrwxrwxrwx 1 root root       32 Aug 20 08:05 uInitrd -> uInitrd-4.9.0-0.bpo.3-armmp-lpae
+-rw-r--r-- 1 root root 28640014 Aug 20 08:05 uInitrd-4.9.0-0.bpo.3-armmp-lpae
+-rw-r--r-- 1 root root  3820592 Jul 20 11:00 vmlinuz-4.9.0-0.bpo.3-armmp-lpae
+lrwxrwxrwx 1 root root       32 Aug 20 08:05 zImage -> vmlinuz-4.9.0-0.bpo.3-armmp-lpae
+</PRE>
+
+
+<UL>
+  <LI> <p><b>bootcmd:</b> This (environment) variable defines a command string that 
+          is automatically executed when the initial countdown is not interrupted.
+          This command is only executed when the variable bootdelay is also defined! 
+
+  <LI>  boot.scr: Converted from boot.cmd by using the <b>mkimage</b> command: 
+
+<PRE>
+ $ mkimage -C none -A arm -T script -d boot.cmd boot.scr
+</PRE>
+</UL>
+
+<h5>Reference</h5>
+
+<a href="http://www.denx.de/wiki/U-Boot" target="_b">Mainline U-Boot</a>&nbsp;
+&nbsp;
+<a href="https://www.denx.de/wiki/DULG/Manual" target="_b">U-Boot Manual</a>
+  <LI> Stage 3 (Linux kernel)
+
+       <p>The third stage is the loading of the Linux kernel.  However, before the 
+          Linux kernel takes control, u-boot passes a command line to the kernel 
+          containing essential parameters.  These parameters can be viewed after the 
+          operating system has booted by typing the following into a Terminal window:</p>
+
+<pre>
+# The host oh1
+host1:~$ cat /proc/cmdline
+console=tty1 console=ttySAC2,115200n8 root=/dev/mmcblk0p2 rootfstype=ext4 rootwait panic=10 \
+ consoleblank=0 loglevel=8 ip=  s5p_mfc.mem=16M
+# Guest3 dunning in oh4
+guest3:~$ cat /proc/cmdline
+console=ttyAMA0 root=/dev/nfs nfsroot=140.120.8.99:/nfs/vm-rfs/guest-rfs \
+ip=192.168.1.103::192.168.1.254:255.255.255.0::eth0 rdinit=/init 
+# You see the rootfs for guest3 is shared from 140.120.8.99:/nfs/vm-rfs/guest-rfs
+guest3:~$ df
+Filesystem                         1K-blocks    Used Available Use% Mounted on
+udev                                   10240       0     10240   0% /dev
+tmpfs                                  50544     100     50444   1% /run
+140.120.8.99:/nfs/vm-rfs/guest-rfs   8191488 2067200   5688448  27% /
+tmpfs                                   5120       0      5120   0% /run/lock
+tmpfs                                 101080       0    101080   0% /run/shm
+/dev/vda1                            1014680    6732    939188   1% /etc
+/dev/vda2                             999320   96184    834324  11% /var
+/dev/vda3                             999320    6520    923988   1% /home
+/dev/vda4                             999320    2572    927936   1% /tmp
+usr-local                            5095040  269860   4546652   6% /usr/local
+# The rootfs resided in nfs0:/nfs/vm-rfs/guest-rfs
+nfs:~$ ls -l /nfs/vm-rfs/guest-rfs
+total 92
+drwxr-xr-x  2 root root  4096 Aug 13 19:55 bin
+drwxr-xr-x  4 hsu  hsu   4096 Oct  5 19:10 boot
+drwxr-xr-x  4 root root  4096 Aug 13 19:08 dev
+drwxr-xr-x 76 hsu  hsu   4096 Oct  7 15:02 etc
+drwxr-xr-x  8 root root  4096 Oct  5 19:26 home
+lrwxrwxrwx  1 root root    40 Aug 14 14:27 initrd.img -> boot/initrd.img-4.9.0-0.bpo.3-armmp-lpae
+lrwxrwxrwx  1 root root    40 Aug 14 14:27 initrd.img.old -> boot/initrd.img-4.9.0-0.bpo.3-armmp-lpae
+drwxr-xr-x 16 root root  4096 Aug 14 14:27 lib
+drwx------  2 root root 16384 Oct  7 15:26 lost+found
+drwxr-xr-x  2 root root  4096 Aug 13 19:09 media
+drwxr-xr-x  2 root root  4096 Aug 13 19:09 mnt
+drwxr-xr-x  2 root root  4096 Aug 13 19:09 opt
+drwxr-xr-x  2 root root  4096 May  9  2016 proc
+drwx------  5 root root  4096 Aug 31 19:11 root
+drwxr-xr-x 11 root root  4096 Aug 14 14:13 run
+drwxr-xr-x  2 root root  4096 Aug 25 15:52 sbin
+drwxr-xr-x  2 root root  4096 Sep 12 23:25 src1
+drwxr-xr-x  2 root root  4096 Aug 13 19:09 srv
+drwxr-xr-x  2 root root  4096 May 29  2015 sys
+drwxrwxrwt  2 root root  4096 Oct  5 19:42 tmp
+drwxr-xr-x 10 hsu  hsu   4096 Aug 21 15:57 usr
+drwxr-xr-x 11 root root  4096 Aug 25 17:00 var
+lrwxrwxrwx  1 root root    37 Aug 14 14:27 vmlinuz -> boot/vmlinuz-4.9.0-0.bpo.3-armmp-lpae
+lrwxrwxrwx  1 root root    37 Aug 14 14:27 vmlinuz.old -> boot/vmlinuz-4.9.0-0.bpo.3-armmp-lpae
+</pre>
+
+       <p>The kernel initializes the hardware, mounts the root filesystem (according to 
+          the <code>root=...</code> kernel parameter) and passes the control flow to 
+          <code>/sbin/init</code>. </p>
+
+<h5>The shortcut</h5>
+
+       <p>Hardkernel makes use of a special u-boot command called <code>cfgload</code>, 
+          which bypasses the ordinary boot process and provides a simplified u-boot 
+          configuration facility in a single file called <code>boot.ini</code>.  
+          Configuration changes can be done easily by editing the <code>boot.ini</code> 
+          file, rather than modifying the u-boot environment, but this extension doesn't 
+          provide any access to the interactive u-boot shell. </p>
+
+       <p>You can boot one configuration at a time only by default. If a particular 
+          configuration change causes the system to hang during boot, you will need to 
+          remove the eMMC module from your device and revert this change by editing 
+          <code>boot.ini</code> on your notebook or PC.</p>
+</OL>
+
+
+     <LI> ARMv7 VS ARMv6
+
+          <P>Debian calls an ARMv7 CPU  as armhf (ARM hard float). Debian calls ARMv6  
+             as armel. Cortex-A8, A9, A15 are all ARMv7 CPUs. Also, new <a target="_b" 
+             href="https://wiki.debian.org/Arm64Port">arm64: 64-bit Arm</a> platform. 
+
+     <LI> New kernel (4.9.37) improved a lot.
+
+Check the <a href="./dmesg.diff-37vs35.html" target="_b">difference</a> Any reason? 
+Must document it clearly.
+
+<P>
+<OL>
+  <LI> I think <b>s5p_mfc</b> driver is not enabled, since we see <code>Firmware is not 
+       present in the /lib/firmware directory nor compiled in kernel</code> message in 
+       the dmesg output. 
+
+       <P>Should be in the <code>drivers/media/platform/s5p-mfc</code> directory.</P>
+  <LI> <b>odxu4host2</b>: Connection refused. 
+  <LI> Again we saw <code>INFO: rcu_preempt detected stalls on CPUs/tasks:</code> 
+       message in <b>odxu4host1</b>.  But not in <b>odxu4host3/4</b>. They should be 
+       running the same kernel, right?
+</OL>
+</P>
+
+
+     <LI> Virt Guest, Virt Guest Board, and <b>-enable-kvm</b>
+
+<P> The reasons for using "<b>virt</b>" board are outlined in this 
+   <a href="./InstallingDebianOnARMVirtBoard.html#WhyVirtBoard" 
+   target ="_b">article</a>. Basically, it supports:
+
+<OL>
+  <LI>PCI 
+
+      <P>PCI (Peripheral Component Interconnect) Bus.
+  <LI>recent ARM CPU  
+
+      <P> There are too many armv7 compatible Cpus on the market. Which one shall I 
+          choose?</P>
+  <LI>virtio
+      <P>They say IO performance is much better.</P>
+  <LI>large amounts of RAM.
+      <P>We intend to allocate 1GB memory for ceph storage.</P>
+</OL>
+
+<h4><a href="./InstallingDebianOnARMVirtBoard.html" target="_b">Installing Debian On 
+QEMU's 32-bit ARM Virt Board</a></h4>
+
+<P>[ <b>Note: (08/21/2017)</b> Get the defconfig (virt_guest_defconfig2.gz) from the 
+   first anchor would be better, it is known to work. ] <b>Note: (08/18/2017)</b> 
+   <a href="./UsingKVMWithQemuOnARM.html#UsefulQemuCommands" target="_b">virt guest 
+   can be booted with kvm enabled</a>.  Check the minimal parameters for starting the 
+   <b>qemu-system-arm</b> command carefully.  We may follow the instruction of 
+   <a href="./UsingKVMWithQemuOnARM.html#UsingKVMwithQemuOnARM" target="_b">this 
+   article</a> to setup a <b>virt guest</b> with kvm enabled and its kernel is built 
+   with this <a href="./UsingKVMWithQemuOnARM.html#virt_guest_defconfig" 
+   target="_b">virt_guest_defconfig</a>. 
+
+<OL>
+  <li><a href="https://falstaff.agner.ch/wp-content/uploads/2016/09/" 
+         target="_b">September: initramfs as cpio.gz, defconfig, zImage as tar</a>  
+
+      <P> This one <b>does boot</b> successfully.
+
+      <P><b>Note: (08/21/2017)</b> The kernel and initrd is in odxu4-4:/src2/KVM/test2. 
+ 
+        <UL> 
+           <LI> Using <b>qt2.sh</b> to boot it.  
+           <LI> Using <b>root</b> to login without passwd. 
+           <LI> <b>poweroff</b> to shutdown.
+           <LI> <b>ttyS0</b> respawns infinitely. 
+
+                <P> Append the string <code>-append "console=ttyS0,115200n8"</code> to 
+                    <b>qt2.sh</b> at the end will stop ttyS0 respawning.
+
+        </UL> 
+
+<PRE>
+ $ cat qt.sh
+#! /bin/bash 
+qemu-system-arm -enable-kvm -M virt -cpu host -kernel ../test2/zImage -initrd  \
+   ../test2/core-image-minimal-qemuarm.cpio.gz \
+   -nographic -serial none -monitor none \
+   -device virtio-serial-device -device virtconsole,chardev=char0 -chardev stdio,id=char0 \
+   -append "console=hvc0"
+$ cat qt2.sh
+#! /bin/bash 
+qemu-system-arm -enable-kvm -M virt -cpu host -kernel ../test2/zImage -initrd  \
+   ../test2/core-image-minimal-qemuarm.cpio.gz \
+   -nographic -serial none -monitor none \
+   -device virtio-serial-device -device virtconsole,chardev=char0 -chardev stdio,id=char0 \
+   -append "console=hvc0" \
+   -append "console=ttyS0,115200n8"
+$ diff qt.sh qt2.sh
+5c5,6
+<    -append "console=hvc0"
+---
+>    -append "console=hvc0" \
+>    -append "console=ttyS0,115200n8"
+</PRE>
+  <li><a href="https://falstaff.agner.ch/wp-content/uploads/2016/08/" 
+         target="_b">August: initramfs as cpio.gz, defconfig, zImage as tar</a>
+
+
+<P><b>Note: (08/19/2017)</b> I created a virt guest in odxu4-4:/src2/KVM/test, and 
+   tested it with <b>/src2/KVM/q*</b> commands.  I ended up with 
+
+<PRE>
+$ qemu-testing.sh
+error: kvm run failed Function not implemented
+R00=00004000 R01=00000c0e R02=00008000 R03=00004000
+R04=00008000 R05=00000000 R06=0000000e R07=ffffffff
+R08=480b0000 R09=00000000 R10=10000000 R11=10201105
+R12=40010080 R13=00000000 R14=4001034c R15=400102b8
+PSR=200001d3 --C- A svc32
+</PRE>
+
+
+<P>I believe the error should be caused by the kernel of Physical host.  The error 
+messages from (Physical host) /var/log/kern.log and /var/log/syslog files are:
+
+<PRE>
+$ sudo cat /var/log/kern.log | grep load/store | grep 'Aug 19'
+Aug 19 22:16:01  kernel: [353596.496792] kvm [16762]: load/store instruction decoding not implemented
+Aug 19 22:18:57  kernel: [353772.261271] kvm [16813]: load/store instruction decoding not implemented
+hsu@odxu4-4:/src2/KVM/bin$ sudo cat /var/log/syslog | grep load/store | grep 'Aug 19'
+Aug 19 22:16:01  kernel: [353596.496792] kvm [16762]: load/store instruction decoding not implemented
+Aug 19 22:18:57  kernel: [353772.261271] kvm [16813]: load/store instruction decoding not implemented
+$ dmesg | grep load/store
+[308777.972027] kvm [14832]: load/store instruction decoding not implemented
+[308826.110179] kvm [14838]: load/store instruction decoding not implemented
+        . 
+        . 
+        . 
+[353596.496792] kvm [16762]: load/store instruction decoding not implemented
+[353772.261271] kvm [16813]: load/store instruction decoding not implemented
+[354943.087281] kvm [16999]: load/store instruction decoding not implemented
+<a href="https://github.com/hardkernel/linux/blob/odroidxu4-4.9.y/arch/arm/kvm/mmio.c#L174" target="_b">load/store ...</a>
+<a href="http://www.spinics.net/lists/kvm-arm/msg13630.html" target="_b">ancient 32-bit guest?</a>&nbsp;&nbsp;<b>Yes, it seems so.</b>
+</PRE>
+</OL>
+
+<P><b>Note: (08/22/2017)</b> The difference between the root file systems in
+  <code>/nfs/common/rootfs</code> and <code>/nfs/ceph/template/rootfs</code>?
+  If they are the same, document it clearly. Otherwise, in the long run,
+  somebody might wonder which one should she/he choose.
+  
+<P><b>Note: (08/22/2017)</b> It seems add " -cpu host" and " -enable-kvm" two
+  parameters, everything is OK? The kernel and initrd* files are the ones from
+  Devuan, am I right?  If so, the system maintenance is reduced to minimum.
+  Congratulation!!
+
+<PRE>
+$ ps alx | grep qemu # The following output is formatted for clarity.
+qemu-system-arm
+   -M virt
+   -cpu host
+   -enable-kvm
+   -m 512M
+   -initrd ../Kernel/nfs/initrd.img
+   -smp 1
+   -kernel ../Kernel/nfs/zImage
+   -serial stdio
+   -curses
+   -monitor unix:../network-nfs/MonSock,server,nowait
+   -append console=ttyAMA0 root=/dev/vda2 rw rootwait ip=192.168.0.253::192.168.0.254:255.255.255.0::eth0
+   -device virtio-serial-device
+   -device virtserialport,chardev=qga0,name=qemu.guest_agent.0
+   -chardev socket,path=../network-nfs/qga.sock,server,nowait,id=qga0
+   -net vde,sock=../network-nfs/vde0
+   -netdev type=tap,id=hostnet0,ifname=tapnfs0,script=no,vhost=on
+   -device virtio-net-device,netdev=hostnet0,mac=40:00:00:b8:9c:58
+   -drive if=none,id=hdc,file=/srv/nfs/0/NFSfilesystem1.img,format=raw
+   -device virtio-blk-device,drive=hdc
+   -drive if=none,id=hdb,file=/srv/nfs/0/NFSfilesystem0.img,format=raw
+   -device virtio-blk-device,drive=hdb
+   -drive if=none,id=hda,file=../Image/nfs.img,format=raw
+   -device virtio-blk-device,drive=hda
+   -pidfile ../data/nfs.pid
+</PRE>
+
+<P>I suggest you start with the simplest one and add more and more parameters:
+
+<PRE>
+qemu-system-arm -enable-kvm -M virt -cpu host \
+-kernel  ../Kernel/nfs/zImage -initrd  ../Kernel/nfs/initrd.img \
+-nographic -serial stdio -monitor none
+</PRE>
+
+<P> <b>Question</b>: How much does the performance improve, after turning on the 
+   "-enable-kvm" option?  Even 20% or 30% improvement will be a lot, say, if you have 
+   70 0r 80 such VMs running in our cloud.  Even if we only consider our ceph storage 
+   built upon these VMs, it's worth the effort.  
+
+     <LI> Testing VM filesystem template
+
+<P><b>Note: (08/31/2017)</b> 
+
+<OL>
+  <LI> <b>One problem remains: (09/04/2017)</b>
+
+<P> We haven't tested vm01, vm02, vm03 online simultaneously with a lot of users login 
+    them at any time they wish.
+
+  <LI> Is <b>nfs package</b> installed in the template of guest1 and guest2?
+
+       <P> This only happens in guest2
+<PRE>
+rpcbind: No such file or directory
+nfs-common: No such file or directory
+   . 
+   . 
+[FAIL] startpar: service(s) returned failure: rpcbind nfs-common ... failed!
+# On guest1: 
+[ ok ] Starting NFS common utilities: statd idmapd.
+</PRE>
+
+  <LI> Is the <b>(quagga) router</b> OK? It seems the router spends too much time to 
+       locate the IP for any connection request.  Every guest has quagga daemon running 
+       in it?  <b>What's happen?</b> The connection request is served on time now.
+
+  <LI> From guest1, we can reach guest2, host3, but not amd1m.  From guest2, we can 
+       reach guest1, host2, but not amd1m.  From host2, we can not reach amd1m, either.
+       <b>What's happen?</b> We can login amd1m, now!
+
+<P><b>Note: (09/06/2017)</b> 
+
+<PRE>
+host1:~$ ssh -X hsu@192.169.1.103
+ssh: connect to host 192.169.1.103 port 22: Connection timed out
+host2:/src2/KVM/bin$ ssh -X hsu@192.169.1.103
+ssh: connect to host 192.169.1.103 port 22: Connection timed out
+host1:~$ ssh -X hsu@192.168.1.104
+hsu@192.168.1.104's password: 
+Linux odxu4guest 4.9.0-0.bpo.3-armmp-lpae #1 SMP Debian 4.9.30-2+deb9u2~bpo8+1 (2017-06-27) armv7l
+host2:~$ ssh -X hsu@192.168.1.104
+ssh_exchange_identification: read: Connection reset by peer
+</PRE>
+
+<P><b>Note: (09/02/2017)</b> Check the sd VM in ac20.  Its IP: 192.168.2.120, host IP: 
+140.120.8.120.  These Ips are not in the same subnet.  Hence, in the VM sd's 
+<code>/etc/rc.local</code> file, we add <b>route add 140.120.8.120/32 dev eth0</b> 
+line so that from <b>sd</b>, we can reach amdm, 140.120.7.21.  The <b>SameSubnetP</b> 
+command is developed for this purpose. 
+
+<PRE>
+# Extracted from the sd VM's /etc/rc.local file
+ifconfig eth0 192.168.2.120
+route add 140.120.8.120/32 dev eth0
+route add default gw 140.120.8.120
+
+exit 0
+hsu@sd:~$ route -n
+Kernel IP routing table
+Destination     Gateway         Genmask         Flags Metric Ref    Use Iface
+0.0.0.0         140.120.8.120   0.0.0.0         UG    0      0        0 eth0
+140.120.8.120   0.0.0.0         255.255.255.255 UH    0      0        0 eth0
+192.168.2.0     0.0.0.0         255.255.255.0   U     0      0        0 eth0
+
+<hr>
+<hr>
+# Extracted from the av20's /etc/rc.local file
+ifconfig eth0 140.120.8.220
+route add default gw 140.120.8.120
+
+exit 0
+hsu@av20:~$ route -n
+Kernel IP routing table
+Destination     Gateway         Genmask         Flags Metric Ref    Use Iface
+0.0.0.0         140.120.8.120   0.0.0.0         UG    0      0        0 eth0
+140.120.0.0     0.0.0.0         255.255.0.0     U     0      0        0 eth0
+</PRE>
+
+<PRE>
+guest1:~$ ping -c 3 amd1m
+PING amd1m (140.120.7.22) 56(84) bytes of data.
+
+--- amd1m ping statistics ---
+3 packets transmitted, 0 received, 100% packet loss, time 2062ms
+</PRE>
+
+<P> host2 can't reach ac20 (140.120.8.120), but it can reach nfs0 (140.120.8.99).
+
+<PRE>
+host2:~$ ssh -X hsu@140.120.8.120
+ssh: connect to host 140.120.8.120 port 22: Connection timed out
+# Ahh, I knew it! The /etc/hosts.allow in ac20 must allow 140.120.8.99, 140.120.8.100 
+# to login.  Not the reason.  I allow 140.120.8.99, 140.120.8.100 to login ac20 already.
+host2:~$ ssh -X hsu@140.120.8.120
+ssh: connect to host 140.120.8.120 port 22: Connection timed out 
+# Must be the gateway 192.168.0.254 at fault!
+# At home, my routing table is as follow.  And when I login ac20, my router takes me 
+# to ac20.
+amd-6:/tmp$ route -n
+Kernel IP routing table
+Destination     Gateway         Genmask         Flags Metric Ref    Use Iface
+0.0.0.0         192.168.0.1     0.0.0.0         UG    0      0        0 eth0
+192.168.0.0     0.0.0.0         255.255.255.0   U     0      0        0 eth0
+192.168.1.0     0.0.0.0         255.255.255.0   U     0      0        0 eth1
+# Also, I saw 140.120.8.121 as gateway, and I can login it and its OS is rather old. 
+# Which VM is this?
+$ uname -a
+Linux gateway 4.9.0-2-amd64 #1 SMP Debian 4.9.18-1 (2017-03-30) x86_64 GNU/Linux
+</PRE>
+
+<P> From nfs0, we can ssh to ac20 and amd1m.
+
+  <LI> About quagga and nfs-common
+    <P>I am sorry, not every guest needs to install quagga.  A cluster, such as
+       ceph-ods, ceph-mon, ceph-mds, only needs one.  On guest1, <b>quagga</b> 
+       is running!
+
+    <P>And I think each guest need the nfs-common package, at least it needs to mount 
+       rootfs from nfs0.
+
+  <LI>
+  <LI>  
+</OL>
+
+<P><b>Note: (08/23/2017)</b> 
+
+<OL> 
+  <LI> In <b>start-vm01.sh</b> script, is the <b>rdinit=/init</b> parameter a uboot 
+      specific one? And, I saw it usually, (with <b>root=/dev/ram</b> in front of it), 
+      was assigned to be <b>rdinit=/sbin/init</b>. 
+
+<P> <b>rdinit</b>: <a href="http://elixir.free-electrons.com/linux/latest/source/Documentation/filesystems/ramfs-rootfs-initramfs.txt" 
+target="_b">ramdisk init</a>
+
+<P> The message <b>9pnet_virtio</b> only show up in nfs, but <b>emacs</b> is available 
+    in <code>/usr/local/bin/</code>
+
+<PRE>
+NFSserver:~$ sudo dmesg | grep 9p
+[    3.111724] 9pnet: Installing 9P2000 support
+[   10.837799] 9p: Installing v9fs 9p2000 file system support
+[   10.839569] FS-Cache: Netfs '9p' registered for caching
+[ 3581.561425] <b>9pnet_virtio: no channels available for device usr-local</b>
+NFSserver:~$ which emacs
+/usr/local/bin/emacs
+guest1:~$ sudo dmesg | grep 9p
+[sudo] password for hsu: 
+[    5.155827] 9pnet: Installing 9P2000 support
+[   21.066903] 9p: Installing v9fs 9p2000 file system support
+[   21.068982] FS-Cache: Netfs '9p' registered for caching
+</PRE>
+
+  <LI> When booting <b>vm01</b>: "NFS over TCP not available from 192.168.0.253"
+
+<PRE>
+# Can't reach nfs.  The reason is 192.168.0.253 is hidden behind 140.120.8.100.  Need 
+# to let everybody knows: If wants to reach  192.168.0.253, please goto 140.120.8.100, 
+# first.
+host2: $ ping -c 3 192.168.0.253
+PING 192.168.0.253 (192.168.0.253) 56(84) bytes of data.
+From 192.168.0.2 icmp_seq=1 Destination Host Unreachable
+From 192.168.0.2 icmp_seq=2 Destination Host Unreachable
+From 192.168.0.2 icmp_seq=3 Destination Host Unreachable
+host2: $ route -n
+Kernel IP routing table
+Destination     Gateway         Genmask         Flags Metric Ref    Use Iface
+0.0.0.0         192.168.0.254   0.0.0.0         UG    0      0        0 eth0
+192.168.0.0     0.0.0.0         255.255.255.0   U     0      0        0 eth0
+192.168.1.103   0.0.0.0         255.255.255.255 UH    0      0        0 tapvm010
+host2: $ ping -c 3 192.168.0.254
+PING 192.168.0.254 (192.168.0.254) 56(84) bytes of data.
+64 bytes from 192.168.0.254: icmp_seq=1 ttl=64 time=0.793 ms
+64 bytes from 192.168.0.254: icmp_seq=2 ttl=64 time=0.676 ms
+64 bytes from 192.168.0.254: icmp_seq=3 ttl=64 time=0.677 ms
+host2: $ ping -c 3 140.120.1.2
+PING 140.120.1.2 (140.120.1.2) 56(84) bytes of data.
+64 bytes from 140.120.1.2: icmp_seq=1 ttl=251 time=1.21 ms
+64 bytes from 140.120.1.2: icmp_seq=2 ttl=251 time=1.15 ms
+64 bytes from 140.120.1.2: icmp_seq=3 ttl=251 time=1.11 ms 
+# host2: ssh to 192.168.0.3 and 192.168.0.4 successfully.  
+</PRE>
+
+<P><b>Note: (08/24/2017)</b> From ohost2, now we can reach nfs.  And, guest1 booted 
+   successfully. <b>Note: (08/26/2017)</b> What happens? Need to know the solution.
+
+<PRE>
+ohost2:~$ ping -c 3 192.168.0.253
+PING 192.168.0.253 (192.168.0.253) 56(84) bytes of data.
+64 bytes from 192.168.0.253: icmp_seq=1 ttl=63 time=1.74 ms
+64 bytes from 192.168.0.253: icmp_seq=2 ttl=63 time=1.30 ms
+64 bytes from 192.168.0.253: icmp_seq=3 ttl=63 time=1.31 ms
+
+--- 192.168.0.253 ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 2003ms
+rtt min/avg/max/mdev = 1.302/1.451/1.740/0.204 ms
+hsu@odxu4host2:~$ ssh -X hsu@192.168.0.253
+hsu@192.168.0.253's password: 
+Linux odxu4NFSserver 4.9.0-0.bpo.3-armmp-lpae #1 SMP Debian 4.9.30-2+deb9u2~bpo8+1 (2017-06-27) armv7l
+    .
+    .
+    .
+guest1:~$ df
+Filesystem                              1K-blocks    Used Available Use% Mounted on
+udev                                        10240       0     10240   0% /dev
+tmpfs                                       50544      80     50464   1% /run
+192.168.0.253:/nfs/ceph/template/rootfs 205374464 8069056 186803328   5% /
+tmpfs                                        5120       0      5120   0% /run/lock
+tmpfs                                      101080       0    101080   0% /run/shm
+/dev/vda1                                 2030416  618780   1290448  33% /var
+/dev/vda2                                 1998672   10264   1867168   1% /etc
+</PRE>
+
+     <P> The one possible (nonperfect) solution would be given it a static IP, say 
+         140.120.8.99.  Since it is an official nfs server, it deserves a static IP.  
+         As long as it is given a static IP, shall we equip it also as a source 
+         mirror?
+
+     <P> <b>Note: (08/28/2017)</b> One more advantage: From ac01 to ac05, we can 
+         use the 140.120.8.99:/nfs/ceph/template/rootfs to provide VMs. On second 
+         thought, probably, these VMs need more software so that they can server 
+         the roles as av01, av02, etc. Probably, a separate augmented rootfs, say
+         <code>140.120.8.99:/nfs/ceph/template/rootfs-a</code>?
+
+     <P> The <b>tapnfs0</b> should have "inet addr: 140.120.8.100", but I don't see 
+         it in the output of <b>ifconfig -a</b></a>
+
+  <LI>  On host2:/src2/KVM/bin 
+
+<PRE>
+$ fdisk -l ../Image/vm01.img
+Disk ../Image/vm01.img: 4 GiB, 4294967296 bytes, 8388608 sectors
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+Disklabel type: dos
+Disk identifier: 0x107ae602
+
+Device             Boot   Start     End Sectors Size Id Type
+../Image/vm01.img1         2048 4194303 4192256   2G 83 Linux
+../Image/vm01.img2      4194304 8388607 4194304   2G 83 Linux
+# 2048 * 512 = 1048576
+$ OFFSET=$((4194304 * 512))
+$ echo $OFFSET
+2147483648
+$ sudo mount -o loop,offset=1048576  ../Image/vm01.img  /mnt/tmp
+# It seems the /var directory.
+$ ls -l /mnt/tmp
+total 524344
+drwxr-xr-x  2 root root       4096 May  8  2016 backups
+drwxr-xr-x  7 root root       4096 Aug 13 11:58 cache
+drwxr-xr-x 25 root root       4096 Aug 13 12:22 lib
+drwxrwsr-x  2 root staff      4096 May  8  2016 local
+lrwxrwxrwx  1 root root          9 Aug 13 11:09 lock -> /run/lock
+drwxr-xr-x  5 root root       4096 Aug 22 07:33 log
+drwx------  2 root root      16384 Aug 20 07:25 lost+found
+drwxrwsr-x  2 root mail       4096 Aug 13 11:09 mail
+drwxr-xr-x  2 root root       4096 Aug 13 11:09 opt
+lrwxrwxrwx  1 root root          4 Aug 13 11:09 run -> /run
+drwxr-xr-x  4 root root       4096 Aug 13 11:50 spool
+-rw-r--r--  1 root root  536870912 Aug 20 08:52 swap
+drwxrwxrwt  2 root root       4096 Aug 21 08:05 tmp
+$ sudo umount /mnt/tmp 
+$ sudo mount -o loop,offset=$OFFSET  ../Image/vm01.img  /mnt/tmp
+# It seems this is the /etc directory.
+$ ls -l /mnt/tmp
+total 712
+drwxr-xr-x 3 root   root       4096 Aug 14 06:13 acpi
+-rw-r--r-- 1 root   root       2981 Aug 13 11:17 adduser.conf
+-rw-r--r-- 1 root   root         44 Aug 22 08:19 adjtime
+drwxr-xr-x 2 root   root       4096 Aug 13 11:58 alternatives
+drwxr-xr-x 6 hsu    hsu        4096 Aug  8 08:33 apt
+-rw-r--r-- 1 root   root       1863 Nov  5  2016 bash.bashrc
+-rw-r--r-- 1 root   root         45 Jun  8  2015 bash_completion
+drwxr-xr-x 2 root   root       4096 Aug 14 06:13 bash_completion.d
+-rw-r--r-- 1 root   root        367 Apr  9 21:28 bindresvport.blacklist
+drwxr-xr-x 3 root   root       4096 Aug 13 11:20 ca-certificates
+-rw-r--r-- 1 root   root       7727 Aug 13 11:53 ca-certificates.conf
+drwxr-xr-x 2 root   root       4096 Aug 13 11:53 calendar
+drwxr-xr-x 2 root   root       4096 Aug 13 11:54 cron.d
+        .
+        .
+        .
+drwxr-xr-x 2 root   root       4096 Aug 14 06:27 rc3.d
+drwxr-xr-x 2 root   root       4096 Aug 14 06:27 rc4.d
+drwxr-xr-x 2 root   root       4096 Aug 14 06:27 rc5.d
+drwxr-xr-x 2 root   root       4096 Aug 14 06:27 rc6.d
+-rwxr-xr-x 1 hsu    hsu         444 Aug 21 05:17 rc.local
+drwxr-xr-x 2 root   root       4096 Aug 13 11:55 rcS.d
+-rw-r--r-- 1 root   root         47 Aug  8 13:07 resolv.conf
+-rwxr-xr-x 1 root   root        268 Oct 31  2016 rmt
+-rw-r--r-- 1 root   root        887 Oct 21  2014 rpc
+-rw-r--r-- 1 hsu    hsu        2277 Aug 11 08:37 rsyslog.conf
+drwxr-xr-x 2 root   root       4096 Dec 20  2015 rsyslog.d
+-rw-r--r-- 1 root   root       3663 Jul 26  2014 screenrc
+-rw-r--r-- 1 hsu    hsu        4054 Aug 13 12:45 securetty
+drwxr-xr-x 4 root   root       4096 Aug 13 11:13 security
+drwxr-xr-x 2 root   root       4096 Aug 13 11:12 selinux
+-rw-r--r-- 1 root   root      19605 Oct 21  2014 services
+-rw-r----- 1 root   shadow      748 Aug 14 07:52 shadow
+-rw------- 1 root   root        626 Aug 14 07:50 shadow-
+-rw-r--r-- 1 root   root        125 Aug 13 11:55 shells
+drwxr-xr-x 2 root   root       4096 Aug 13 11:13 skel
+drwxr-xr-x 2 hsu    hsu        4096 Aug  7 06:06 ssh
+drwxr-xr-x 4 root   root       4096 Aug 13 11:53 ssl
+-rw-r--r-- 1 root   root        771 May  8  2016 staff-group-for-usr-local
+-rw-r--r-- 1 root   root         55 Aug 14 07:50 subgid
+-rw------- 1 root   root         38 Aug 14 07:50 subgid-
+-rw-r--r-- 1 root   root         55 Aug 14 07:50 subuid
+-rw------- 1 root   root         38 Aug 14 07:50 subuid-
+-r--r----- 1 root   root        719 Aug 13 12:32 sudoers
+drwxr-xr-x 2 root   root       4096 Aug 13 11:52 sudoers.d
+-rw-r--r-- 1 root   root       2084 Mar  6  2015 sysctl.conf
+drwxr-xr-x 2 root   root       4096 Aug 13 11:53 sysctl.d
+drwxr-xr-x 3 root   root       4096 Aug 13 11:18 systemd
+drwxr-xr-x 2 root   root       4096 Aug 13 11:12 terminfo
+-rw-r--r-- 1 root   root          8 Aug 13 11:12 timezone
+drwxr-xr-x 2 root   root       4096 Sep  3  2015 tmpfiles.d
+-rw-r--r-- 1 root   root       1260 May 26  2014 ucf.conf
+drwxr-xr-x 4 root   root       4096 Aug 13 11:53 udev
+drwxr-xr-x 3 root   root       4096 Aug 13 11:49 ufw
+drwxr-xr-x 2 root   root       4096 Aug 13 11:55 vim
+-rw-r--r-- 1 root   root       4812 Mar 29 21:59 wgetrc
+drwxr-xr-x 7 root   root       4096 Aug 13 11:53 X11
+drwxr-xr-x 2 root   root       4096 Aug 13 11:53 zsh
+</PRE>
+  <LI> <b>Notice: (08/23/2017) 23:29 PM</b>  The entry in ohost1 is permanently in the 
+          routing table.  But not for ohost2, ohost3, ohost4.
+
+<PRE>
+192.168.0.253   0.0.0.0         255.255.255.255 UH    0      0        0 tapnfs0
+</PRE>
+       
+  <LI>  Although the rootfs of guest1 are mounted from nfs (Confirm this with <b>df</b>
+        command), there are differences after mounting:
+
+<PRE>
+# Notice that similar to general host, the size of /proc directory is 0, since this 
+# is a virtual filesystem. Its contents resides in memory.
+$ diff rootDir.guest1 rootDir.nfs
+1c1
+< total 60
+---
+> total 76
+4,5c4,5
+< drwxr-xr-x 11 root root 2740 Aug 24 11:28 dev
+< drwxr-xr-x 76 root root 4096 Aug 21 05:43 etc
+---
+> drwxr-xr-x  4 root root 4096 Aug 13 11:08 dev
+> drwxr-xr-x 75 hsu  hsu  4096 Aug 20 08:55 etc
+14c14
+< dr-xr-xr-x 69 root root    0 Jan  1  1970 proc
+---
+> drwxr-xr-x  2 root root 4096 May  8  2016 proc
+16c16
+< drwxr-xr-x 13 root root  520 Aug 24 11:28 run
+---
+> drwxr-xr-x  8 root root 4096 Aug 14 06:13 run
+19c19
+< dr-xr-xr-x 13 root root    0 Aug 24 11:32 sys
+---
+> drwxr-xr-x  2 root root 4096 May 29  2015 sys
+22c22
+< drwxr-xr-x 12 root root 4096 Aug 20 08:51 var
+---
+> drwxr-xr-x 11 root root 4096 Aug 13 11:09 var
+</PRE>
+
+  <LI>  I got a few problems.  
+
+     <UL>
+       <LI> I saw the <code>/etc/apt/sources.list</code> file in guest1. Now, suppose 
+           two users issue "$ sudo aptitude update; sudo aptitude safe-upgrade" 
+           command simultaneously in guest1 and guest2, what would happen?
+
+           <P><b>Note: (08/28/2017)</b> Provide a shell script <b>aptitude</b> in 
+           /usr/local/bin, make sure serching path guarantee it is searched before 
+           /usr/bin, to reject aptitude update, aptitude safe-upgrade to be 
+           executed locally.
+       <LI> Need to set the timezone.  Do it individually or on the root filesystem 
+            template cached in nfs?
+       <LI> Quite a few pid files.  Each guest must store its own individual values 
+            in these files, verify this fact.
+
+<PRE>
+guest1:~$ find /run -name "*pid"
+/run/qemu-ga.pid
+/run/fail2ban/fail2ban.pid
+/run/sshd.pid
+/run/crond.pid
+/run/acpid.pid
+/run/rsyslogd.pid
+</PRE>
+
+       <LI> When I write sometings to /tmp, it get written to nfs. Think about it, 
+            our network will be too busy! <code>/tmp</code> filesystem must be a 
+            local one? How about <code>/home</code> filesystem?
+
+<PRE>
+guest1:~$ find / -mtime -1 2>/dev/null | tee /tmp/files-changed
+guest1:~$ ls -l /tmp/files-changed
+-rw-r--r-- 1 hsu hsu 730518 Aug 24 12:24 /tmp/files-changed 
+# Most modified files are in /proc, /dev, /sys directories.  And I believe /proc and 
+# /sys are virtual filesystems:  their contents resides in individual kernels.  They 
+# won't conflict each other.  Confirm this.  Also, I think /dev directory is OK, too.
+# I deleted these entries.  Still, need to watch out the files in 
+# <a href="./files-changed.html" target="_b">Watch out changed files</a>
+NFSserver:/nfs/ceph/template/rootfs$ ls -l tmp
+total 720
+-rw-r--r-- 1 hsu hsu 730518 Aug 24 12:24 files-changed
+-rw-r--r-- 1 hsu hsu   1281 Aug 24 11:39 rootDir.guest1
+# On nfs rootfs, these few files are modified.  Apparently, the modification of 
+# /home/hsu/.ssh/known_hosts carries over to nfs rootfs.  I think different users 
+# might login to guest1 and guest2 individually. 
+NFSserver:/nfs/ceph/template/rootfs$ find . -mtime -1 2>/dev/null
+./var/log/fsck/checkfs
+./home/hsu/.ssh/known_hosts
+./tmp
+./tmp/.X11-unix
+./tmp/rootDir.guest1
+./tmp/.ICE-unix
+./tmp/files-changed
+# The contents of var/log/fsck/checkfs.  I guess these /dev/vda1, /dev/vda2 
+# are the devices on guest1, not on nfs.  But in guest1, the file counts on
+# /dev/vda1, /dev/vda2 are 2499, 1462, respectively. 
+hsu@odxu4guest1:~$ sudo find /var | wc -l
+[sudo] password for hsu: 
+2499
+hsu@odxu4guest1:~$ sudo find /etc | wc -l
+1462
+/nfs/ceph/template/rootfs$ sudo cat ./var/log/fsck/checkfs
+[sudo] password for hsu: 
+Log of fsck -C -R -A -a 
+Fri Aug 25 23:30:04 2017
+
+fsck from util-linux 2.25.2
+/dev/vda1: clean, 2508/131072 files, 182457/524032 blocks
+/dev/vda2: clean, 1471/131072 files, 27198/524288 blocks
+
+Fri Aug 25 23:30:04 2017
+----------------
+# In guest1, /var/log/fsck/checkfs was last updated in 08/25/2017.  I think after 
+# that, the message is updated to nfs0:/var/log/fsck/checkfs, wrong place. 
+guest1:~$ sudo cat /var/log/fsck/checkfs
+Log of fsck -C -R -A -a 
+Fri Aug 25 08:04:58 2017
+
+fsck from util-linux 2.25.2
+/dev/vda1: clean, 2478/131072 files, 171231/524032 blocks
+/dev/vda2: clean, 1461/131072 files, 27187/524288 blocks
+
+Fri Aug 25 08:04:58 2017
+----------------
+</PRE>
+
+<P><b>Notes: (08/25/2017)</b>
+
+        <UL>
+          <LI>  I think the <code>run</code> directory in nfs will not be modified.
+
+<PRE>
+/nfs/ceph/template/rootfs$ date
+Fri Aug 25 02:08:56 UTC 2017
+hsu@odxu4NFSserver:/nfs/ceph/template/rootfs$ ls -l run
+total 28
+-rw-r--r-- 1 root   root      6 Aug 14 06:13 acpid.pid
+drwxr-xr-x 2 root   root   4096 Aug 13 12:22 fail2ban
+drwxrwxrwt 2 root   root   4096 Aug 13 12:16 lock
+drwxr-xr-x 2 root   root   4096 Aug 13 11:09 mount
+drwxr-xr-x 2 root   netdev 4096 Aug 13 11:55 network
+drwxr-xr-x 2 quagga quagga 4096 Aug 13 11:50 quagga
+drwxrwxr-x 2 root   utmp   4096 Aug 13 11:53 screen
+-rw-rw-r-- 1 root   utmp      0 Aug 13 11:09 utmp
+</PRE> 
+
+          <LI> Also, <code>dev</code> directory is not modified either.
+
+<PRE>
+/nfs/ceph/template/rootfs$ ls -l dev
+total 8
+lrwxrwxrwx 1 root root   13 Aug 13 11:08 fd -> /proc/self/fd
+crw-rw-rw- 1 root root 1, 7 Aug 13 11:08 full
+crw-rw-rw- 1 root root 1, 3 Aug 13 11:08 null
+lrwxrwxrwx 1 root root    8 Aug 13 11:08 ptmx -> pts/ptmx
+drwxr-xr-x 2 root root 4096 Aug 13 11:08 pts
+crw-rw-rw- 1 root root 1, 8 Aug 13 11:08 random
+drwxr-xr-x 2 root root 4096 Aug 13 11:08 shm
+lrwxrwxrwx 1 root root   15 Aug 13 11:08 stderr -> /proc/self/fd/2
+lrwxrwxrwx 1 root root   15 Aug 13 11:08 stdin -> /proc/self/fd/0
+lrwxrwxrwx 1 root root   15 Aug 13 11:08 stdout -> /proc/self/fd/1
+crw-rw-rw- 1 root root 5, 0 Aug 13 11:08 tty
+crw-rw-rw- 1 root root 1, 9 Aug 13 11:08 urandom
+crw-rw-rw- 1 root root 1, 5 Aug 13 11:08 zero
+</PRE>
+
+          <LI> Guest1 was running for more than two hours, the following files in nfs 
+               got created or modified
+<PRE>
+/nfs/ceph/template/rootfs$ find . -mtime -1 2>/dev/null
+./var/log/fsck/checkfs
+./home/hsu
+./home/hsu/.Xauthority
+./home/hsu/.bash_history
+./home/hsu/.ssh/known_hosts
+./tmp
+./tmp/.X11-unix
+./tmp/.ICE-unix
+/nfs/ceph/template/rootfs$ ls -l `find . -mtime -1 2>/dev/null`
+-rw------- 1 hsu  hsu  2104 Aug 25 00:11 ./home/hsu/.bash_history
+-rw-r--r-- 1 hsu  hsu   444 Aug 24 11:40 ./home/hsu/.ssh/known_hosts
+-rw------- 1 hsu  hsu   113 Aug 25 00:11 ./home/hsu/.Xauthority
+-rw-r----- 1 root adm   297 Aug 25 00:08 ./var/log/fsck/checkfs
+
+./home/hsu:
+total 0
+
+./tmp:
+total 0
+
+./tmp/.ICE-unix:
+total 0
+
+./tmp/.X11-unix:
+total 0
+</PRE>
+       </UL>
+
+       <LI> During guest1 booting:
+
+<PRE>
+[warn] qemu-ga: transport endpoint not found, not starting ... (warning).
+</PRE>
+
+<P> If we use <b>qemu-ga</b> to shutdown, what happens?
+
+       <LI> <b>emacs</b> is not our own version.
+
+       <LI> For Xwindow, 
+
+<P> We may execute <b>xterm</b> remotely in <b>nfs</b>.  But, in guest1, we got 
+
+<PRE>
+hsu@odxu4guest1:~$ xterm
+xterm: Xt error: Can't open display: 
+xterm: DISPLAY is not set
+</PRE>
+
+<P> I think both nfs and guest1 are virt guest starting by <b>qemu-system-arm</b>, 
+    right? <b>-nographic</b> option in guest1 is on, but it is off on nfs. We can
+    run and shutdown <b>emacs</b> in background normally in nfs.  We can run 
+    <b>xterm</b> in background normally in nfs. <b>Note: (08/25/2017)</b> Now, for 
+    guest1, the <b>-nographic</b> option is also omitted.  If we login guest1 with 
+    "$ ssh -X ...", on the terminal, we may execute <b>xterm</b>, <b>emacs</b> and 
+    <b>synaptic</b> successfully.  <b>But</b>, not on the <b>odxu4guest1 login:</b> 
+    <b>console</b> terminal, since <b>xorg</b>, the X Server, package is not and 
+    can't not be installed in guest1.  By the way, guest1 is booted in foreground!!
+
+
+<P> <b>Important Note: (08/25/2017)</b> I believe the <b>-nographic</b> option 
+    will forbid the <b>xorg</b> to be installed.  But, you should be able to 
+    run <b>xterm</b>, <b>emacs</b> and <b>synaptic</b> remotely, since the graphic 
+    capability is supported through the local X server.  Test it out!
+
+<P> We only can run <b>emacs</b> in foreground, shutdown <b>emacs</b> causes 
+    <b>guest1</b> to break down with the message (, twice!): 
+
+<PRE>
+qemu-system-arm: terminating on signal 2
+</PRE>
+
+<P> And this causes <b>/dev/vda1</b>, <b>/dev/vda2</b> to be inconsistent.
+
+
+
+       <LI>
+
+     </UL>
+
+  <LI> Adjust timezone globally.  Otherwise, it is hard to check which files get 
+      modified while system is online.
+
+  
+
+       <LI> According to the above testing, I suggest:
+
+<OL>
+  <LI> The host2:/src2/KVM/Image/vm01.img should be renamed to vm01-localfs.img
+  <LI> /tmp and /home filesystems should be created in vm01-localfs.img, too.
+  <LI> Put the checkfs message back to guest1:/var/log/fsck/checkfs
+  <LI> Put the ipv4 information back to tap device so that it will be shown by 
+       the <b>ifconfig -a</b> command.
+  <LI> Check the configuration file in guest1:
+
+<PRE>
+guest1:~$ ls -l /boot/confi*
+-rw-r--r-- 1 root root 190192 Jul 20 11:01 /boot/config-4.9.0-0.bpo.3-armmp-lpae
+</PRE>
+
+      <P> You should be able to re-generate virt guest kernel by using this 
+          configuration file.  For performance improving or adding specific device 
+          drivers for odroid-xu4 SBC, in the long run, probably, we need to compile 
+          our own virt guest kernel.
+  <LI> 
+</OL>
+  <LI>  More to do
+
+<P>After testing this out, (Devuan is preferred!), probably, we need to try compiling 
+the source by ourselves.  I believe we need to customize the VMs by ourselves.  We may 
+accomplish the deployment of VMs by the next few steps:
+</p>
+
+<UL>
+  <LI> Creating a Devuan (preferred) ultra-light VM, stabilize it.
+  <LI> Creating a few models: such as ceph-osd, ceph-mon,  ceph-mds, parallel 
+       computation slave.
+  <LI> Create a small cloud based on these VMs, a cloud with 3 - 5 hosts.
+  <LI> We than put these special purpose VM filesystem templates in nfs.
+  <LI> Everytime, we need to add a new host, we can use the templates stored in our nfs 
+       to populate our VMs in this new host.
+  <LI> By the way, eventually, our colud will consist of too many machines, and these 
+       machines will be booted up and shut down anytime we see fit.  Using the 
+       <b>consul</b> project, (key/value database), we may provide information about 
+       all the online machines and the services they provide.
+</UL>
+
+</OL> 
+
+     <LI> <b>system_powerdown</b> is a qemu command.  It depends on the (1) 
+          <b>acpi-support-base</b>,  (2) <b>acpid</b> two packages.
+
+<P> Using the <b>apt-cache</b> command, I found these 2 packages in odxu4host1.  
+    Are these packages installable on odxu4host1?  More specifically, I believe 
+    we must install these two packages in each kvm image.
+
+<PRE>
+$ apt-cache search acpi
+$ apt-cache showpkg acpid
+$ apt-cache showpkg acpi-support-base
+</PRE>
+
+<P>It seems <b>system_powerdown</b> is implemented in <b>virt</b> guest.  For armv7, we 
+need to use Dt (Device tree?) way to enable it.  For armv8, <b>acpid</b> will take care 
+of everything.  But, it is based on messages on Dec/2015.  On 2017, we probably only 
+need to install (1) acpi-support-base, (2) acpid on the guest VM (with <b>virt</b> 
+model) and use the <b>system_powerdown</b> qemu command to shutdown the guest VM.
+
+<P>Further references:
+
+  <OL>
+    <LI> <a href="https://wiki.qemu.org/Documentation/Platforms/ARM" target="_b">QEMU 
+         has generally good support for ARM guests</a>
+
+
+    <LI> <a href="http://linux-arm-kernel.infradead.narkive.com/0BD9XhYo/discussion-how-to-implement-external-power-down-for-arm" 
+            target="_b">external power down for arm</a>
+    <LI> <a href="https://lists.gnu.org/archive/html/qemu-arm/2015-12/msg00095.html"
+            target="_b">Add system_powerdown support on ARM</a>&nbsp;&nbsp 
+         <a href="#GPIOPowerButton target="_b">GPIO Power Button (local cache)</a>
+
+
+    <LI> <a href="http://linux-arm-kernel.infradead.narkive.com/0BD9XhYo/discussion-how-to-implement-external-power-down-for-arm"
+          target="_b">how to implement external power down for ARM</a>&nbsp;&nbsp;
+          <a href="https://lists.gnu.org/archive/html/qemu-devel/2015-11/msg02606.html"
+          target="_b">hw/arm/virt: Add QEMU powerdown notifier</a>&nbsp;&nbsp;
+          <a href="https://lists.gnu.org/archive/html/qemu-arm/2015-12/msg00095.html"
+          target="_b">Add system_powerdown support on ARM</a>&nbsp;&nbsp;
+          <a href="https://lists.gnu.org/archive/html/qemu-arm/2015-12/msg00103.html"
+          target="_b">Add power button device in ACPI DSDT table</a>&nbsp;&nbsp;
+          
+    <LI> <a href="https://pve.proxmox.com/wiki/Qemu-guest-agent" target="_b">Qemu Guest 
+          Agent</a>: It is used to exchange information between the host and guest, and 
+          to execute command in the guest. Properly shutdown the guest.<br>
+          <a href="http://wiki.qemu.org/Features/GuestAgent" target="_b">Qemu Guest 
+          Agent</a>&nbsp;&nbsp <a href="https://qemu.weilnetz.de/doc/qemu-ga-ref.html"
+          target="_b">QEMU Guest Agent protocol reference</a>: no guarantee of 
+          successful shutdown.&nbsp;&nbsp<br> 
+<a href="https://github.com/avikivity/qemu/blob/master/qga/guest-agent-commands.c"
+ target="_b">guest-agent-commands.c</a> &nbsp;&nbsp 
+
+          
+    <LI> <a href="http://irclogs.linaro.org/meeting-logs/linaro-meeting-2/2015/linaro-meeting-2.2015-05-19-08.01.log.txt" 
+          target="_b">ARM supports system_powerdown</a>
+
+<PRE>
+08:46:50 <Shannon_zhao> ajb-linaro: As ACPI only supported on v8 in kernel, so if use 
+ACPI way, it only supports v8. But we can use Dt way on both v7 and v8
+</PRE>
+    <LI><b>acpid</b> needs to be installed in <b>guest</b>.
+</OL></P>
+
+<P><b>Check this file first!</b>
+<a href="http://git.qemu.org/?p=qemu.git;a=blob;f=hw/arm/virt.c;hb=HEAD" 
+target="_b">hw/arm/virt.c</a> &nbsp;&nbsp;Starting from Line 703. qemu_fdt: qemu 
+flattened device tree.&nbsp;&nbsp<br> 
+Also, <a href="./virt-acpi-build.html" target="_b">virt-acpi-build.c</a>&nbsp;&nbsp 
+and <a href="https://git.qemu.org/qemu.git/?p=qemu.git;a=tree" 
+target="_b">qemu source</a>
+
+
+
+     <LI> How many machines (Hosts and VMs) are online in this cloud? How many clusters?
+
+<P> Applying <a target="_b" 
+href="http://amdm/LinuxRef/DIYBigData/NoSqlUsage/NoSqlUsages.html#KeyValue">consul 
+project</a>, we may advertise our machines, (physical and vertiual), and the services 
+they provide in a glance.
+
+<P> It is really a mess! You can not check how many machines (hosts or VMs) are online 
+or available.  You don't know which network devices, tap devices, sockets, etc. are 
+deployed. Do you gain anything from applying syntexs, such as eth0:0, eth0:1, etc.? 
+If one day, we buy some etherport adapter, and we really want to connect eth0:0 to eth1, 
+etc. Have you ever consider the mess this will cause?  On the other hand, virtual 
+ether devices are dirt cheap to generate via software.  You must give the difficulty 
+of cloud maintenance the first priority while design your cloud if you want it to be 
+online indefinitely.
+     <LI> Which block devices are these:
+
+<PRE>
+$ ls -l /dev/mmcblk1 /dev/sda
+brw-rw---- 1 root disk 179, 0 Jul 24 16:11 /dev/mmcblk1
+brw-rw---- 1 root disk   8, 0 Jul 26 13:31 /dev/sda
+# Disk /dev/mmcblk1: 117.8 GiB, 126448828416 bytes, 246970368 sectors
+# Disk /dev/sda: 931.5 GiB, 1000204886016 bytes, 1953525168 sectors
+# ssh attacks are very severe.
+$ ls -l /var/log/au*
+-rw-r----- 1 root adm  283503 Jul 31 08:59 /var/log/auth.log
+-rw-r----- 1 root adm 1494262 Jul 30 06:41 /var/log/auth.log.1
+-rw-r----- 1 root adm  212105 Jul 24 06:35 /var/log/auth.log.2.gz
+-rw-r----- 1 root adm  140582 Jul 16 06:45 /var/log/auth.log.3.gz
+-rw-r----- 1 root adm  143605 Jul  9 06:44 /var/log/auth.log.4.gz
+</PRE>
+
+     <LI> NFSfilesystem.img: 805G, why? 
+
+<P> I thought the purpose of this nfs is to export a few types of root filesystems for 
+    a few kinds of special purpose VMs, such as osd, mon, mds, data-analytic compute 
+    slave.  Maybe 200G would be more than enough.  And we probably can setup a secondary 
+    nfs in case the first one ever fails.  Maybe later on, we need some more common 
+    purpose VMs for the whole cloud.  Partition this disk into, says, 4 partitions?
+
+     <LI> Use tw.mirror.devuan.org, (46.105.191.77), a french mirror.
+
+          <P><b>Note: (08/07/2017)</b> Where is the <b>/lib/modules</b> directory, 
+             the one compiled during the uml compilation?  Without it, <b>modprobe</b>
+             will fail.  Ooh, sorry, no <b>modprobe</b>! no <b>fail2ban</b>!
+
+<PRE>
+ $ which modprobe
+ $ which fail2ban
+ $ ls -l /var/log/au*
+-rw-r----- 1 root adm 1178939 Aug  7 00:48 /var/log/auth.log
+-rw-r----- 1 root adm 6583470 Aug  6 06:25 /var/log/auth.log.1
+</PRE>
+
+     
+          <P> Shall we create our own mirror for devuan?  For simplicity of system 
+              (, or say, cluster,) maintenance, in the long run, we must prepare a 
+              long term solution for it.  We need input from our faculty members.
+     
+          <P> On second thought, our odroid hosts and our VMs must have suitable 
+              software environment.  And we need to keep their software up to date. 
+              Hence, our own devuan mirror is the best solution.  
+              Its IP: 140.120.7.20 (need to confirm this IP is free), hostname: dev1M
+     
+          <P> Then, we need to decide "Shall we migrate all our hosts in 511 to 
+              devuan?"  The answer seems "Yes":  We can't competently compile C code 
+              in debian anymore!
+     
+          <P> The biggest doubt in my mind is: "Would devuan be a reliable and long 
+              lasting distribution? <a href="http://distrowatch.com/table.php?
+              distribution=devuan&pkglist=true&version=testing#pkglist" 
+              target="_b">Devuan Testing</a>
+     
+          <P> <a href="https://files.devuan.org/MIRRORS.txt" 
+              target="_b">Mirroring Devuan Release Archive</a>&nbsp;&nbsp;
+              <a href="https://talk.devuan.org/t/devuan-web-mirrors/232" 
+              target="_b">Create Devuan Mirror</a>.
+     
+          <P> Basically, take the uml template built and maintained in the last semester 
+              from, (by the way, should be in the B disk), 
+              <b>ac20:/src2/uml-rfs/DevOne-test.ext4.gz</b>, build a uml VM, 
+              install apache2 and apt-mirror packages to it. Copy 
+              the as:/etc/apt/mirror.list.jessie file and modify it.  We probably can 
+              mirror amd64 and armhf.
+     
+          <P> <B>Sorry, I made an unforgivable mistake.</b> Notice that the rfs 
+              <b>ac20:/src2/uml-rfs/DevUan-UltraLight.ext4.gz</b> is the one we had been 
+              updating, maintaining and running in the whole last semester.  Not the one 
+              I quoted above. I should have checked it more carefully. I deleted the 
+              above quoted rfs already.  Also, it seems to me on the sources.list 
+              file, we also need to add two lines to it: (I have already edit the 
+              <code>DebianNetFiles/sources.list</code> (in ac08) file.
+
+<PRE>
+deb http://tw.mirror.devuan.org/devuan/ jessie main contrib
+deb-src http://tw.mirror.devuan.org/devuan/ jessie main contrib
+</PRE>
+
+<PRE>
+# Just a few sample lines from an /etc/apt/mirror.list file
+# Precise on i386
+deb-i386 http://archive.ubuntu.com/ubuntu/ precise main restricted
+deb-i386 http://archive.ubuntu.com/ubuntu/ precise-updates main restricted
+# Precise on amd64
+deb-amd64 http://archive.ubuntu.com/ubuntu/ precise main restricted
+deb-amd64 http://archive.ubuntu.com/ubuntu/ precise-updates main restricted
+# Oneiric on i386
+deb-i386 http://archive.ubuntu.com/ubuntu oneiric main restricted universe multiverse
+#
+# Source file entries can also be used
+deb-src http://archive.ubuntu.com/ubuntu oneiric main restricted universe multiverse
+# Even Debian Squeeze (since Debian also uses .deb packages)
+deb-armel http://ftp.us.debian.org/debian squeeze main contrib non-free
+deb-armel http://security.debian.org/ squeeze/updates main contrib non-free
+</PRE>
+
+<P><b>Note: (08/03/2017)</b>
+   
+<OL>
+  <LI> <a href="http://tw.mirror.devuan.org/" target="_b">tw.mirror.devuan.org</a>
+  <LI> We should also mirror <a href="http://tw.mirror.devuan.org/devuan/" 
+       target="_b">devuan</a> branch.
+  <LI> From <code>/etc/apt/mirror.list</code> file
+
+       <P> I saw <b>ascii</b> branch is mirrored quite completely.  If we have enough 
+           disk space, then its fine.  But, I believe for our cloud, it would be better 
+           if we play it safe:  Mirror the jessie branch completely.  And we update 
+           and upgrade our software based on jessie.  (Current stable release is Devuan 
+           Jessie 1.0). I think, Devuan announced ascii (testing) release on July.
+           On the BigData cloud, we need <b>stable</b> software, testing release is 
+           too risky.  Also, I think, devuan organization does not have enough man 
+           power for software testing, either.
+  <LI> If necessary, we may create a second mirror to fetch (all) source for arch=armhf.
+
+       <P> This way, we may update our software source for BigData cloud handily.  But, 
+           remember this critical factor:  Upgrade all of our software based on devuan 
+           mirror, if possible at all.  But, for a few packages, such as ceph and qemu, 
+           etc., which we must have total control, we compile them in Devuan SDK.
+  <LI> Need to separate source and binary into different mirrors
+
+<PRE>
+$ df /dev/ubdb
+Filesystem     1K-blocks      Used Available Use% Mounted on
+/dev/ubdb      722355288 269823472 415815272  40% /var/spool/apt-mirror
+</PRE>
+
+</OL>
+
+<h4>Creating a mirror via uml vm</h4>
+
+<UL>
+  <LI> 1GB extra hard disk is partitioned to /sdd1 and /sdd2
+<PRE>
+ $ sudo fdisk -l
+Device     Boot     Start        End   Sectors   Size Id Type
+/dev/sdd1            2048  976760831 976758784 465.8G 83 Linux
+/dev/sdd2       976760832 1953523711 976762880 465.8G 83 Linux
+</PRE>
+  <LI> They are mounted to /archive/other and /archive/debian
+<PRE>
+$ cat /etc/mtab | grep sdd
+/dev/sdd2 /archive/other ext4 rw,relatime,data=ordered 0 0
+/dev/sdd1 /archive/debian ext4 rw,relatime,data=ordered 0 0
+</PRE>
+  <LI> In /archive/debian, a ext4 filesystem is created.
+<PRE>
+$ ls -l /archive/debian
+total 20
+drwxr-xr-x 2 hsu  hsu   4096 Dec 13  2015 img
+drwx------ 2 root root 16384 Dec 14  2015 lost+found
+$ ls -l /archive/debian/img/Deb*
+-rw-r--r-- 1 hsu hsu 459421233152 Jul 24 22:07 /archive/debian/img/Debian-MirrorArchive.ext4
+$ file /archive/debian/img/Debian-MirrorArchive.ext4
+/archive/debian/img/Debian-MirrorArchive.ext4: Linux rev 1.0 ext4 filesystem data, \
+  UUID=72c56eee-6a83-4b00-938a-8703ae72e498 (needs journal recovery) (extents) (large files) (huge files)
+</PRE>
+  <LI> This /archive/debian/img/Debian-MirrorArchive.ext4 filesystem is carried to 
+       uml via <b>ubd1</b>
+<PRE>
+    screen -S Amath-DebMirror -d -m linux.uml \
+	ubd0=Amath-DebianMirror-rootfs.ext4 \
+	ubd1=/archive/debian/img/Debian-MirrorArchive.ext4 \
+	eth0=vde,/src3/UML/network-28535 \
+	mem=3072M con=pty con0=fd:0,fd:1 umid=Amath-DebMirror &
+</PRE>
+  <LI> In amdm, /dev/ubdb is mounted on /var/spool/apt-mirror
+<PRE>
+hsu@Amath-DebMirror:~$ more /etc/fstab
+# file system   mount point     type    options         dump    pass
+/dev/ubda       /               ext4    defaults        0       1
+/dev/ubdb	/var/spool/apt-mirror	ext4	defaults	0	2
+proc            /proc           proc    defaults        0       0
+#tmpfs		/dev/shm	tmpfs	defaults,nodev,nosuid	0	0
+</PRE>
+  <LI> <b>/var/spool/apt-mirror</b> is the real mirror storage.
+
+<PRE>
+$ ls -l /var/spool/apt-mirror
+total 28
+drwx------ 2 root       root       16384 Dec 13  2015 lost+found
+drwxr-xr-x 3 apt-mirror apt-mirror  4096 Dec 13  2015 mirror
+drwxr-xr-x 3 apt-mirror apt-mirror  4096 Dec 13  2015 skel
+drwxr-xr-x 2 apt-mirror apt-mirror  4096 Jul 24 10:10 var
+</PRE>
+  <LI> <code>/var/www/html/debian</code> is a smybolic link to the debian mirror.
+<PRE>
+$ ls -l /var/www/html/debian
+lrwxrwxrwx 1 root root 58 Sep 14  2014 /var/www/html/debian -> \
+  /var/spool/apt-mirror/mirror/opensource.nchc.org.tw/debian
+</PRE>
+</UL>
+
+     <LI> <a href="https://forum.odroid.com/viewtopic.php?f=99&t=17015#p132918" 
+          target="_b">qemu with enable-kvm option</a>.
+
+For your convenience, we <b>Extracted the following</b> from this article:<br><br>
+
+
+<hr>
+<h3><a href="#p132918">Re: KVM on XU3 with Kernel v4.3</a></h3>
+
+<p><img src="https://forum.odroid.com/styles/prosilver/imageset/icon_post_target.gif" 
+alt="Post" width="11" height="9">by <strong>Adel.B</strong> >> Sun Mar 27, 2016 3:06 
+am </p>
+
+			
+
+<div><blockquote><div><cite>Brian.K wrote:</cite>I wrote small patch to solve CPU mode 
+check for KVM.<br><a href="https://gist.github.com/bkrepo/6f4eea33be133ad306e3" 
+class="postlink">Patch for KVM/ARM cpu mode check in HMP</a></div></blockquote><br>
+<br>Thank you for this information. Applied it on top of stock kernel 4.5 (+ krzk 
+for-next which includes an XU3L overheat fix but not really needed) and the kernel 
+reported HYP mod enabled on all cores. But KVM failed initialization with this message: 
+kvm_arch_timer: can't find DT node<br><br>So I added the timer in the exynos5422 DT, 
+based upon exynos5440. It looks like U-Boot doesn't provide the frequency so it's 
+specified too. I had to guess it by trial and error, to be 20000000 . Maybe somebody 
+at Hardkernel can confirm the value? or is it now provided by new U-Boots ?<br><br>At 
+the end is my format-patch from my private git (sorry about that and I removed the 
+email in it too).<br><br>Now simply running QEMU/KVM will fail because all cores aren't 
+the same. So before running it you have to use taskset to limit to cores 0-3 or 4-7 or 
+less (but not mixing Cortex-A7 with  Cortex-A15). It seems you also have to specify  
+<span style="font-style: italic">-cpu host</span> when using KVM.<br><br>Here's a full 
+example with a <a href="https://people.debian.org/%7Eaurel32/qemu/armhf/" 
+class="postlink">debian image</a><br><br>
+
+<dl class="codebox">
+  <dt>Code: </dt>
+  <dd><code>$ qemu-system-arm -version<br>QEMU emulator version 2.5.0 (Debian 
+              1:2.5+dfsg-4~bpo8+1), Copyright (c) 2003-2008 Fabrice Bellard<br>$
+              qemu-system-arm -snapshot -enable-kvm&nbsp; -M vexpress-a9 -cpu host -smp 
+              4 -kernel vmlinuz-3.2.0-4-vexpress -initrd initrd.img-3.2.0-4-vexpress 
+              -drive if=sd,file=debian_wheezy_armhf_standard.qcow2 -append 
+              "root=/dev/mmcblk0p2"<br>
+              kvm_init_vcpu failed: Invalid argument<br>
+              $ taskset -pc 4-7 $$<br>
+              pid 3632's current affinity list: 0-7<br>
+              pid 3632's new affinity list: 4-7<br>
+            $ qemu-system-arm -snapshot -enable-kvm -M vexpress-a9 -cpu host -smp 4 
+              -kernel vmlinuz-3.2.0-4-vexpress -initrd initrd.img-3.2.0-4-vexpress 
+              -drive if=sd,file=debian_wheezy_armhf_standard.qcow2 -append 
+              "root=/dev/mmcblk0p2"<br>(running)<br></code>
+  </dd>
+</dl><br>
+
+<P>And it appears to work (faster than without kvm, but not that fast either)!<br><br>
+regards,<br>Adel.
+<hr><br>
+
+<P>See also <a href="./UsingKVMWithQemuOnARM.html" target="_b">Using KVM with Qemu 
+on ARM</a>, especially <a href="./UsingKVMWithQemuOnARM.html#UsefulQemuCommands" 
+target="_b">Some useful Qemu/KVM commands</a>.
+
+<P><b>Note: (07/29/2017)</b> I suggest we compile guest linux kernel with 
+<a href="./UsingKVMWithQemuOnARM.html#UsefulQemuCommands" target="_b">local cache</a> of 
+virt_guest_defconfig</a>,
+<a href="https://falstaff.agner.ch/wp-content/uploads/2016/08/virt_guest_defconfig.gz" 
+target="_b">source</a>, or
+<a href="https://github.com/avpatel/xvisor-next/blob/master/tests/arm32/virt-v7/linux/linux-4.9_defconfig" 
+target="_b">linux-4.9_defconfig</a>. [By the way, is the <b>linux-4.9_defconfig</b> file 
+automatically generated from <a target="_b" 
+href="https://github.com/avpatel/xvisor-next/blob/master/arch/arm/configs/generic-v7-defconfig">generic-v7-defconfig</a> (140 lines) or <a target="_b" 
+href="https://github.com/JimmyDurandWesolowski/xvisor-next/blob/master/arch/arm/configs/generic-v7-ve-defconfig">generic-v7-ve-defconfig</a> (629 lines)?  These 3 files are from Xvisor 
+project] (Actually, generic-v7-ve-defconfig Enables BCM2835 pinctrl driver in relevant 
+defconfigs.  BCM2835: Broadcom chip for Pi and Pi 0. Pi 2 Model B's chip, BCM2836)
+and boot the guest with 
+
+<PRE>
+ $ qemu-system-arm -M ? | grep virt
+virt-2.6             QEMU 2.6 ARM Virtual Machine
+virt-2.7             QEMU 2.7 ARM Virtual Machine
+virt                 QEMU 2.8 ARM Virtual Machine (alias of virt-2.8)
+virt-2.8             QEMU 2.8 ARM Virtual Machine
+ $ qemu-system-arm -enable-kvm -M virt -cpu host ...
+</PRE>
+
+<P><b>Note: (08/05/2017)</b> The dts file is in <a href="https://github.com/avpatel/xvisor-next/tree/master/tests/arm32/virt-v7/linux" 
+target="_b">here</a>.  The cached README txt is <a href="#ReadmeSource" 
+target="_b">here</a>.  Also, I recall virt_guest has no graphic support.  For 
+osd, mon, mds clients, it should be acceptable. For compute slave, need to think 
+about it more carefully.  We are rarely running graphic programs in VMs. For example, 
+if we run synaptic in any VM, it is the X window server of its host who provides 
+the window drawing services.
+
+<P> <b>Reason:</b>  I believe the guest was created based on vexpress-a<b>??</b>, a 
+    specific arm cpu, not a good idea.  We should base our VMs on a general arm32 VM. 
+    And for our VMs to be deployable to most arm32 environment, they should be equipped 
+    with minimalist devices as long as they are funtional.
+
+     <LI> No kvm.ko (, kvm kernel module,).
+
+<P> I believe due to the kvm related source is compiled directly into the kernel, 
+    hence no kvm.ko
+
+<PRE>
+$ cat /boot/System.map-4.9.35-odroidxu4 | grep kvm
+c0201000 T __kvm_hyp_init
+c0201090 T __kvm_hyp_reset
+c02010bc T __kvm_hyp_init_end
+c0207efc T kvm_get_kvm
+c0207f1c T kvm_disable_largepages
+c020802c T kvm_is_visible_gfn
+c0208058 t kvm_vcpu_mmap
+c020806c t kvm_io_bus_sort_cmp
+c02082bc t kvm_sched_in
+c0208360 t kvm_sched_out
+c0208424 T kvm_vcpu_init
+c02084f8 T kvm_vcpu_uninit
+c0208518 t kvm_free_memslot
+         . 
+         . 
+         . 
+c0bdca4a r __kstrtab_kvm_debugfs_dir
+c0bdca5a r __kstrtab_kvm_vcpu_cache
+c0bdca69 r __kstrtab_kvm_irq_has_notifier
+c0e6a04c d kvm_arm_hyp_stack_page
+c0e6a050 d kvm_arm_running_vcpu
+c0e6a054 d kvm_arm_hardware_enabled
+c10030cc d kvm_preempt_ops
+c10030d4 d kvm_vmid_bits
+c1007b5c d kvm_reboot_notifier
+c1007b68 d kvm_chardev_ops
+c1007be4 d kvm_vm_fops
+c1007c60 d kvm_vcpu_fops
+c1007cdc d kvm_dev
+c1007d04 d kvm_syscore_ops
+c1007d20 d kvm_vfio_ops
+c1007d50 d kvm_vmid_gen
+c1007dc8 d kvm_hyp_pgd_mutex
+c1008210 d kvm_guest_cbs
+c100821c D kvm_io_gic_ops
+c1008228 D kvm_arm_vgic_v2_ops
+c1008248 D kvm_arm_vgic_v3_ops
+c104f968 B kvm_lock
+c104f970 b kvm_usage_count
+c104f974 b kvm_count_lock
+c104f978 B kvm_rebooting
+c104f980 B kvm_vcpu_cache
+c104f984 B kvm_debugfs_dir
+c104f988 b kvm_debugfs_num_entries
+c104f990 b kvm_device_ops_table
+c104f9c0 b kvm_host_cpu_state
+c104f9c4 b kvm_vmid_lock
+c104f9c8 b kvm_next_vmid
+c108e640 b gic_v2_kvm_info
+c108e6a0 b gic_kvm_info
+c1097610 b arch_timer_kvm_info
+</PRE>
+
+     <LI> /boot is not in a separate filesystem. (<b>Probably irrelevant!</b>, resolved 
+          already?)
+
+          <P> It is not that important.  But in the long run, it is a better practice.
+
+   </OL>
+
+<a name="ReadmeSource"></a>    
+<a href="https://github.com/avpatel/xvisor-next/blob/master/tests/arm32/virt-v7/linux/README" target="_b">Virt-v7 SMP Guest</a>
+<PRE>
+		Linux on Xvisor Virt-v7 SMP Guest</td>
+
+Linux is a computer operating system which is based on free and open source 
+software. the underlying source code can be used, freely modified, and 
+redistributed, both commercially and non-commercially, by anyone under 
+licenses such as the GNU General Public License. For more information on 
+Linux read the wiki page http://en.wikipedia.org/wiki/Linux
+
+Linux already contains a support for device-tree based boards. We can use
+linux kernel unmodified to run it as a Virt-v7 guest. We also provide a
+defconfig for building kernel. To obtain Linux kernel sources visit the
+following url: http://www.kernel.org
+
+Please follow the steps below to build &amp; run Linux kernel with Busybox
+RootFS on Virt-v7 (paravirtualized ARMv7) Guest with Xvisor running on
+ARM Fast Models Host:
+
+  [1. Build environment for Xvisor]
+  # export CROSS_COMPILE=arm-linux-gnueabi-
+
+  [2. GoTo Xvisor source directory]
+  # cd &lt;xvisor_source_directory&gt;
+
+  [3. Initialize Xvisor submodules]
+  # git submodule init
+  # git submodule update
+  (Note: This is required to be done only once in freshly cloned xvisor source)
+
+  [4. Configure Xvisor with Generic v7-ve default settings]
+  # make ARCH=arm generic-v7-ve-defconfig
+
+  [5. Build Xvisor &amp; DTBs]
+  # make; make dtbs
+
+  [6. Build Basic Firmware]
+  # make -C tests/arm32/virt-v7/basic
+
+  [7. Copy defconfig to Linux build directory]
+  # cp tests/arm32/virt-v7/linux/linux-&lt;linux_version&gt;_defconfig &lt;linux_build_directory&gt;/.config
+
+  [8. GoTo Linux source directory]
+  # cd &lt;linux_source_directory&gt;
+
+  [9. Configure Linux in build directory]
+  # make O=&lt;linux_build_directory&gt; ARCH=arm oldconfig
+
+  [10. Build Linux in build directory]
+  # make O=&lt;linux_build_directory&gt; ARCH=arm Image dtbs
+
+  [11. Create BusyBox RAMDISK to be used as RootFS for Linux kernel]
+  (Note: For subsequent steps, we will assume that your RAMDISK is located at &lt;busybox_rootfs_directory&gt;/rootfs.img)
+  (Note: Please refer tests/common/busybox/README.md for creating rootfs.img using BusyBox)
+
+  [12. GoTo Xvisor source directory]
+  # cd &lt;xvisor_source_directory&gt;
+
+  [13. Create disk image for Xvisor]
+  # mkdir -p ./build/disk/tmp
+  # mkdir -p ./build/disk/system
+  # cp -f ./docs/banner/roman.txt ./build/disk/system/banner.txt
+  # cp -f ./docs/logo/xvisor_logo_name.ppm ./build/disk/system/logo.ppm
+  # mkdir -p ./build/disk/images/arm32/virt-v7
+  # ./build/tools/dtc/bin/dtc -I dts -O dtb -o ./build/disk/images/arm32/virt-v7x2.dtb ./tests/arm32/virt-v7/virt-v7x2.dts
+  # cp -f ./build/tests/arm32/virt-v7/basic/firmware.bin ./build/disk/images/arm32/virt-v7/firmware.bin
+  # cp -f ./tests/arm32/virt-v7/linux/nor_flash.list ./build/disk/images/arm32/virt-v7/nor_flash.list
+  # cp -f ./tests/arm32/virt-v7/linux/cmdlist ./build/disk/images/arm32/virt-v7/cmdlist
+  # cp -f &lt;linux_build_directory&gt;/arch/arm/boot/Image ./build/disk/images/arm32/virt-v7/Image
+  #
+ ./build/tools/dtc/bin/dtc -I dts -O dtb -o 
+./build/disk/images/arm32/virt-v7/virt-v7.dtb 
+./tests/arm32/virt-v7/linux/virt-v7.dts
+  # cp -f &lt;busybox_rootfs_directory&gt;/rootfs.img ./build/disk/images/arm32/rootfs.img
+  # genext2fs -B 1024 -b 16384 -d ./build/disk ./build/disk.img
+
+  [14. Create fast_model_boot.axf for running it on ARM Fast Models]
+  #
+ ${CROSS_COMPILE}gcc -nostdlib -march=armv7ve -mcpu=cortex-a15 -e 
+start_boot -Wl,--build-id=none -Wl,-Ttext=0x80000000 
+-DSPIN_LOCATION=0x1c010030 -DSPIN_LOOP_ADDR=0x14000000 -DUART_PL011 
+-DUART_PL011_BASE=0x1c090000 -DGENTIMER_FREQ=100000000 -DGICv2 
+-DGIC_DIST_BASE=0x2c001000 -DGIC_CPU_BASE=0x2c002000 
+-DIMAGE=build/vmm.bin 
+-DDTB=build/arch/arm/board/generic/dts/vexpress/a15/one_guest_virt-v7.dtb
+ -DINITRD=build/disk.img ./docs/arm/fast_model_boot.S -o 
+build/fast_model_boot.axf
+
+  [15. Launch ARM fast models 8.0 or higher]
+  #
+ model_shell 
+&lt;your_fastmodel_dir&gt;/FastModelsPortfolio_&lt;xxx&gt;/examples/FVP_VE/Build_Cortex-A15x1/Linux-Debug-GCC-&lt;yyy&gt;/\
+cadi_system_Linux-Debug-GCC-&lt;yyy&gt;.so
+ build/fast_model_boot.axf
+  OR
+  #
+ model_shell64 
+&lt;your_fastmodel_dir&gt;/FastModelsPortfolio_&lt;xxx&gt;/examples/FVP_VE/Build_Cortex-A15x1/Linux64-Debug-GCC-&lt;yyy&gt;/\
+cadi_system_Linux64-Debug-GCC-&lt;yyy&gt;.so
+ build/fast_model_boot.axf
+
+  [16. Kick Guest0 for starting Basic Firmware]
+  XVisor# guest kick guest0
+
+  [17. Bind to virtual UART]
+  XVisor# vserial bind guest0/uart0
+
+  [18. Copy linux from NOR flash to RAM and start linux booting from RAM]
+  [guest0/uart0] basic# autoexec
+  (Note: "autoexec" is a short-cut command)
+  (Note: The &lt;xvisor_source_directory&gt;/tests/arm32/virt-v7/linux/cmdlist file
+   which we have added to guest NOR flash contains set of commands for booting
+   linux from NOR flash)
+
+  [19. Wait for Linux prompt to come-up and then try out some commands]
+  [guest0/uart0] / # ls
+
+  [20. Enter character seqence 'ESCAPE+x+q" return to Xvisor prompt]
+  [guest0/uart0] / #
+  (Note: replace all &lt;&gt; brackets based on your workspace)
+  (Note: some of the above steps will need to be adapted for other
+   types of ARM host)
+  (Note: for more info on your desired ARM host refer docs/arm/)
+  (Note: you are free to change the ordering of above steps based
+   on your workspace)
+</PRE>
+
+<a name="GPIOPowerButton">GPIO Power Button</a>
+<h3>Using GPIO as power button to shutdown OS 
+<a href="https://wiki.linaro.org/LEG/Engineering/Kernel/ACPI/GPIOPowerButton" 
+target="_b">(Source Origin)</a></h3>
+
+<p></p>
+<p class="table-of-contents-heading">Contents</p>
+<ol>
+  <li><a href="#Using_GPIO_as_power_button_to_shutdown_OS">Using GPIO as power button 
+      to shutdown OS</a>
+  <ol>
+    <li><a href="#Synopsis">Synopsis</a></li>
+    <li><a href="#Setting_up_the_basic_environment">Setting up the basic 
+        environment</a></li>
+    <li><a href="#Modify_dsdt.asl_file_in_UEFI">Modify dsdt.asl file in UEFI</a></li>
+    <li><a href="#Acpid_v2_daemon">Acpid v2 daemon</a></li>
+    <li><a href="#Configuration_for_ACPI">Configuration for ACPI</a></li>
+    <li><a href="#Configuration_for_GPIO_driver">Configuration for GPIO driver</a></li>
+    <li><a href="#Test_the_power_button_function">Test the power button function</a></li>
+  </ol></li>
+</ol></div> 
+
+<a name="Synopsis"></a>
+<h4>Synopsis</h4>
+
+
+<p>This page describes how to use one gpio pin as power button to shutdown linux system 
+on ARMv8 FVP Base model (also tested on JUNO board).  
+</p>
+
+<a name="Setting_up_the_basic_environment"></a>
+<h4 id="Setting_up_the_basic_environment">Setting up the basic environment</h4>
+
+
+<p>Set up the basic environment for UEFI and ACPI - <a href="https://wiki.linaro.org/LEG/Engineering/Kernel/ACPI/AcpiOnArmV8FvpUefi">https://wiki.linaro.org/LEG/Engineering/Kernel/ACPI/AcpiOnArmV8FvpUefi</a>  
+</p>
+
+<a name="Modify_dsdt.asl_file_in_UEFI"></a>
+<h4 id="Modify_dsdt.asl_file_in_UEFI">Modify dsdt.asl file in UEFI</h4>
+
+
+<p></p>
+
+<pre>
+dsdt.asl:
+
+//GPIO controller description
+Device (GPO0)
+{
+    Name (_HID, "LNRO0009")
+    Name (_ADR, 0)
+    Name (_UID, 0)
+
+    Name (_CRS, ResourceTemplate () {
+    //GPIO Register Interface(demo,need to modify by the real h/w setting)
+    Memory32Fixed (ReadWrite, 0x1c010000, 0x1000)
+
+    //Interrupt vector 0x80 for GPIO controller(demo,need to modify by the real h/w setting)
+    Interrupt (ResourceConsumer, Edge, ActiveLow, Exclusive) {0x80}
+    })
+
+    Name (_AEI,ResourceTemplate () {
+    //Assume GPIO pin256 as PowerButton
+    GpioInt(Edge, ActiveLow, ExclusiveAndWake, PullUp, , " \\_SB.GPO0") {0x100}
+    })
+
+    //Handle all ACPI Events signaled by GPIO Controller GPO0
+    Method (_EVT, 0x1, Serialized) {
+        //Arg0 - EventNumber. An Integer indicating the event number.
+        //(Controller-relative zero-based GPIO pin number) of the current event.
+        //Must be in the range 0x0000 - 0xffff.
+        Switch (ToInteger(Arg0)) {
+            //Pin number 256
+            Case (256)
+            {
+             //Notify OSPM the power button is pressed
+             Notify (PWRB, 0x80)
+            }
+            Default
+            {
+            }
+        }
+    }
+}
+
+//Power button device description
+Device (PWRB)
+{
+        Name (_HID, EISAID("PNP0C0C"))
+        Name (_ADR, 0)
+        Name (_UID, 0)
+
+        Method (_STA, 0x0, Notserialized)
+        {
+                Return (0x0F)
+        }
+}</pre><p><strong>pin 256 will be used as power button</strong>  
+</p>
+
+<a name="Acpid_v2_daemon"></a>
+<h4 id="Acpid_v2_daemon">Acpid v2 daemon</h4>
+
+
+<p>acpid2
+ is a flexible and extensible daemon for delivering ACPI events. When an
+ event occurs, executes programs to handle the event. These events are 
+triggered by certain actions, such as:  </p>
+
+<pre>
+-- Pressing special keys, including the Power/Sleep/Suspend button
+
+-- Closing a notebook lid
+
+-- (Un)Plugging an AC power adapter from a notebook
+
+-- (Un)Plugging phone jack etc.</pre><p>get the code from <strong><a href="http://sourceforge.net/projects/acpid2/">http://sourceforge.net/projects/acpid2/</a></strong>  
+</p>
+
+<a name="Configuration_for_ACPI"></a>
+<h4 id="Configuration_for_ACPI">Configuration for ACPI</h4>
+
+
+<p>The following things need to config:  1.Since linaro's rootfs does not include the acpi script, copy all from <strong>/etc/acpi</strong> on your PC/Laptop to the same place on arm platform.  2.Enable ACPI / BUTTON DRIVER / <strong>NETLINK</strong> support in .config.  
+</p>
+
+<a name="Configuration_for_GPIO_driver"></a>
+<h4 id="Configuration_for_GPIO_driver">Configuration for GPIO driver</h4>
+
+
+<p>If your platform doesn't have the GPIO controller, you can get the GPIO simulator patch from <strong><a href="https://lkml.org/lkml/2014/7/24/455">https://lkml.org/lkml/2014/7/24/455</a></strong> , which will simulate the triggering behavior from GPIO.(JUNO/FVP Model doesn't have GPIO controller in hardware yet)  If there is real hardware for gpio, you can refer from <strong>drivers/pinctrl/pinctrl-baytrail.c</strong>  
+</p>
+
+<a name="Test_the_power_button_function"></a>
+<h4 id="Test_the_power_button_function">Test the power button function</h4>
+
+
+<p>1.Boot the linux to prompt command, run the acpid first:  </p>
+
+<pre>
+root@genericarmv8:~/acpidv2# ./acpid -l -n -d &amp;
+[1] 853
+root@genericarmv8:~/acpidv2# input layer /dev/input/event0 (Power Button) opened successfully, fd 4
+inotify fd: 5
+inotify wd: 1
+netlink opened successfully
+acpid: starting up with netlink and the input layer
+parsing conf file /etc/acpi/events/lenovo-undock
+parsing conf file /etc/acpi/events/asus-video
+parsing conf file /etc/acpi/events/panasonic-lockbtn
+parsing conf file /etc/acpi/events/tosh-prev
+parsing conf file /etc/acpi/events/tosh-wireless
+parsing conf file /etc/acpi/events/asus-keyboard-backlight-up
+parsing conf file /etc/acpi/events/tosh-mail
+parsing conf file /etc/acpi/events/tosh-www
+parsing conf file /etc/acpi/events/ibm-wireless
+parsing conf file /etc/acpi/events/tosh-hibernate
+parsing conf file /etc/acpi/events/tosh-ibutton
+parsing conf file /etc/acpi/events/asus-brightness-down
+parsing conf file /etc/acpi/events/lenovo-touchpad
+parsing conf file /etc/acpi/events/asus-wireless-off
+parsing conf file /etc/acpi/events/asus-touchpad
+parsing conf file /etc/acpi/events/asus-wireless-on
+parsing conf file /etc/acpi/events/asus-rotate
+parsing conf file /etc/acpi/events/sleepbtn
+parsing conf file /etc/acpi/events/videobtn
+parsing conf file /etc/acpi/events/asus-brightness-up
+parsing conf file /etc/acpi/events/tosh-play
+parsing conf file /etc/acpi/events/lenovo-touchpad2
+parsing conf file /etc/acpi/events/thinkpad-cmos
+parsing conf file /etc/acpi/events/tosh-battery
+parsing conf file /etc/acpi/events/tosh-media
+parsing conf file /etc/acpi/events/asus-keyboard-backlight-down
+parsing conf file /etc/acpi/events/asus-media-eject
+parsing conf file /etc/acpi/events/tosh-next
+parsing conf file /etc/acpi/events/tosh-stop
+parsing conf file /etc/acpi/events/tosh-lock
+parsing conf file /etc/acpi/events/ac
+parsing conf file /etc/acpi/events/lidbtn
+parsing conf file /etc/acpi/events/battery
+parsing conf file /etc/acpi/events/asus-f8sv-touchpad
+parsing conf file /etc/acpi/events/powerbtn
+acpid: 35 rules loaded
+acpid: waiting for events: event logging is on</pre><p>2.Simulate the behavior of GPIO:  </p>
+
+<pre>
+root@genericarmv8:~# cd /sys/kernel/debug/acpi/
+root@genericarmv8:/sys/kernel/debug/acpi# echo "\_SB.GPO0 256" &gt; gpio_event 
+ACPI: ACPI device name is &lt;\_SB.GPO0&gt;, event code is &lt;256&gt;</pre><p>3.Process the flow to shutdown os: </p><ul><li style="list-style-type:none">After step2, there is the log from command line: </li></ul><p></p>
+
+<pre>
+random: nonblocking pool is initialized
+acpid: received input layer event "button/power PBTN 00000080 00000000"
+root@genericarmv8:/sys/kernel/debug/acpi# acpid: rule from /etc/acpi/events/powerbtn matched
+acpid: executing action "/etc/acpi/powerbtn.sh"
+BEGIN HANDLER MESSAGES
+
+Broadcast message from root@genericarmv8 (Thu Sep 12 11:21:07 2013):
+
+Power button pressed 
+The system is going down for system halt NOW!
+INIT: Switching to runlevel: 0
+END HANDLER MESSAGES
+acpid: action exited with status 0
+acpid: 1 total rule matched
+acpid: completed input layer event "button/power PBTN 00000080 00000000"
+acpid: received netlink event "button/power PNP0C0C:00 00000080 00000002"
+acpid: rule from /etc/acpi/events/powerbtn matched
+acpid: executing action "/etc/acpi/powerbtn.sh"
+BEGIN HANDLER MESSAGES
+
+Broadcast message from root@genericarmv8 (Thu Sep 12 11:21:07 2013):
+
+Power button pressed 
+The system is going down for system halt NOW!
+END HANDLER MESSAGES
+acpid: action exited with status 0
+acpid: 1 total rule matched
+acpid: completed netlink event "button/power PNP0C0C:00 00000080 00000002"
+Stopping OpenBSD Secure Shell server: sshdno /usr/sbin/sshd found; none killed
+ * Stopping Avahi mDNS/DNS-SD Daemon: avahi-daemon                       [fail]
+AH00558: httpd: Could not 
+reliably determine the server's fully qualified domain name, using 
+127.0.0.2. Set the 'ServerName' directive globally to suppress this 
+message
+httpd (no pid file) not running
+.
+Stopping system message bus: dbus.
+stopping statd: done
+stopping mountd: done
+stopping nfsd: done
+Stopping syslogd/klogd: stopped syslogd (pid 833)
+stopped klogd (pid 836)
+done
+Deconfiguring network interfaces... ifdown: interface eth0 not configured
+done.
+Gracefully shutting down php-fpm warning, no pid file found - php-fpm is not running ?
+Sending all processes the TERM signal...
+rpcbind: rpcbind terminating on signal. Restart with "rpcbind -w"
+acpid: reloading configuration
+acpid: 35 rules loaded
+acpid: exiting
+Sending all processes the KILL signal...
+Unmounting remote filesystems...
+Stopping rpcbind daemon...
+not running.
+Deactivating swap...
+Unmounting local filesystems...
+EXT4-fs (vda2): re-mounted. Opts: (null)
+reboot: Power down
+
+</pre></div>
+<p dir="ltr" lang="en">LEG/Engineering/Kernel/ACPI/GPIOPowerButton (last modified 2014-08-13 01:20:45)</p>
+
+  </body></html>

@@ -1,0 +1,600 @@
+<OL>
+  <LI> Week One
+<UL>
+  <LI> sudo aptitude update; sudo aptitude safe-upgrade 
+  <LI> Our emacs needs this elisp code for handling sgml documents.
+<PRE>
+ $ sudo cp $HOME/psgml/psgml-jade.el /usr/local/share/emacs/site-lisp
+</PRE>
+  <LI> Preparing our VMs for Open System 2 class:
+<PRE>
+ $ cd /src3/UML
+ $ rm DebJes.ext4
+ $ scp ac20:/src2/uml-rfs/DebJes.ext4.gz .
+ $ gunzip DebJes.ext4.gz 
+ $ Config-UML-Rfs
+./Config-UML-Rfs root-fs-pathname uml-hostname UML-IP Ether-Card [TAP-No]
+    TAP-No is optional, if need tap to be different from tap0.
+ # First time booting our VM, we boot it in the foreground
+ $ startUML 
+ $ stop-uml-restore-la
+ $ startUMLAsDaemon
+ $ xs av20 
+ # Check emacs can be brought up correctly.
+ # upgrade system software. 
+</PRE>
+  <LI><a href="http://amdm/LectureNotes/Diaries/Topic-OS-1-2016.html#MonitoringVM" 
+       target="_b">Virtual Machine Monitoring</a>
+  <LI>
+</UL>
+  <LI> <b>Urgent: (10/05/2016)</b> system-config-printer
+    <P> We don't have printer connected to our host.  Don't know when the
+      realted packages were installed behind our back.  Worst of all,
+      don't know why the related daemon was invoked.  And it wasted our cpu
+      (for 25 hours, 95% CPU usage.)  Purge all of them via synaptic.
+
+      <PRE>
+# We are in ac10 host
+$ ps l -C applet.py
+F   UID   PID  PPID PRI  NI    VSZ   RSS WCHAN  STAT TTY        TIME COMMAND
+0  1000 22695     1  20   0 244200 30880 -      Rl   ?        1282:45 /usr/bin/p
+# This is a daemon process.  Don't know why it was started.
+$ top
+# Notice CPU usage 99%
+$ la -l /var/log/su*
+$ ls -l /var/log/au*
+-rw-r----- 1 root adm 226881 Oct  5 12:15 /var/log/auth.log
+-rw-r----- 1 root adm 535055 Oct  2 08:00 /var/log/auth.log.1
+      </PRE>	
+
+      <LI> Update host and VM software.
+
+    <P> The linux kernel in the host will be upgraded to 4.7.5, the current stable 
+        kernel and I guess 4.7 will be EOL (end of line) pretty soon.  Our VM kernel 
+        is 4.7.2.  Will it be worthwhile to compile newer version (4.7.5)?  4.8 will 
+        be out pretty soon.  Within one week or so, 3 kernels were released by 
+        Debian, gee.
+
+    <P> Also, it seems to me the Debian software database has been in inconsistent state 
+        for a while.  Probably, some packages will not be able to upgrade successfully.
+
+    <P> <b>Note: (09/27/2016)</b> user-mode-linux source (4.7.5) is ready, check 
+        /src3/kernel/gz.
+  <LI> I tried and successfully logined all our VMs.  Thanks, everyone.  A good Job.  
+       Severe attack on av12? Check it carefully.  No! Can not open /dev/tty0
+
+<PRE>
+ # On av13
+ $ ls -l  /dev/tty0 /dev/tty1
+crw--w---- 1 root tty 4, 0 Sep 21 15:19 /dev/tty0
+crw--w---- 1 root tty 4, 1 Sep 21 15:19 /dev/tty1
+ # On av12
+ $ ls -l  /dev/tty0 /dev/tty1
+crw------- 1 hsu  tty 4, 0 Sep 21 15:13 /dev/tty0
+crw--w---- 1 root tty 4, 1 Sep 21 14:35 /dev/tty1
+ # Fix owner and permission for /dev/tty0 in av12, su 
+ # chown root /dev/tty0
+ # chmod 620 /dev/tty0
+ # ls -l /dev/tty[01]
+crw--w---- 1 root tty 4, 0 Sep 21 15:13 /dev/tty0
+crw--w---- 1 root tty 4, 1 Sep 21 14:35 /dev/tty1
+</PRE>
+
+<P> <b>Note: (09/26/2016)</b> Forgot to reboot av12, internally, /dev/tty0 still 
+   failed to be opened by root.  And shutdown failed, since no permission for 
+   su to read and write /dev/tty0.  Manually kill linux.uml, restarted it to 
+   forground. chown, chmod, init 0, stopped av12 and restored lan. And then, 
+   startUmlAsDaemon.  Finally, av12 got fixed. By the way, I really don't know 
+   why the owner been changed to hsu. 
+
+  <LI> Need to load the newly upgraded kernel, (4.7.5).   Stop your VM, first. 
+       Then use the command "$ sudo init 6", we should be able to reboot our hosts.
+  <LI> <b>Note: (10/02/2016)</b> Size of each auth.log file >> 70K, watch out!
+
+    <P> Our VMs have been online for Only three weeks, we were facing severe
+      attacks. One week ago, there was only 65K or so of data in this file.
+      Especially, 5 or more clusters from china were attacking us constantly.
+  <LI> Back to our <a href="http://amdm/LectureNotes/Diaries/Topic-OS-1-2016.html" 
+       target="_b">OS 1 Diary</a>
+  <LI><b>Note: (10/05/2016)</b>
+
+    <P> Remotely examine av08. <b>Synaptic</b> failed to open window. Reason: the file 
+        loaders.cache has size 0.  Probably caused by system upgrade failure. Fixed it 
+        by
+
+<PRE>
+# ls -l /usr/lib/x86_64-linux-gnu/gdk-pixbuf-2.0/2.10.0
+total 4
+drwxr-xr-x 2 root root 4096 Oct  5 14:38 loaders
+-rw-r--r-- 1 root root    0 Oct  5 14:43 loaders.cache
+# /usr/lib/x86_64-linux-gnu/gdk-pixbuf-2.0/gdk-pixbuf-query-loaders | tee /tmp/pixbuf-query.txt
+# cp /tmp/pixbuf-query.txt /usr/lib/x86_64-linux-gnu/gdk-pixbuf-2.0/2.10.0/loaders.cache
+</PRE>
+
+    <P> Are there still any unfound fatal failures? Probably, time will tell.
+
+    <P> And I guess I found the reason for av08 system upgrade failure:  Just like ac06 
+        ac07, ac08 has only 2G memory, hence like av06, av07, software upgrade must be 
+        done frequently so that it won't dry out the memory cache of VM.  I also checked 
+        all other hosts. ac04 has only 3.5G memory, but av04 seems always software 
+        upgrade successfully.
+
+<PRE>
+Amath-Client08:~$ cat /proc/meminfo
+MemTotal:        2051336 kB
+</PRE>
+
+
+  <LI><b>Note: (10/05/2016)</b> My advise for av06, av07, av08 system upgrade:
+
+<P> The hosts of these 3 VMs has only 2G physical memory.  If your system upgrade has 
+   too many packages to be upgraded, (say more than 30), you could do it the following 
+   way, (I tested it, and never failed.)
+
+<UL>
+  <LI> shutdown VM first, (via <b>stop-uml-restore-lan</b> command).
+  <LI> sudo mount -o loop DebJes.ext4 /mnt/tmp 
+  <LI> sudo chroot /mnt/tmp ;; You will get the super user prompt "#"
+  <LI> aptitude update; aptitude safe-upgrade
+  <LI> aptitude clean; deborphan
+  <LI> apt-get autoremove; apt-get autoclean 
+  <LI> exit
+  <LI> sudo umount /mnt/tmp 
+  <LI> You then start your VM via <b>startUMLAsDaemon</b> command, again.
+</UL>
+
+  <LI><b>(10/10/2016)</b>
+
+<a href="http://amdm/LectureNotes/Diaries/Topic-OS-1-2016.html" 
+  target="_b">Continue  Our Discussion from last week</a>.  &nbsp;&nbsp;
+
+Starting from item 6 of 2016/09/14 diary.
+
+  <LI><b>(10/19/2016)</b>
+
+<P> I haven't noticed we got new kernel installed in our system last week.  Our host is 
+still running the old one.  New uml source is ready in <code>/src3/kernel/gz</code>.  
+Newer kernel is 4.7.7, and kernel 4.7 will be EOL, pretty soon, I guess.  We probably 
+will compile uml until kernel 4.8.  We got huge auth.log files in some of our hosts. 
+
+<P> <b>(10/17/2016)</b> I am in deep trouble! At home, this is the output of my 
+initrd.img, should be gzip compressed data.  I think the answer is in this 
+  <a href="http://unix.stackexchange.com/questions/163346/why-is-it-that-my-initrd-only-has-one-directory-namely-kernel" target="_b">webpage</a>.
+
+<PRE>
+amd-6:~$ file /boot/initrd.img-4.7.0-1-amd64
+/boot/initrd.img-4.7.0-1-amd64: ASCII cpio archive (SVR4 with no CRC)
+</PRE>
+
+<P> <a href="https://wiki.debian.org/DebianStretch" 
+  target="_b">Debian Stretch</a>&nbsp;&nbsp;
+  <a href="http://www.ibiblio.org/refracta/" 
+  target="_b">Devuan Refracta</a>
+  
+<P> <a href="http://amdm/LectureNotes/Diaries/Topic-OS-1-2016.html" 
+  target="_b">Continue  Our Discussion from last week</a>.  &nbsp;&nbsp;
+
+  <LI><b>(10/22/2016)</b>
+
+<UL>
+  <LI>uml compilation 
+<P> We need to compile uml 4.7.8 before we upgrade our software, since gcc-6.2.0-9 
+failed to compile it at home. (On 10/22/2016 10.00 AM), I successfully compiled uml 
+4.7.8 on ac13 and ac20.  (The gcc versions on both machines are still 6.2.0-6.)  
+Before starting our uml compilation, shutdown VM first! <b>Note: (10/24/2016)</b>
+Yes, it is a <a href="https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=841757" 
+                target="_b">bug</a> formally reported in Debian.
+  <a href="http://unix.stackexchange.com/questions/79050/can-i-rollback-an-apt-get-upgrade-if-something-goes-wrong" target="_b">rollback apt-get upgrade</a>
+
+<PRE>
+$ gcc --version
+gcc (Debian 6.2.0-9) 6.2.0 20161019
+$ ld --version
+GNU ld (GNU Binutils for Debian) 2.27
+# /usr/bin/ld: arch/um/drivers/built-in.o: relocation R_X86_64_32 against 
+   `.rodata.str1.1' can not be used when making a shared object; recompile with -fPIC
+# /usr/bin/ld: arch/um/kernel/built-in.o(.init.text+0x64): unresolvable 
+   R_X86_64_PLTOFF64 relocation against symbol `exit@@GLIBC_2.2.5'
+# /usr/bin/ld: final link failed: Nonrepresentable section on output
+</PRE>
+
+  <LI> Why uml, not kvm?
+
+<P> The kernel now are totally under our own control, i.e. we compile it ourself. 
+<a href="http://lxr.free-electrons.com/source/arch/um" target="_b">Its source</a> is one 
+branch of official linux source.  And its a linux kernel running in user space as an 
+application of the official linux kernel.  The earliest VM technology developed in 
+Linux.  Also, we learn kernel compilation first hand by compiling our own uml.
+
+<P> On the other hand, kvm is now totally under the hand (, not so friendly I might 
+add), of Red Hat.  They can even change the name of your virtual ethercard without 
+any warning.  We are stoned off guard.  Other pitfalls:  The linux kernel is now 
+under siege of Red Hat. The syntax of qemu-kvm command is dictated by Red Hat, etc.
+
+  <LI><a href="http://140.120.7.21/LinuxRef/UML/UmlCompilation.html" target="_b">Uml 
+Compilation</a>
+
+<P><code>/src3/kernel/AutoUmlCompilation.sh</code> and 
+   <code>/src3/kernel/Uml-Kernel-Upgrade.sh</code>
+
+  <LI>Continue  Our Discussion from last week
+
+<P> <a href="http://amdm/LectureNotes/Diaries/Topic-OS-1-2016.html" 
+  target="_b">Continue  Our Discussion from last week</a>.  &nbsp;&nbsp;
+
+</UL>
+
+  <LI><b>(11/02/2016)</b>
+
+<P> <a href="http://amdm/LectureNotes/Diaries/Topic-OS-1-2016.html#Bootstrapping" 
+  target="_b">Continue  Our Discussion from last week</a>.  &nbsp;&nbsp;
+
+
+  <LI><b>(11/09/2016)</b>
+
+<P> A few words about user-mode-linux.  Today, we compile UML 4.8.5 and upgrade our VM 
+kernel and its kernel modules to this version, first.  I did a lot of investigation 
+recently, see <a href="HardeningPIEByDefaultTransition.html" target="_b">Hardening 
+PIE, (position independent executable).</a> By default, PIE is enabled since 6.2.0-7.
+The linux kernel, (hence user-mode-linux, too), won't be able to build.  And, they say 
+kernels are seldom compiled by users.  What I have seen is that Debian shipped a broken 
+C compile to its users and prevent its users from customizing their own software 
+environment.  I understand that Redhat and Ubuntu did this for their own benefit.  I 
+must find a way to escape this harmful trap.  The worst final outcome: maybe, we will 
+switch to another system.
+
+<P> By the way, I did sucessfully compile UML in my Jes-Mini (kvm-based) VM.  But, it 
+is <b>NOT</b> well tested.  Shall we adopt it as our UML's kernel?  Resoundingly no!
+Also, the .config file is a newly generated one.  Not the well-tested one which we 
+have been used to compile our UML for so long (, 10 or more years).
+
+<P> I have spent almost one month to figure out a way to adopt a feasible UML 
+compilation solution, without too much success I might add.  Finally, I decided 
+to test it in the VM environment, Jes-Mini VM at home.  I found out that I can 
+do all the needed testings without worrying about creating a mess in my host machine. 
+Maybe, if we have enough time, We will create one of such VM solely for software 
+development purpose.
+
+
+<P> <a href="http://amdm/LectureNotes/Diaries/Topic-OS-1-2016.html#InitProcess" 
+  target="_b">init</a>.  &nbsp;&nbsp;
+
+
+  <LI><b>(11/16/2016)</b>
+
+<P> I think I found an ugly way to complete our UML compilation in the newer buggy 
+    C compile: See the <a href="./VdeplugLibrary.html" 
+    target="_b">VdeplugLibrary.html</a>.  There are quite a few unpleasant lessons 
+    to be learned.  Basically, we need to compile the next 3 packages and copy some 
+    of the generated object files to <code>arch/um/drivers</code> directory.
+
+<OL>
+  <LI>Vde2
+  <LI>libpcap
+  <LI>dbus
+</OL>
+
+<P> Also, we need to adjust object file dependency in the following way.
+
+<PRE>
+$ diff arch/um/drivers/Makefile ../linux-source-4.8-from-Debian/arch/um/drivers/Makefile
+9,33d8
+< PCAP_Needed_Objects := pcap-usb-linux.o fad-helpers.o bpf_filter.o optimize.o \
+<                        scanner.o grammar.o savefile.o sf-pcap.o sf-pcap-ng.o \
+<                        pcap-common.o pcap-linux.o fad-getad.o pcap-netfilter-linux.o \
+<                        pcap-dbus.o nametoaddr.o gencode.o raw-pcap.o
+< 
+< Dbus_Needed_Objects := libdbus_1_la-dbus-bus.o libdbus_1_la-dbus-connection.o \
+<                        libdbus_1_la-dbus-errors.o libdbus_1_la-dbus-memory.o \
+<                        libdbus_1_la-dbus-message.o libdbus_1_la-dbus-address.o \
+<                        libdbus_1_la-dbus-dataslot.o libdbus_1_la-dbus-hash.o \
+<                        libdbus_1_la-dbus-internals.o libdbus_1_la-dbus-list.o \
+<                        libdbus_1_la-dbus-marshal-basic.o libdbus_1_la-dbus-marshal-byteswap.o \
+<                        libdbus_1_la-dbus-marshal-header.o libdbus_1_la-dbus-marshal-recursive.o \
+<                        libdbus_1_la-dbus-marshal-validate.o libdbus_1_la-dbus-object-tree.o \
+<                        libdbus_1_la-dbus-pending-call.o libdbus_1_la-dbus-resources.o \
+<                        libdbus_1_la-dbus-signature.o libdbus_1_la-dbus-string.o \
+<                        libdbus_1_la-dbus-sysdeps.o libdbus_1_la-dbus-sysdeps-pthread.o \
+<                        libdbus_1_la-dbus-sysdeps-unix.o libdbus_1_la-dbus-threads.o \
+<                        libdbus_1_la-dbus-timeout.o libdbus_1_la-dbus-transport.o \
+<                        libdbus_1_la-dbus-transport-socket.o libdbus_1_la-dbus-transport-unix.o \
+<                        libdbus_1_la-dbus-watch.o libdbus_1_la-dbus-auth.o \
+<                        libdbus_1_la-dbus-credentials.o libdbus_1_la-dbus-file-unix.o \
+<                        libdbus_1_la-dbus-mempool.o libdbus_1_la-dbus-nonce.o \
+<                        libdbus_1_la-dbus-userdb.o libdbus_1_la-dbus-keyring.o \
+<                        libdbus_1_la-dbus-sha.o
+< 
+44,45d18
+< pcap-objs := pcap_kern.o pcap_user.o $(PCAP_Needed_Objects) $(Dbus_Needed_Objects) 
+< vde-objs := vde_kern.o vde_user.o libvdeplug.o canonicalize.o 
+47c20
+< # LDFLAGS_pcap.o := -r $(shell $(CC) $(KBUILD_CFLAGS) -print-file-name=libpcap.a)
+---
+> LDFLAGS_pcap.o := -r $(shell $(CC) $(KBUILD_CFLAGS) -print-file-name=libpcap.a)
+49c22
+< # LDFLAGS_vde.o := -r $(shell $(CC) $(CFLAGS) -print-file-name=libvdeplug.a)
+---
+> LDFLAGS_vde.o := -r $(shell $(CC) $(CFLAGS) -print-file-name=libvdeplug.a)
+51c24
+< # targets := pcap_kern.o pcap_user.o vde_kern.o vde_user.o
+---
+> targets := pcap_kern.o pcap_user.o vde_kern.o vde_user.o
+53,54c26,27
+< # $(obj)/pcap.o: $(obj)/pcap_kern.o $(obj)/pcap_user.o
+< #	$(LD) -r -dp -o $@ $^ $(LDFLAGS) $(LDFLAGS_pcap.o)
+---
+> $(obj)/pcap.o: $(obj)/pcap_kern.o $(obj)/pcap_user.o
+> 	$(LD) -r -dp -o $@ $^ $(LDFLAGS) $(LDFLAGS_pcap.o)
+56,57c29,30
+< # $(obj)/vde.o: $(obj)/vde_kern.o $(obj)/vde_user.o
+< #	$(LD) -r -dp -o $@ $^ $(LDFLAGS) $(LDFLAGS_vde.o)
+---
+> $(obj)/vde.o: $(obj)/vde_kern.o $(obj)/vde_user.o
+> 	$(LD) -r -dp -o $@ $^ $(LDFLAGS) $(LDFLAGS_vde.o)
+</PRE>
+
+<P> All the pollutions caused by RedHat and Ubuntu become a nightmare and this nightmare 
+    has been haunting us day and night for the last two years and the foreseeable future.
+    We replaced <b>systemd</b> by <b>init</b>, <b>udev</b> by <b>vdev</b>, the last one 
+    for us to overcome is to dispense with the harmful <b>dbus</b> invasion on our 
+    desktop.  We are fighting a losing battle!  How ridiculous it is!
+
+<P> <a href="http://amdm/LectureNotes/Diaries/Topic-OS-1-2016.html#InitProcess" 
+  target="_b">init</a>.  &nbsp;&nbsp;
+
+<P> <a href="http://amdm/LectureNotes/Diaries/Topic-OS-1-2016.html#FileSystems" 
+  target="_b">The File Systems</a>.  &nbsp;&nbsp;
+
+<PRE>
+Amath-Client20:~$ find / -size -2048c 2>/dev/null | wc -l
+230041
+Amath-Client20:~$ find /  2>/dev/null | wc -l
+454646
+</PRE>
+  <LI><b>(11/30/2016)</b>
+
+<P><b>Note:</b> Not only iptables package failed to update. On the evening, 11/23/2016,
+software upgrade failed miserably: 6 packages failed to configure: x11-common, 
+xserver-common, xfonts-utils, xserver-xephyr, xorg, xutils.  On the next morning, 
+I downloaded these packages and install them manually to resolve the failure. How 
+painful it is!
+
+<P><b>Note: (11/24/2016)</b> For iptables package, it depends on libxtables12, but 
+libxtables11 must be purged first.  We must refresh our iptables package, both the 
+host and our uml as follow:
+
+<PRE>
+  $ sudo synaptic 
+  # Searching for libxtable, completely remove libxtable11 and libxtable10, libxtable9, 
+  # etc.  This causes libxtables12, iptables, etc. to be marked and installed.
+</PRE>
+
+<P><b>Note: (11/25/2016)</b> The upgrade of xserver-xorg-core package caused 
+xserver-xorg-input-* packages to be removed automatically. No mouse, no keyboard, 
+can't login.  I spent two hours to recover X window system.  Any side effect? 
+Really don't know.  The auto-removed files can be found from the apt log file: 
+<code>/var/log/apt/history.log</code>, but could not be reinstalled.  Only could be 
+recovered by purging xserver-xorg-core then the whole X window system failed.  We are 
+offered the text mode login prompt. We then reinstall X starting with the very first 
+package: <b>xorg</b>.
+
+<PRE>
+# Extracted from /var/log/apt/history.log
+     . 
+     . 
+     . 
+Start-Date: 2016-11-24  18:47:51
+Commandline: apt-get install xserver-xorg-core
+Requested-By: hsu (1000)
+Upgrade: xserver-xorg-core:amd64 (2:1.18.4-2, 2:1.19.0-2)
+Remove: xserver-xorg-input-all:amd64 (1:7.7+18), xserver-xorg-input-synaptics:amd64 \
+        (1.9.0-1), xserver-xorg:amd64 (1:7.7+18), xserver-xorg-video-nouveau:amd64 \
+        (1:1.0.13-1), xserver-xorg-video-fbdev:amd64 (1:0.4.4-1+b4), \
+        xserver-xorg-input-libinput:amd64 (0.22.0-1), xserver-xorg-input-vmmouse:amd64 \
+        (1:13.1.0-1+b1), xserver-xorg-input-evdev:amd64 (1:2.10.4-1), xorg:amd64 \
+        (1:7.7+18), xserver-xorg-input-mouse:amd64 (1:1.9.2-1)
+End-Date: 2016-11-24  18:47:58
+     . 
+     . 
+     . 
+Start-Date: 2016-11-25  00:03:34
+Commandline: apt-get -f install xorg xserver-xorg xserver-xorg-video-all \
+             xserver-xorg-input-all xserver-xorg-input-libinput \
+             xserver-xorg-video-amdgpu xserver-xorg-video-ati xserver-xorg-video-fbdev \
+             xserver-xorg-video-nouveau xserver-xorg-video-vesa \
+             xserver-xorg-video-vmware xserver-xorg-video-radeon \
+             xserver-xorg-core=2:1.18.4-2
+Requested-By: hsu (1000)
+</PRE>
+
+<P> By the way, this causes the (automatic) installation of the banned package 
+    <b>systemd</b>.
+
+<P><b>Note: (11/26/2016 08:51:25)</b> 
+Upgrade <a href="https://packages.debian.org/sid/lxde-common" 
+target="_b">lxde-common package</a> from 0.99.1-1 to 0.99.2-1, lxpanel disappeared.  The 
+following shellscript can be invoked manually to restore the panel.  But, logout icon 
+vanished.  May point the mouse at the X window background and press the right mouse 
+button and choose "exit" menuitem to get back to the login screen.  Or, shall we install 
+<a href="https://packages.debian.org/sid/all/openbox-lxde-session/filelist" 
+target="_b">openbox-lxde-session</a>?  We still see the <code>lxde-logout.desktop</code>
+theme and the <b>/usr/bin/lxde-logout</b> logout command.  More importantly, via the 
+<b>synaptic</b> command, we see that the <b>openbox</b> package have already been 
+installed in our host!
+
+<PRE>
+$ cat /home/hsu/startLxpanel.sh
+#! /bin/bash 
+
+#-p NAME, --profile NAME
+#    Set the profile to be loaded.
+#    ~/.config/lxpanel/LXDE/
+#         config files directory, can be edited by preference dialog.
+
+lxpanel --profile LXDE&
+</PRE>
+
+  <LI><b>(12/14/2016)</b>
+
+<P> Sorry, only 4 more weeks to go, I wonder would we have enough time to reinstall B 
+disk.  First, Debian 9 will not be ready until next year, I guess. And its software 
+quality has been deteriorating so rapidly, I have doubt whether we should base our 
+cluster on it any longer.  After all, we have been spending a lot of time and effort 
+to integrate our cluster software environment to the way we see fit.  Also, our other 
+candidate: Devuan OS release has left a lot to be desired.  And it has suggested 
+that we should not use software developed from Debian in devuan released OS.  We 
+can not afford the lost of a lot of software packages, such as: guile, vde, TeX, etc.
+
+
+<P> After OS installation, we need two or more weeks to configure the host software 
+environment for the virtualization environment and test it is indeed stable enough 
+for running a course, (Virtualization Technology, for example), on it.  Hence, 
+let us upgrade software packages on B disk.  But, let us compile UML, first.
+
+<P><b>(12/14/2016 20:43)</b> 
+
+During our Disk B installation, I noticed that our ethercards were renamed to be some 
+unthinkable name. The nightmare of our ethercard to be renamed as "ens3" or somethimg 
+like that which only happened in VMs in the past are now shown up in our host machines 
+too.  How I hate it! I curse the idiot whoever had done this.  Let him be damned 
+forever.
+
+<PRE>
+$ diff /etc/default/grub /etc/default/grub.orig
+10c10
+< GRUB_CMDLINE_LINUX="net.ifnames=0 biosdevname=0"
+---
+> GRUB_CMDLINE_LINUX=""
+</PRE>
+
+<P><b>(12/14/2016 21:39)</b>  I have no idea how I got back my panel.  But I don't have 
+way to logout lxde session by clicking my mouse button anymore.  The only way to logout 
+is by executing "$ lxsession-logout" and click the logout item from the logout dialog.
+Now, I got it by creating the following shell script:
+
+<PRE>
+$ cat /usr/bin/lxde-logout
+#!/bin/sh 
+
+/usr/bin/lxsession-logout --banner \
+      "/usr/share/lxde/images/logout-banner.png" --side top
+</PRE>
+
+<P> Then by clicking the lxde-icon and choose the logout item from the offered menu.
+
+<P><b>(12/15/2016 10:04)</b> By default, lxsession depends on <b>systemd</b> heavily, 
+(check it via <code>$ apt-rdepends lxsession</code>).  Can one get stupider than this? 
+We probably need to compile our own <b>lxsession</b> via its <a 
+href="https://sourceforge.net/projects/lxde/files/LXSession%20%28session%20manager%29/" 
+target="_b">source</a>.  See also the requirement note from linux from scratch: 
+<a href="http://www.linuxfromscratch.org/blfs/view/cvs/lxde/lxsession.html" 
+target="_b">lxsession.html</a>  <b>Note: (12/30/2016 21:34)</b>  I read somewhere, 
+the systemd dependency is caused by some other packages that lxsession depends on. 
+If we compile and install lxsession by ourself, this problem probably will go away.
+But the cost will be: From now on, we must keep on monitoring any newer version of 
+lxsession.  As far as I know, the last major lxsession (0.5.1) release is in Nov. 
+2014, two years ago.  This means, monthly, we need to check any newer version of 
+lxsession been released.  And lxsession_0.5.3-1 on 2016/12/13 was fine but 
+lxsession_0.5.3-2 on 2016/12/25 will force systemd to be installed.  If we purge 
+systemd, libpam-systemd lxpolkit lxsession-logout policykit-1 will also be removed, 
+and lxsession itself will also be purged after we executed the deborphan command.
+
+<OL>
+ <li> install intltool, since intltool-debian is too old.
+ <li> install libunique-dev 
+ <li> install libpolkit-agent-1-dev 
+</OL>
+
+  <LI><b>(12/25/2016)</b>
+
+<P> The first thing we do will be UML compilation.  After that, we will use the script 
+<b>Uml-Kernel-Upgrade.sh</b> to upgrade the kernel and kernel modules for all of our 
+user-mode-linux VM machines.  Also, we duplicate <code>/usr/local/lib/uml</code> to 
+Disk B.  
+
+<PRE>
+ $ sudo mount /dev/sdb6 /media/sdb6 
+ $ sudo mkdir /media/sdb6/lib/uml 
+ $ sudo chown hsu:hsu /media/sdb6/lib/uml 
+ $ sudo umount /media/sdb6 
+</PRE>
+
+<P><b>Note: (12/30/2016)</b> Upgrade UML kernel and UML kernel modules will fail 
+if we didn't shutdown the UML first.  We did learn something.  But, sorry, I need 
+to know better.
+
+
+  <LI><b>(12/30/2016)</b>
+
+<P> I was so upset these few days.  I upgraded Raspbian and it failed to reboot.  
+The worst thing or deadly situation was that there were no message (, i.e. blank 
+screen).  We know that the quality of Debian distribution has been deteriorating. 
+But, it was never so dreadful before.  <a href="https://www.nico-maas.de/?p=1410" 
+target="_b">Warning --- Kernel 4.4.38 breaks boot on RPi 1 & 2</a>.
+
+<P> This is our last week for this semester.  I hope we can finish tuning our OS in 
+disk B so that it will be ready for the Virtualization Technique course in the coming 
+semester on time.  Sorry, you see the requirement and quality of this course is really
+demanding.
+
+<h5>Raspberry Pi Big Data Cluster</h5>
+
+<OL>
+  <LI><a href="http://free.nchc.org.tw/raspbian/raspbian/pool/main/" 
+      target="_b">raspbian mirror from nchc</a>
+
+<P><a href="http://free.nchc.org.tw/raspbian/raspbian/pool/main/q/qemu-kvm/" 
+      target="_b">qemu kvm in raspbian</a>&nbsp;&nbsp;
+  <a href="http://free.nchc.org.tw/raspbian/raspbian/pool/main/c/ceph/" 
+      target="_b">ceph</a>
+  <LI><a href="http://packages.devuan.org/merged/dists/sid/main/binary-armhf/Packages" 
+      target="_b">devuan armhf sid packages</a>&nbsp;&nbsp;
+    <a href="http://packages.devuan.org/merged/dists/testing/main/binary-armhf/Packages" 
+      target="_b">devuan armhf packages</a>
+
+<P> File size: 38M, qemu-kvm and ceph related can be found in this file.
+
+<P><a href="https://git.devuan.org/devuan-infrastructure/amprolla2"  
+   target="_b">Amprolla2</a>:  Create and maintain package repositories.
+
+<P><a href="https://packages.devuan.org/devuan/" 
+target="_b">packages.devuan.org/devuan/</a> is where native Devuan code lives, and would 
+be mirrored from, and <a href="https://packages.devuan.org/merged/" 
+target="_b">packages.devuan.org/merged/</a> is where amprolla tricks apt into fetching 
+both Devuan and Debian .debs from, with 
+<a href="https://packages.devuan.org/merged/pool/" 
+target="_b">packages.devuan.org/merged/pool/</a> being empty?
+
+
+<PRE>
+Filename: pool/DEVUAN/main/u/util-linux/mount_2.26.2-6+devuan1_armhf.deb
+Filename: pool/DEBIAN/main/b/bash/bash-builtins_4.4-2_armhf.deb
+</PRE>
+
+<P> The difference is the package mount is built by devuan and the bash-builtins
+ package is inherited from debian upstream.  Am I right?
+
+  <LI><a href="https://devuan.org/os/packages/qemu-kvm" 
+      target="_b">devuan qemu-kvm</a>
+
+<P><a href="https://devuan.org/os/development-kit" 
+      target="_b">Devuan-SDK: Simple Development Kit</a>&nbsp;&nbsp; 
+  <a href="https://git.devuan.org/sdk/arm-sdk" 
+      target="_b">Devuan Arm SDK</a> 
+  <LI><a href="./DIYBigData/NasViaPi3.html" target="_b">Nas Via Pi3</a>&nbsp;&nbsp;
+      <a href="./DIYBigData/CephClusterOnPi2.html" 
+      target="_b">ceph cluster on pi</a>&nbsp;&nbsp;
+      <a href="./DIYBigData/DIYBigData.html" 
+      target="_b">DIY Big Data</a>&nbsp;&nbsp;
+  <LI><a href="./DIYBigData/CephForHomeNas.html" 
+      target="_b">ceph rare for home use</a>
+  <LI><a href="" 
+      target="_b"></a>
+  <LI><a href="" 
+      target="_b"></a>
+  <LI><a href="" 
+      target="_b"></a>
+  <LI><a href="" 
+      target="_b"></a>
+</OL>
+</OL>

@@ -1,0 +1,189 @@
+#Get u-boot, kernel
+# U Boot
+git clone git://git.denx.de/u-boot.git -b v2017.07 v2017.07
+git clone https://github.com/hardkernel/u-boot.git -b odroidxu3-v2012.07 odroidxu3-v2012.07
+
+# Kernel
+git clone https://github.com/hardkernel/linux.git -b odroidxu4-4.9.y odroidxu4-4.9.y
+
+# Copy bl1, bl2, tzsw into new u-boot
+mkdir -p u-boot-v2017.07/xu4_blobs/
+cp odroidxu3-v2012.07/sd_fuse/hardkernel/* u-boot-v2017.07/xu4_blobs/
+
+# Compiler u-boot
+cd u-boot-v2017.07/
+export ARCH=arm ;export CROSS_COMPILE=/usr/bin/arm-linux-gnueabihf-
+make odroid-xu3_defconfig
+make -j3 ;make env
+cd ../
+
+# Compiler Kernel
+cd odroidxu4-4.9.y/
+# Patch HYP file
+patch -p1 </src/fs/config/HYP_TIMER_4.9.37.patch
+# Copy old config file
+cp /src/fs/config/4.9.37_kvm_odroidxu4_defconfig .config
+# Compiler modules dtbs zIamge
+make -j3 dtbs zImage modules
+# Compiler binary deb package
+sudo make ARCH=arm CROSS_COMPILE=/usr/bin/arm-linux-gnueabihf- -j3 bindeb-pkg
+cd ../
+
+# Create default root file system
+cat BasePackage.txt 
+u-boot-tools
+initramfs-tools
+bash-completion
+ntp
+sudo
+live-boot-initramfs-tools
+live-boot
+
+sudo debootstrap --foreign --arch=armhf --include=$( cat ./BasePackage.txt |sed 's/ //g'|tr "\n" ",") jessie odroidxu4 http://140.120.8.124/merged/
+sudo cp /usr/bin/qemu-arm-static odroidxu4/usr/bin/
+sudo chroot odroidxu4 /debootstrap/debootstrap --second-stage
+
+# Create overwrite root file system
+mkdir -p rootfs_overwrite/boot
+mkdir -p rootfs_overwrite/etc
+mkdir -p rootfs_overwrite/etc/apt/apt.conf.d/
+mkdir -p rootfs_overwrite/etc/network/
+mkdir -p rootfs_overwrite/usr/local/bin
+mkdir -p rootfs_overwrite/usr/local/src
+mkdir -p rootfs_overwrite/usr/bin
+
+# Create boot.cmd
+#############################################################
+cat boot.cmd
+
+# Loading address
+
+setenv load_addr "0x44000000"
+setenv kerneladdr "0x40800000"
+setenv initrdaddr "0x42000000"
+setenv ftdaddr "0x44000000"
+
+# default values (configurable)
+
+setenv rootdev "/dev/mmcblk1p1"
+setenv rootfstype "ext4"
+# IPaddress:NFSserverIP:GatewayIP:Netmask:Hostname:ethercard
+setenv ips "192.168.0.2::192.168.0.254:255.255.255.0::eth0"
+# Console
+setenv console "both"
+
+if test "${console}" = "display" || test "${console}" = "both"; then setenv consoleargs "console=tty1"; fi
+if test "${console}" = "serial" || test "${console}" = "both"; then setenv consoleargs "${consoleargs} console=ttySAC2,115200n8"; fi
+
+# Append environment
+setenv bootargs "${consoleargs} root=${rootdev} rootfstype=${rootfstype} rootwait panic=10 consoleblank=0 loglevel=${verbosity} ip=${ips}"
+
+# Load default file
+# system dependent: mmcbootdev, mmcbootpart
+load mmc ${mmcbootdev}:${mmcbootpart} ${kerneladdr} /boot/zImage || load mmc ${mmcbootdev}:${mmcbootpart} ${kerneladdr} zImage
+load mmc ${mmcbootdev}:${mmcbootpart} ${initrdaddr} /boot/uInitrd || load mmc ${mmcbootdev}:${mmcbootpart} ${initrdaddr} uInitrd
+load mmc ${mmcbootdev}:${mmcbootpart} ${ftdaddr} /boot/dtb/exynos5422-odroidxu4.dtb || load mmc ${mmcbootdev}:${mmcbootpart} ${ftdaddr} dtb/exynos5422-odroidxu4.dtb
+
+# Boot
+
+bootz ${kerneladdr} ${initrdaddr} ${ftdaddr}
+
+# Generate boot.scr:
+# mkimage -c none -A arm -T script -d boot.cmd boot.scr
+
+
+############################################
+cp boot.cmd rootfs_overwrite/boot/
+
+# Copy hosts file
+scp ac12:/etc/hosts* .
+# Add 140.120.8.124 amd1m into hosts
+cp hosts* rootfs_overwrite/etc/
+# Copy inittab and securetty file to add ttySCA2
+# Copy local binary or shell script file into rootfs_ovserwrite
+# Create network ineterface
+cat rootfs_overwrite/etc/network/interfaces 
+auto lo
+iface lo inet loopback
+
+auto eth0
+
+# Create iso image
+dd if=/dev/zero of=odroidxu4.img bs=1024K count=$((1024*2))
+
+# fdisk iso image partition
+ /sbin/fdisk odroidxu4.img
+ 
+Welcome to fdisk (util-linux 2.28).
+Changes will remain in memory only, until you decide to write them.
+Be careful before using the write command.
+
+Device does not contain a recognized partition table.
+Created a new DOS disklabel with disk identifier 0xd1a7552e.
+
+Command (m for help): n
+Partition type
+   p   primary (0 primary, 0 extended, 4 free)
+   e   extended (container for logical partitions)
+Select (default p): 
+
+Using default response p.
+Partition number (1-4, default 1): 1
+First sector (2048-4194303, default 2048): 8192
+Last sector, +sectors or +size{K,M,G,T,P} (8192-4194303, default 4194303): 
+
+Created a new partition 1 of type 'Linux' and of size 2 GiB.
+
+Command (m for help): wq
+The partition table has been altered.
+Syncing disks.
+
+# mount and build ext4 file system for iso image
+sudo losetup -f --show odroidxu4.img 
+/dev/loop0
+sudo partx -av /dev/loop0 
+sudo mkfs.ext4 /dev/loop0p1 
+# Write u-boot into iso image
+cd u-boot-v2017.07/xu4_blobs/
+sudo dd if=./bl1.bin.hardkernel of=/dev/loop0 seek=1 
+sudo dd if=./bl2.bin.hardkernel.1mb_uboot of=/dev/loop0 seek=31
+sudo dd if=../u-boot.bin of=/dev/loop0 seek=63
+sudo dd if=./tzsw.bin.hardkernel of=/dev/loop0 seek=2111
+cd ../../
+mkdir -p tmp
+
+# mount iso to tmp and write rootfilesystem
+sudo mount /dev/loop0p1 tmp/
+sudo cp -a odroidxu4/* tmp/
+# Overwirte root file system
+sudo cp -a rootfs_overwrite/* tmp/
+
+# copy kernel deb package into iso image
+sudo cp *.deb tmp/tmp/
+sudo chroot tmp
+cd tmp
+ls -l 
+total 25552
+-rw-r--r-- 1 root root    53172 Aug  6 08:55 linux-firmware-image-4.9.37+_4.9.37+-1_armhf.deb
+-rw-r--r-- 1 root root 10578276 Aug  6 08:55 linux-headers-4.9.37+_4.9.37+-1_armhf.deb
+-rw-r--r-- 1 root root 14682892 Aug  6 08:55 linux-image-4.9.37+_4.9.37+-1_armhf.deb
+-rw-r--r-- 1 root root   844732 Aug  6 08:55 linux-libc-dev_4.9.37+-1_armhf.deb
+dpkg -i *.deb
+cd /boot/
+mkimage -c none -A arm -T script -d /boot/boot.cmd /boot/boot.scr
+
+ls -l /boot/
+ls -l 
+total 39248
+-rw-r--r-- 1 hsu  hsu      1403 Aug  6 15:46 boot.cmd
+-rw-r--r-- 1 root root     1475 Aug  7 14:09 boot.scr
+-rw-r--r-- 1 root root   143292 Aug  5 16:51 config-4.9.37+
+lrwxrwxrwx 1 root root       28 Aug  7 14:08 dtb -> /usr/lib/linux-image-4.9.37+
+-rw-r--r-- 1 root root 16514691 Aug  7 14:08 initrd.img-4.9.37+
+-rw-r--r-- 1 root root  2110430 Aug  5 16:51 System.map-4.9.37+
+lrwxrwxrwx 1 root root       15 Aug  7 14:08 uInitrd -> uInitrd-4.9.37+
+-rw-r--r-- 1 root root 16514755 Aug  7 14:08 uInitrd-4.9.37+
+-rwxr-xr-x 1 root root  4894360 Aug  5 16:51 vmlinuz-4.9.37+
+lrwxrwxrwx 1 root root       21 Aug  7 14:08 zImage -> /boot/vmlinuz-4.9.37+
+passwd root
+adduser hsu

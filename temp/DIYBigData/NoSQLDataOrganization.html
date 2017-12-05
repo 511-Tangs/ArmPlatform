@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html prefix="og: http://ogp.me/ns#" lang="en-US"><!--<![endif]-->
+  <head><title>NoSQL Data Organization for Cloud Service Providers</title>
+  </head>
+  <body><!-- Google Tag Manager --> 
+
+<h4>Table of Contents</h4>
+
+<OL>
+  <LI><a href="#NoSQLDataOrganization">NoSQL Data Organization</a>
+  <LI><a href="#StorageManagement">Storage Management</a>
+  <LI><a href="#StorageViaVM">Storage Via VMs</a>
+  <LI><a href="#DifferencesBetween4NoSqlDBs">Differences Between the Four Types of NoSql 
+       Databases</a>
+  <LI><a href="#"></a>
+</OL>
+
+<a name="NoSQLDataOrganization"></a>
+<h3 class="entry-title">NoSQL Data Organization for Cloud Service Providers 
+<a href="http://www.stratoscale.com/blog/big-data/nosql-data-organization-cloud-service-providers/">(Source Origin)</a></h3>
+
+<p class="post-meta"> by 
+<a href="http://www.stratoscale.com/author/stratoscale/" title="Posts by 
+Stratoscale">Stratoscale</a> | Nov 17, 2016 | 
+<a href="http://www.stratoscale.com/blog/big-data/">Big Data</a>, 
+<a href="http://www.stratoscale.com/blog/devops/">DevOps</a></p>
+
+
+<p>
+
+<P><img src="http://www.stratoscale.com/wp-content/uploads/NoSQL-Data-Organization-768x597.jpg" alt="" height="350" width="450">
+
+<P>When compared to more traditional relational databases, the NoSQL platform is 
+remarkably scalable and offers much better throughput performance over a network. Both 
+of these are important aspects for cloud storage systems that distribute data over a 
+wide physical area and may not know where the next access to a database is coming from. 
+</p>
+
+<p>Relational databases were never designed to work with large volumes of data that may 
+be unstructured or feature a changing structure. All records in a relational database 
+have to follow a certain structure. NoSQL design is far more flexible, which might 
+explain why many developers say the name means "Not Only SQL."</p>
+
+<p>Support for scale-out architecture over a wide area of geographical distribution has 
+allowed developers to bid farewell to expensive large monolithic designs. This is 
+particularly attractive to cloud storage providers, as is added support for quick schema 
+iteration. If an organization has to frequently push new code into a database without 
+fundamentally altering the underlying database, then this provides a solution as well.
+</p>
+
+<h3>NoSQL Data Storage Techniques</h3>
+
+<p>Key-value store solutions provide the building blocks for the NoSQL system. 
+Associative arrays, which are better known as hashes in common parlance, contain a 
+series of records. In a relational database (RDB), these records each have the same 
+fields. NoSQL doesn't make such requirements, since key-value stores work so drastically 
+differently from these systems. RDB paradigms require all data fields to exist within 
+documented data types. Key-value store hashes treat each piece of data as a single 
+opaque collection. It could have different fields within any record, or it could be 
+comparatively empty. The value specification is agnostic to this, but instead merely 
+provides a pointer by which a particular data set could be found.</p>
+
+<p>Most implementations provide a cloud storage developer with a generic key-value 
+structure. Each record receives its own set of key-value pairs. Keys can have multiple 
+components structured in an ordered list. Major keys identify the entity. Anything after 
+this section is called a minor key, and cloud developers may use them as they see fit. 
+What makes this <b>major-minor key pairing </b>so appealing to cloud developers is that 
+it maps well to directory path specifications in file systems. Cloud developers can 
+organize data into what are essentially directories.</p>
+
+<p>Consider a major key entitled majorKey, which would sit at the top of 
+specification:</p>
+
+<p><em>\majorKey</em></p>
+
+<p>It could feature multiple minor keys underneath it:</p>
+
+<p><em>\majorKey\minorKey1</em></p>
+
+<p><em>\majorKey\minorKey1\minorKey2</em></p>
+
+<p><em>\majorKey\minorKey1\minorKey3</em></p>
+
+<p>Notice that this resembles climbing a classic DOS directory tree. Developers who work 
+with the NT platform might also recognize it as being similar to the way keys are stored 
+in the Windows Registry. In this manner, a cloud storage system can neatly store and 
+then recall data types without knowing anything more about their specifications than a 
+mere label. Each of these keys point to a value, which is just a single byte-string of 
+any arbitrary length. There's no specific rule that said byte-string must follow. </p>
+
+<p></p><div><div>Learn more about data storage management <a href="#StorageManagement" 
+target="_blank">here</a>.</div></div>
+
+<p></p>
+
+<h3>Document-Orientation in the Cloud</h3>
+
+<p>Since NoSQL is so loose with how it stores data, it's actually easy to make the 
+values entire documents. Some developers refer to this as creating semi-structured data. 
+Document stores orient themselves toward storing document code inside of the byte-string 
+of a key-value pair. This data could be in XML, JSON or any other format that uses 
+abstracted plain text. In theory, it's actually possible to use a file format like RTF 
+as well. Mapping objects into a database in this method is remarkably easy, as it 
+<b>eliminates the need for any sort of object-relational mapping</b>.</p>
+
+<p>This is precisely why document-orientation is so popular when developing Web
+ applications for cloud solutions. These applications are constantly changing in place 
+and it's important to consider performance in these scenarios. On top of mapping each 
+document value to a separate key, these databases offer an API that lets users retrieve 
+documents based around metadata. This at least in theory reduces the amount of time that
+ any given user searches the database. Reducing the total number of searches for 
+documents can reduce the amount of data that has to pass through a network at any given 
+time.</p>
+
+<p>Since the fields present in a document don't exist as any pre-existing concept, it 
+would be difficult to search the internal structure as a table, which makes this feature 
+important. That being said, it also means that no additional work is ever needed to pick 
+up any related data, since everything is fed to the client as one single object. This 
+also helps to eliminate problems related to mapping function definitions to database 
+tables, which is sometimes compared to electrical impedance matching. </p>
+
+<h3>Challenges NoSQL Techniques Pose</h3>
+
+<p>No system is perfect, and cloud storage companies that transition to NoSQL database 
+techniques can experience some unique challenges. NoSQL systems are notably prone to 
+lost writes, which makes them suffer from the same issues that NTFS and HFS+ fall victim 
+to. Developers have come up with a novel solution to this problem.</p>
+
+<p><b>Write-ahead logging</b> has existed as a concept for use in local file systems for 
+some time, but computer scientists usually restrict the conversation about WAL 
+techniques to databases specifically. Nevertheless, it may be helpful to think of WAL 
+subroutines as a form of journaling for NoSQL databases. All writes to the database are 
+initially written to a log section. Undo information is included, as is redo, in case 
+the write doesn't successfully complete. Should a routine writing to the database stall 
+for whatever reason, the database can recover consistency by checking the data shared 
+in this log much like a file system journal.</p>
+
+<p>Distributed transaction processing activities across multiple NoSQL databases present 
+some major challenges too. Data consistency is a major issue here. Data consistency 
+values are inversely proportional to the number of NoSQL databases within a DTP 
+environment. It should be noted, however, that even relational databases aren't capable 
+of running sophisticated consistency checks across a series of multiple databases.</p>
+
+<p>Skewed data access patterns can lead to major performance problems across databases 
+accessed by multiple network hosts. Keep in mind that all transactions, distributed or 
+not, should adhere to all four of the ACID properties. Technically NoSQL technology is 
+built around the concept of eventual consistency, but programmers seldom actually use 
+this in real world scenarios. If there were any sort of network transmission error, 
+then this could slow down a database. Unanticipated load spikes can also be a major 
+issue. Consider a cloud storage system accessible by several different organizations, 
+who all have equal read and write privileges as they're all sharing data with one 
+another in order to work on joint projects. Balancer algorithms can now provide several 
+features that help to solve this issue:</p>
+
+<h4>Distributed operations</h4>
+
+<p>This function can operate on a per-node basis. Even when only a portion of a cloud 
+network's nodes is active this function can switch on since it doesn't actually require 
+a central origin point to work. </p>
+
+<p></p><div><div>Learn how geo-fencing considerations affect your deployment 
+<a href="http://www.stratoscale.com/blog/cloud/cloud-101-geo-fencing/" 
+target="_blank">here</a>.</div></div>
+
+<p></p>
+
+<h4>Abstraction layers</h4>
+
+<p>Some algorithms allow developers to map new load balancing routines by passing a set 
+of message and action types along with appropriate triggers for them. Since a balancer 
+works independently from any data values, it only ever needs a set of actions like 
+movement and routing information. This reduces the amount of data that has to be passed 
+during peak access times in a cloud network. </p>
+
+<h4>Modular design</h4>
+
+<p>Every balancing method uses the same sort of primitive operations. Data transfer 
+operations are never actually different, which means that implementations of even the 
+balancers can be scalable. </p>
+
+<h4>Lightweight Designs</h4>
+
+<p>Only probing and sync messages are ever utilized to server load balancing routines in 
+quality solutions. This once more reduces the amount of data that has to be passed as 
+well as reducing what server and client machine processors have to do when they access 
+data stored in the cloud.</p>
+
+<p>Administrators could never predict usage patterns in this sort of situation. </p>
+
+<h3>Why NoSQL is the Choice for Cloud Developers</h3>
+
+<p>The newer NoSQL approaches to data management present clear advantages for cloud 
+developers. NoSQL data services are based around structures and architectures that are 
+scalable. There's no need to construct complicate SQL query code. Developers are free 
+to select a data model and then code for it. They can write applications with tools 
+with which they have experience, and ultimately reduce the number of dependencies 
+they're working with.</p>
+
+<p>NoSQL is also attractive for cloud developers because it doesn't require the use of 
+a black box. It's done well to overcome its challenges. Ultimately NoSQL databases have 
+come quite a way in terms of handling read and write discrepancies. If databases are 
+slow on the test system, then they can simply be taken care of later by tuning them. 
+With its emphasis on abstraction and simplicity, it makes sense that cloud 
+administrators are considering NoSQL for their database needs. While it's by no means 
+perfect, the NoSQL platform does deserve serious consideration when setting up a 
+database to work with cloud software.</p>
+
+<p>&nbsp;</p>
+
+
+<a name="StorageManagement"></a>
+<h3 class="entry-title">Storage Management - End of Life Considerations 
+<a href="http://www.stratoscale.com/blog/storage/storage-management-end-life-considerations/" 
+target="_b">(Source Origin)</a></h3>
+
+<p class="post-meta"> by <a href="http://www.stratoscale.com/author/ron-asher/" title="Posts by Ron Asher" rel="author">Ron Asher</a> | Jun 29, 2016 | <a href="http://www.stratoscale.com/blog/storage/" rel="category tag">Storage</a></p>
+
+<p><a href="http://www.stratoscale.com/wp-content/uploads/Storage-Management-Considerations.jpg"><img alt="Storage Management Considerations" height="300" width="384" 
+src="http://www.stratoscale.com/wp-content/uploads/Storage-Management-Considerations.jpg"></a></p>
+
+<p>Creating traditional storage appliances required a lengthy process that often took up 
+to two years. Think of all the steps involved - planning, design, procurement, buying 
+samples, testing, manufacturing and testing.  Not only time consuming, it was also 
+expensive, since the manufacturer must keep enough spare parts for each SKU for about 
+seven years.  Bad news for customers, the costs of these lengthy and expensive process 
+are passed on to the customer's pocket. Due to these lengthy, expensive and complex 
+processes, it was almost impossible to create storage appliances that supported more 
+than three or four configurations, resulting in appliances with limited flexibility and 
+diversity of supported hardware. </p>
+
+<h4>HDDs and SSDs</h4>
+
+<p>HDDs show little variability between a 1TB and 6TB drive, in terms of performance and 
+cost.  Each storage controller can contain a number of HDDs with some variability 
+in capacity.  SSDs contain nonvolatile flash memory providing much higher performance, 
+capacity, density and lower power consumption. </p>
+
+<h4>All Flash Arrays</h4>
+
+<p> All Flash Arrays (AFAs) are storage appliances that are composed of flash memory 
+only. The AFAs are usually using one type of SSDs that is usually a compromise of all 
+properties. For example, stuffing 512 GB SSDs in the AFA gives low density, but cost 
+effective performance. </p>
+
+<h4>Capacity and Density</h4>
+
+<p>SSDs offer wide range of capacity for every property. For example, capacity can vary 
+from 256GB to 16TB, providing 16 times the density. SSD endurance is measured by two 
+main criteria, Terabytes Written (TBW) and Drive Writes Per Day (DWPD).</p>
+
+<p>TBW refers to the total amount of data that can be <a target="_blank" 
+href="http://thessdguy.com/comparing-dwpd-to-tbw/">written into an SSD</a> before it is 
+likely to fail, but this specification doesn't really specify how many years the drive 
+will last. Another property that describes SSD endurance is Drives Writes Per Day 
+(DWPD). This measures how much data you can add to the drive daily, on average, through 
+its lifespan; if you write more it may wear out sooner. DWPD ranges from 0.1 to 10, 
+hence, SSD endurance can vary up to 100 times. </p>
+
+<h4>Performance</h4>
+
+<p>Before SSDs, Input/Output Operations Per Second (IOPS) performance for HDDs was 
+approximately 100-200 random read-writes. SSDs improved performance by two orders of 
+magnitude with consumer grade IOPS of 50K, delivering 16 times the performance value. 
+High-end SSDs deliver and three orders of magnitude with with IOPS of 800K. </p>
+
+<h4>Price </h4>
+
+<p>SSD prices show a wide variance, from 30 cents/GB at the low end for consumer usage 
+(0.1 DWPD) and up to about $2.00/GB (10.0 TBW) for the high performance enterprise 
+models. Hidden in the cost of enterprise storage, or added on, are the costs of the 
+controllers, backplanes, management nodes and a number of other components. </p>
+
+<p>All Flash Arrays, often containing low end SSDs, have also made a significant impact 
+on pricing of storage appliances, and are usually priced at $7.50/GB. As prices of SSDs 
+have plummeted in the past few years, more organizations have reaped the high 
+performance benefits of that this technology offers. </p>
+
+<p>AFA vendors are finding it difficult to unleash the full power of SSDs. The range of 
+capabilities and costs requires customization to specific requirements. However, AFA 
+vendors can only offer limited type of appliances and therefore they make the choice and 
+compromises for their customers. </p>
+
+<h4>The effect of software defined environments</h4>
+
+<p><a target="_blank" 
+href="http://www.stratoscale.com/blog/cloud/software-defined-data-storage-solutions-and-the-cloud/">Software 
+Defined Storage</a> (SDS) solutions have no ties to specific hardware configurations or 
+hardware models or manufacturers, allowing companies to leverage existing hardware 
+without any limitations. For example, companies can mix higher-cost, high performance 
+solutions for critical applications and use lower cost storage for 'cold data' that is 
+rarely accessed. </p>
+
+<p></p>Learn about running storage <a target="_blank" 
+href="http://www.stratoscale.com/blog/compute/implications-of-running-your-storage-using-a-vm-vs-embedded/">using 
+virtual machines</a> instead of distributed embedded SDS.</div></div>
+
+<p></p>
+
+<p>SDS provides ultimate flexibility as organizations can choose cost-effective 
+solutions with the type of hardware that is best suited for their applications, without 
+the limitation of of the trade-offs made by an AFA vendor.  Another advantage is being 
+able to use brand new hardware. Due to the lengthy cycle required to develop AFAs 
+you will always be utilizing older models.</p>
+
+
+<a name="StorageViaVM"></a>
+<h3 class="entry-title">[GEEK TALK] What are the major implications of running your 
+storage using a VM vs embedded? 
+<a href="http://www.stratoscale.com/blog/compute/implications-of-running-your-storage-using-a-vm-vs-embedded/">(Source Origin)</a></h3>
+
+<p class="post-meta"> by <a href="http://www.stratoscale.com/author/ron-asher/" title="Posts by Ron Asher" rel="author">Ron Asher</a> | Nov 26, 2015 | <a href="http://www.stratoscale.com/blog/compute/" rel="category tag">Compute</a>, <a href="http://www.stratoscale.com/blog/datacenter/" rel="category tag">Data Center</a>, <a href="http://www.stratoscale.com/blog/geek-talk/" rel="category tag">Geek Talk</a>, <a href="http://www.stratoscale.com/blog/storage/" rel="category tag">Storage</a></p>
+
+<p>The paradigm shift from storage appliances into <a target="_blank" 
+href="http://www.stratoscale.com/blog/cloud/private-clouds-turning-software-defined-models-into-a-reality/"><strong>Software 
+Defined Storage (SDS)</strong></a> is gaining more and more traction, particularly, in 
+web scale distributed systems. Virtual appliances (i.e. storage controller function 
+packaged as VM) are perceived as a type of SDS. Storage Virtual Appliance would usually 
+be deployed to consume server local storage devices and collaborate with other virtual 
+appliance instances to support data resiliency and availability function. &nbsp;It is 
+also expected to provide connectivity to volumes from each node. This creates fairly 
+intensive traffic between the Virtual Storage Appliances. This traffic facilitates 
+striping, mirroring or other sorts of data resiliency like erasure coding. </p>
+
+<p>Data efficiency like data de-duplication, thin provisioning and support of data 
+services would further increase the network traffic. In addition, every guest VM will 
+have to communicate with the Storage Virtual Appliances to access its data. In general, 
+this SDS implementation of virtual appliances typically increases the load on the 
+hypervisors and requires careful attention to performance when deploying it. SRIOV and 
+other optimizations are not available for all devices and configurations. Hence, it is 
+likely to get fairly noticeable performance hits as well as increased resource 
+consumption when deploying SDS as virtual appliances. 
+
+<P> The alternative would be using distributed embedded SDS. In this case, all storage 
+services are running natively on the host OS or packaged as 
+<a href="http://www.stratoscale.com/blog/devops/containers-and-microservices-achieving-immutability/" 
+target="_blank">containers</a>.  In such an environment they run as efficiently as the 
+hardware allows for. They can use any sort of DMA, RDMA, NVMe or other efficient device 
+access protocols to speed up performance and reduce CPU consumption.  This ensures that 
+guest VMs are getting ultimately the best performance possible. In many cases, this 
+would be even more efficient than the performance a dedicated storage appliance can 
+provide to a VM; as with smart management you can move the VM to run in a server where 
+it can access its data from a local device rather than through the network. This kind 
+of deployment is likely to become more prevalent to comply with requirements for massive 
+scale and high performance.</p>
+
+
+<a name="DifferencesBetween4NoSqlDBs"></a>
+<h3>What are the main differences between the four types of NoSql databases 
+(KeyValue Store, Column-Oriented Store, Document-Oriented, Graph 
+Database)? <a href="https://www.quora.com/What-are-the-main-differences-between-the-four-types-of-NoSql-databases-KeyValue-Store-Column-Oriented-Store-Document-Oriented-Graph-Database" target="_b">(Source Origin)</a></h3>
+
+What are considerations choosing one type of database according to the given problem?
+
+<h3>Answer Wiki</h3>
+
+5 Answers
+
+
+<P><a target="_blank" href="https://www.quora.com/profile/Bart-Loews" action_mousedown="UserLinkClickthrough">Bart Loews</a>
+
+<P>For each of these classifications of databases, the actual implementations 
+will vary from vendor to vendor with some offering different scheme and 
+querying capabilities as well as other fields.  There is a lot of 
+cross over between the different types and generally speaking, they're 
+all build to be distributed and scaled horizontally.  This will give you a general overview of the differences:  
+
+<P><b>Key-Value</b>
+ stores store keys value pairs, generally in buckets, exactly like a 
+hash table data structure...each key must be unique.  They are 
+extremely fast for writing, and extremely fast for reading and 
+updating...if you have the key.  They are slow on multiple updates 
+and if you have to query the entire store.   You see Key-value 
+stores used a lot as caching stores because of their fast reads. (see: 
+Redis, Riak, memcached, Azure's tablestore, etc)  
+
+<P><b>Column stores</b> seem to store data in related rows, but they actually serialize the data into columns.   With a row based database you would have: 
+
+<P>ID,firstname, lastname, websitename 
+
+<PRE>
+1:bart, loews, quora 
+2:jim, finnegan, beginagain 
+3:don, quixote, windmill 
+</PRE>
+
+The column store stores columns together, like this: 
+
+<PRE>
+1:bart,2:jim,3:don 
+1:loews,2:finnegan,3:quixote 
+1:quora,2:beginagain,3:windmill
+</PRE>
+
+<P>This allows for much faster querying and processing of data while storing data that's 
+somewhat related (druid boasts billions of records per second).  <br>These are used 
+in a lot of high powered big-data analysis where speed is critical. (Cassandra, Google's 
+BigTable, Druid)
+
+<P><b>Document Stores </b>store data in "documents", typically XML or JSON documents. 
+They're typically schemaless, so each document can contain any data that you want them 
+to have and you can change it on the fly.  Documents 
+contain key value pairs, which can be any sort of value, array, or even 
+another document.  For example:
+
+<PRE>
+{
+FirstName: "Bart",
+LastName: "Loews",
+Children: [ {
+                   
+          FirstName:"Tadd",
+          Age: 4},
+          {
+                     
+           FirstName:"Todd",
+           Age:4}
+          ],
+Age: 35,
+Address:{
+      number:1234,
+      street: "Fake road",
+      City: "Fake City",
+      state: "VA",
+      Country: "USA"
+        }
+}
+</PRE>
+
+<P>Document stores allow you to play with your data and store it however you see fit. 
+They have fast writing, good query times based on indexing, but the main advantage is 
+the schema flexibility and nestibility.
+
+<p>You could 
+see these being used for pretty much any thing, some vendors will let 
+you perform relational joins between documents, but generally, for the 
+best flexibility you'll have to build in any join logic into your 
+application.
+
+<p>Some examples include: MongoDB, OrientDB, CouchDB, Azure's DocumentDB, AWS DynamoDB, RethinkDB.
+
+<P><b>Graph Stores </b>focus
+ on relationships.  The best way to picture a graph store is like a
+ mathematical graph where you have edges and vertices.  With a 
+graph store data is stored as Nodes and Relationships.  A Node is 
+basically a noun, a person, place, thing, entity, etc.  A 
+relationship is a one or two way connection between two nodes.  A 
+node could be people and a relationship could be a two way friendship. 
+You could have two nodes, a link to a website, and a user, and the 
+relationship could be a one way "like" from the user to the website.
+
+<P>You
+ can usually apply metadata documents to nodes and relationships, as 
+well as labels. You can label a node as a user or a website or a pet or 
+whatever. You can add data like name, age, gender to user nodes, it's 
+schemaless and very flexible.
+
+<P>Graph stores excel at determining 
+relationships between nodes and finding patterns.  For example, you
+ can use a graph store to determine friends of friends or friends of 
+friends of friends or friends of friends to the nth degree.  You 
+could figure out people you're not friends with, you can find people who
+ are friends of friends who like the same things you do, you can find 
+people who have worked with friends of friends who like the same things 
+you do who don't have pets.  
+
+<P>They handle these crazy queries quickly.
+
+<P>I'm unaware of who uses them, but they'd be great for social networking and for retail marketing purposes.
+
+<P>Examples of this include: neo4j and orientDB.
+
+
+
+<P><a target="_blank" href="https://www.quora.com/profile/Kyle-Olson-27" action_mousedown="UserLinkClickthrough">Kyle Olson</a>
+
+<P>1)
+ Column-Oriented databases are most similar to traditional row based 
+databases since both are usually relational. Columnar databases simply 
+store data in columns instead of rows, thus making searching on each 
+column much faster. However inserts and updates are generally slower in 
+column databases. 
+
+<P>In practice, columnar databases often store 
+data in column families. In this case you would probably not store the 
+street, city, zip in completely separate columns, but instead in a 
+column family where they are stored together. The differences between 
+row based and column based databases start to blur even more in this 
+scenario.
+
+<P>2) Key-Value and Document databases are very similar to
+ each other. The only real difference is document databases store their 
+values in a more structured way. A key-value database may simply store 
+blobs of data for each key with little knowledge of what is in each 
+blob. 
+
+<P>A document database is still basically a key-value store, 
+but it knows information about the format of each value. They may be 
+XML, JSON, RDF, etc. This allows the database to more easily query 
+information found in each document.
+
+<P>3) Graph databases are 
+basically built upon the Entity - Attribute - Value model. It is a very 
+flexible way to describe how data relates to other data. A popular graph
+ database, Neo4j, renames the terminology to Node - Relationship - 
+Property. 
+
+<P>Nodes store data about each entity in the database, 
+Relationships describe a relationship between nodes, and a Property is 
+simply the node on the opposite end of the relationship. Whereas a 
+traditional database stores a description of each possible relationship 
+in foreign key fields or junction tables, graph databases allow for 
+virtually any relationship to be defined on the fly.
+
+<P>------
+
+<P>Column
+ store databases are generally used when reporting is more important 
+than data modification. Columnar databases are often an order of 
+magnitude faster than row based databases for common reporting usage. 
+They are usually much slower for write operations, so they tend to be 
+used in OLAP while row based is used in OLTP situations. Otherwise 
+columnar databases are very similar to traditional databases.
+
+<P>Key-Value
+ databases are by far the simplest to implement, since they are little 
+more than a large hash table. They are effortlessly partition-able so 
+they can store a large amount of unstructured data with ease. If you 
+just need to store fairly static data and don't have to do much 
+processing on it, a simple key-value database could be the way to go.
+
+<P>Document
+ databases give in my opinion all of the benefits of key-value stores 
+but also allow the data to be more easily processed. Because data is 
+stored in a flexible schema, you can still perform queries such as 
+searching by city or last name. This schema is not managed like in a 
+traditional database, unless the application logic enforces a schema, so
+ the data is more likely to be "dirtier" than a traditional RDBMS. But 
+you get the freedom to create new fields on the fly without modifying a 
+database schema.
+
+<P>Graph databases are used to solve a problem that
+ can be very difficult to solve with relational databases: complex 
+mappings between data. A database schema generally needs well defined 
+relationships between tables, and complex many-to-many relationships 
+could require a large number of junction tables which are complicated 
+and may require expensive joins. Graph databases can store complex and 
+fluid relationships with ease. The trade-off is that querying or 
+updating large amounts of data can be very slow, since nodes of similar 
+nodes that aren't necessarily related are usually not stored close 
+together. It is also easy for applications to define similar 
+relationships in very different ways, making it harder to organize data 
+consistently.
+
+<P><a target="_blank" href="https://www.quora.com/profile/Prithiviraj-Damodaran" action_mousedown="UserLinkClickthrough">Prithiviraj Damodaran</a>
+
+<p><i>Good
+ answers: but all of them are fundamentally misleading in one aspect: 
+confusing a column store with a column-oriented store (In fact the 
+terminology "column-oriented store" itself is so wrong). I tried to 
+clear the air here. </i><a data-tooltip="attached" href="http://bytecontinnum.com/column-stores-column-oriented-databases/" rel="noopener nofollow" target="_blank" onclick="return Q.openUrl(this);" data-qt-tooltip="bytecontinnum.com">Terminology confusion: Column Stores and Column oriented databases</a>. (Do read the reference sections)</p>
+
+<p><b>TL;DR </b>-
+ The feature, "column families" introduced in the data stores like 
+Cassandra and HBASE lead to this confusion and the whole new terminology
+ "column-oriented store". While "Column stores" are in existence forever
+ now and it is nothing but relational stores which stores data 
+column-wise physically to optimise aggregate queries.</p>
+
+<p><b>Verdict: "</b>Column
+ stores" as we knew doesn't belong in the group of NoSQL stores. 
+GreenPlum, Vertica and Teradata Aster are good examples which support an
+ optional storage engine to create a table as a column store. 
+"Column-oriented store" is a poor terminology. In fact datastax calls 
+cassandra as a distributed row-store.</p>
+
+<P><a target="_blank" href="https://www.quora.com/profile/Anurag-Kale" action_mousedown="UserLinkClickthrough">Anurag Kale</a>
+<P><b>Key-Value Store</b>
+
+<P>The
+ value is stored in the database in form on a two value tuple. One is 
+the identifier(key) and other is the actual data(Value), and hence it is
+ called as Key Value Store.
+
+<p>I can by typically used when you have application where you require hashing. For example. BookId(Key) &amp; Book Details(value).
+
+<p>So if you know key value you dont need to traverse through whole database to get the required info.
+
+<P><b>Column-Oriented</b>
+
+<P>The data stored in this is completely different, it stores data in Columns.
+
+<p>This
+ approach lends itself well to aggregate queries and analytics  
+scenarios where you might run range queries over a specific field. 
+Roughly,in simple terms for report generation based on huge data.
+
+<P><b>Documnet-Oriented </b>
+
+<P>The
+ data is stored again key value pair, where the key is a String and the 
+data is stored a document in memory. The data is identified by the 
+string.
+
+<p>It is used whn you want to store large files such as Videos, music etc.
+
+<P><b>Graph Database</b>
+
+<P> It
+ uses the graph theory to optimise the search and the data is connected 
+like a graph(graph used in data structure). It is used when you have to 
+process a load of data which are interconnected with different nodes. 
+Facebook uses this feature in its new feature of Graph Search.
+
+<P>Please correct me if I am wrong.
+
+<P><b>Vishad Kuthiala</b>, Working on Database systems for quite some time
+
+<P><a target="_blank" href="https://www.quora.com/What-are-the-main-differences-between-the-four-types-of-NoSql-databases-KeyValue-Store-Column-Oriented-Store-Document-Oriented-Graph-Database/answer/Vishad-Kuthiala" action_mousedown="AnswerPermalinkClickthrough">Written 9 Oct 2016</a>
+
+<p>There are a number of NoSQL databases, the major classifications are as given below:</p>
+
+<p>a.)
+ Document Based Databases: The smallest unit of storage for these 
+databases is a document. MongoDB is a major commercial implementation of
+ this type of databases.</p>
+
+<p>b.) Key Value Pair: These databases store data in form of Key value pairs. A major example of these is Cassandra.</p>
+
+<p>c.)
+ Graphical Databases: These databases stores data in the form of nodes, 
+edges and properties to store data. An example of this type is neo4j.</p>
+
+<p>Hope this answers your question.</p>
+
+
+<h3>Related Questions</h3>
+
+
+<ol>
+  <li><a href="https://www.quora.com/What-are-the-pros-and-cons-of-document-and-column-oriented-databases" target="_blank">What are the pros and cons of document and column-oriented databases?</a></li>
+  <li><a href="https://www.quora.com/What-are-the-pros-and-cons-of-column-oriented-database-versus-row-oriented-database" target="_blank">What are the pros and cons of column-oriented database versus row-oriented database?</a></li>
+  <li><a href="https://www.quora.com/What-are-the-key-difference-between-key-value-stores-Dynamo-Project-Voldemort-and-document-oriented-databases-MongoDB-CouchDB" target="_blank">What
+ are the key difference between key-value stores (Dynamo, Project 
+Voldemort) and document-oriented databases (MongoDB, CouchDB)?</a></li>
+  <li><a href="https://www.quora.com/Do-all-NoSQL-databases-document-column-key-graph-use-MapReduce" target="_blank">Do all NoSQL databases (document, column, key, graph) use MapReduce?</a></li>
+  <li><a href="https://www.quora.com/What-is-difference-in-between-a-keyValue-and-a-columnOriented-database" target="_blank">What is difference in between a keyValue and a columnOriented database?</a></li>
+  <li><a href="https://www.quora.com/What-type-of-database-should-I-store-video-files-for-a-website" target="_blank">What type of database should I store video files for a website?</a></li>
+  <li><a href="https://www.quora.com/Do-all-NoSQL-databases-document-column-key-value-pair-graph-run-at-distributed-file-system-which-can-scale-linear" target="_blank">Do all NoSQL databases (document, column, key value pair, graph) run at distributed file system which can scale linear?</a></li>
+  <li><a href="https://www.quora.com/How-is-data-stored-in-a-database" target="_blank">How is data stored in a database?</a></li>
+  <li><a href="https://www.quora.com/Which-is-the-best-NoSQL-database-to-store-media-files-such-as-videos" target="_blank">Which is the best NoSQL database to store media files such as videos?</a></li>
+  <li><a href="https://www.quora.com/NoSQL-or-Relational-Database" target="_blank">NoSQL or Relational Database?</a></li>
+  <li><a href="https://www.quora.com/What-would-be-the-best-NoSQL-database-for-storing-logs-and-GIS-data" target="_blank">What would be the best NoSQL database for storing logs and GIS data?</a></li>
+  <li><a href="https://www.quora.com/Where-are-the-data-types-stored-in-a-database" target="_blank">Where are the data types stored in a database?</a></li>
+  <li><a href="https://www.quora.com/What-is-the-difference-between-a-column-oriented-and-a-row-oriented-database" target="_blank">What is the difference between a column-oriented and a row-oriented database?</a></li>
+  <li><a href="https://www.quora.com/What-type-of-things-are-stored-on-a-local-database-vs-a-remote-Database" target="_blank">What type of things are stored on a local database vs a remote Database?</a></li>
+  <li><a href="https://www.quora.com/Which-should-I-prefer-between-MySQL-database-and-NoSQL-database-And-why-How-do-they-differ-And-how-is-one-better-than-the-other" target="_blank">Which
+ should I prefer between MySQL database and NoSQL database? And why? How
+ do they differ? And how is one better than the other?</a></li>
+  <li><a href="https://www.quora.com/How-do-you-create-a-graph-from-a-data-store-inside-a-database" target="_blank">How do you create a graph from a data store inside a database?</a></li>
+  <li><a href="https://www.quora.com/Are-NoSQL-databases-basically-just-JSON-stores-that-are-read-and-written-to" target="_blank">Are NoSQL databases basically just JSON stores that are read and written to?</a></li>
+  <li><a href="https://www.quora.com/What-are-the-pros-and-cons-of-document-and-column-oriented-databases" target="_blank">What are the pros and cons of document and column-oriented databases?</a></li>
+  <li><a href="https://www.quora.com/What-are-the-pros-and-cons-of-column-oriented-database-versus-row-oriented-database" target="_blank">What are the pros and cons of column-oriented database versus row-oriented database?</a></li>
+  <li><a href="https://www.quora.com/What-are-the-key-difference-between-key-value-stores-Dynamo-Project-Voldemort-and-document-oriented-databases-MongoDB-CouchDB" target="_blank">What
+ are the key difference between key-value stores (Dynamo, Project 
+Voldemort) and document-oriented databases (MongoDB, CouchDB)?</a></li>
+  <li><a href="https://www.quora.com/Do-all-NoSQL-databases-document-column-key-graph-use-MapReduce" target="_blank">Do all NoSQL databases (document, column, key, graph) use MapReduce?</a></li>
+  <li><a href="https://www.quora.com/What-are-the-3-types-of-NoSql-databases" target="_blank">What are the 3 types of NoSql databases?</a></li>
+  <li><a href="https://www.quora.com/What-is-difference-in-between-a-keyValue-and-a-columnOriented-database" target="_blank">What is difference in between a keyValue and a columnOriented database?</a></li>
+  <li><a href="https://www.quora.com/What-type-of-database-should-I-store-video-files-for-a-website" target="_blank">What type of database should I store video files for a website?</a></li>
+  <li><a href="https://www.quora.com/Do-all-NoSQL-databases-document-column-key-value-pair-graph-run-at-distributed-file-system-which-can-scale-linear" target="_blank">Do all NoSQL databases (document, column, key value pair, graph) run at distributed file system which can scale linear?</a></li>
+  <li><a href="https://www.quora.com/unanswered/What-are-the-different-types-of-graph-databases-And-what-are-each-best-used-for" target="_blank">What are the different types of graph databases? And what are each best used for?</a></li>
+  <li><a href="https://www.quora.com/How-is-data-stored-in-a-database" target="_blank">How is data stored in a database?</a></li>
+</ol>

@@ -1,0 +1,24 @@
+total 60
+drwxr-xr-x  2 root root 4096 Aug 13 11:55 bin
+drwxr-xr-x  4 hsu  hsu  4096 Aug 20 08:05 boot
+drwxr-xr-x 11 root root 2740 Aug 24 11:28 dev
+drwxr-xr-x 76 root root 4096 Aug 21 05:43 etc
+drwxr-xr-x  3 root root 4096 Aug 14 07:47 home
+lrwxrwxrwx  1 root root   40 Aug 14 06:27 initrd.img -> boot/initrd.img-4.9.0-0.bpo.3-armmp-lpae
+lrwxrwxrwx  1 root root   40 Aug 14 06:27 initrd.img.old -> boot/initrd.img-4.9.0-0.bpo.3-armmp-lpae
+drwxr-xr-x 16 root root 4096 Aug 14 06:27 lib
+drwx------  2 root root 4096 Aug 13 13:26 lost+found
+drwxr-xr-x  2 root root 4096 Aug 13 11:09 media
+drwxr-xr-x  2 root root 4096 Aug 13 11:09 mnt
+drwxr-xr-x  2 root root 4096 Aug 13 11:09 opt
+dr-xr-xr-x 69 root root    0 Jan  1  1970 proc
+drwx------  5 root root 4096 Aug 14 08:01 root
+drwxr-xr-x 13 root root  520 Aug 24 11:28 run
+drwxr-xr-x  2 root root 4096 Aug 14 06:11 sbin
+drwxr-xr-x  2 root root 4096 Aug 13 11:09 srv
+dr-xr-xr-x 13 root root    0 Aug 24 11:32 sys
+drwxrwxrwt  4 root root 4096 Aug 24 11:28 tmp
+drwxr-xr-x 10 hsu  hsu  4096 Aug 21 07:57 usr
+drwxr-xr-x 12 root root 4096 Aug 20 08:51 var
+lrwxrwxrwx  1 root root   37 Aug 14 06:27 vmlinuz -> boot/vmlinuz-4.9.0-0.bpo.3-armmp-lpae
+lrwxrwxrwx  1 root root   37 Aug 14 06:27 vmlinuz.old -> boot/vmlinuz-4.9.0-0.bpo.3-armmp-lpae

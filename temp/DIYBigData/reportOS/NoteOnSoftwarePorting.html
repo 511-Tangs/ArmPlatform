@@ -1,0 +1,1747 @@
+<h3>Porting emacs-21.4 </h3>
+
+<OL>
+  <LI><a href="#sdVMMaintenance">sd VM Maintenance</a>
+  <LI><a href="#DowngradeLibc6">Downgrade libc6 from 2.24 to 2.19</a>
+  <LI><a href="#MoreNotesEmacs21.4Compilation">More Notes on Emacs21.4 Compilation</a>
+  <LI><a href="#ChLaTeX">ChLaTeX Porting</a>
+  <LI><a href="#SoftwareUpgrade">Software Upgrade</a>
+  <LI><a href="#UmlCompilation">Uml Compilation</a>
+  <LI><a href="#"></a>
+  <LI><a href="#"></a>
+</OL>
+<a name="sdVMMaintenance"></a>
+<h3>sd VM Maintenance</h3>
+
+<P>
+
+<OL>
+  <LI>/etc/rc.local
+
+<P> Remove string "-r" at the end of the line:
+
+<PRE>
+mount none /usr/local -t hostfs -o /usr/local
+</PRE>
+
+<P> Usually, we mount host filesystem to VM readonly.  This way we can share our 
+    host software environment with VMs to reduce the burden of software Maintenance 
+    and software Porting to minimum.  After we finish porting our software in sd, we 
+    need to install it to <code>/usr/local</code>, we must have write permission.
+
+  <LI>/etc/apt/sources.list
+
+<P> Comment out the next line to keep sd to Debian jessie.
+
+<PRE>
+# deb http://140.120.7.21/debian sid main contrib
+</PRE>
+  <LI>/etc/apt/preferences.d/avoid-systemd
+
+<P> Keep libc6 to 2.19.  The newest version 2.24, from time to time, emit 
+"corrupted double-linked list" error message.  And this is the main reason sd VM 
+was created for software compilation.
+
+<PRE>
+$ diff /etc/apt/preferences.d/avoid-systemd /etc/apt/preferences.d/avoid-systemd~
+5,7d4
+< Package: libc6
+< Pin: release a=stable
+< Pin-Priority: 2000
+</PRE>
+</OL>
+
+<a name="DowngradeLibc6"></a>
+<h3>emacs-21.4 linked against libc-2.24.so failed to execute</h3>
+
+<P> After downgrading gcc-6 to gcc-5, gcc-4.9, gcc-4.8, all the generated src/emacs-21.4 
+can not be executed. The common error message we got is always:
+
+<PRE>
+src/emacs-21.4: corrupted double-linked list 
+</PRE>
+
+<P> This message is from <a href="https://sourceware.org/git/?p=glibc.git;a=blob;
+f=malloc/malloc.c#l1382" target="_b">malloc.c line 1382</a>  By the way, this was 
+very familiar bug before 2005, when I was using redhat linux distribution.  The common 
+solution was "Keep your own copy of malloc.c, always replaced the official malloc.o by 
+your own private copy before linking".  The private malloc.c was downloaded from Europe. 
+
+<P> To compile our own emacs 21.4 from source, we need to create a VM (, based on UML), 
+and downgrade its libc6 from 2.24 to 2.19.  Also, we need to cancel the readonly 
+restriction while exporting /usr/local filesystem to VM, since we need to install 
+emacs to it after successful emacs compilation.
+
+<PRE>
+# On amd-6
+$ ls -l /lib/x86*/libc.so*
+# On sd 
+hsu@sd:~$ ls -l /lib/x86*/libc.so*
+lrwxrwxrwx 1 root root 12 Nov 28 12:26 /lib/x86_64-linux-gnu/libc.so.6 -> libc-2.19.so
+$ diff /etc/rc.local /etc/rc.local~
+16c16
+< mount none /usr/local -t hostfs -o /usr/local 
+---
+> mount none /usr/local -t hostfs -o /usr/local -r
+</PRE>
+
+<h3><a href="http://qref.sourceforge.net/Debian/quick-reference/ch-package.en.html#s-hold" target="_b">3.4.6 Holding older packages</a></h3>
+
+<PRE>
+$ diff /etc/apt/preferences.d/avoid-systemd /etc/apt/preferences.d/avoid-systemd~
+5,7d4
+< Package: libc6
+< Pin: release a=stable
+< Pin-Priority: 2000
+</PRE>
+
+<h3><a href="http://amdm/debian/pool/main/g/glibc/" target="_b">glibc 2.19-18</a></h3>
+
+<P>glibc 2.19-18 still available: 
+
+<a href="http://askubuntu.com/questions/749076/installed-wrong-libc6-dev-version" 
+target="_b"><b>Downgrade Glibc</b></a></p>
+
+<PRE>
+$ apt-cache policy libc6 libc6-dev libc6-i386 libc-dev-bin libc-bin locales libc-l10n
+libc6:
+  Installed: 2.24-9
+  Candidate: 2.24-9
+  Version table:
+ *** 2.24-9 100
+        100 /var/lib/dpkg/status
+     2.19-18+deb8u7 500
+        500 http://140.120.7.21/debian jessie/main amd64 Packages
+     2.19-18+deb8u3 500
+        500 http://security.debian.org jessie/updates/main amd64 Packages
+libc6-dev:
+  Installed: 2.24-9
+  Candidate: 2.24-9
+  Version table:
+ *** 2.24-9 100
+        100 /var/lib/dpkg/status
+     2.19-18+deb8u7 500
+        500 http://140.120.7.21/debian jessie/main amd64 Packages
+     2.19-18+deb8u3 500
+        500 http://security.debian.org jessie/updates/main amd64 Packages
+libc6-i386:
+  Installed: 2.24-9
+  Candidate: 2.24-9
+  Version table:
+ *** 2.24-9 100
+        100 /var/lib/dpkg/status
+     2.19-18+deb8u7 500
+        500 http://140.120.7.21/debian jessie/main amd64 Packages
+     2.19-18+deb8u3 500
+        500 http://security.debian.org jessie/updates/main amd64 Packages
+libc-dev-bin:
+  Installed: 2.24-9
+  Candidate: 2.24-9
+  Version table:
+ *** 2.24-9 100
+        100 /var/lib/dpkg/status
+     2.19-18+deb8u7 500
+        500 http://140.120.7.21/debian jessie/main amd64 Packages
+     2.19-18+deb8u3 500
+        500 http://security.debian.org jessie/updates/main amd64 Packages
+libc-bin:
+  Installed: 2.24-9
+  Candidate: 2.24-9
+  Version table:
+ *** 2.24-9 100
+        100 /var/lib/dpkg/status
+     2.19-18+deb8u7 500
+        500 http://140.120.7.21/debian jessie/main amd64 Packages
+     2.19-18+deb8u3 500
+        500 http://security.debian.org jessie/updates/main amd64 Packages
+locales:
+  Installed: 2.24-9
+  Candidate: 2.24-9
+  Version table:
+ *** 2.24-9 100
+        100 /var/lib/dpkg/status
+     2.19-18+deb8u7 500
+        500 http://140.120.7.21/debian jessie/main amd64 Packages
+     2.19-18+deb8u3 500
+        500 http://security.debian.org jessie/updates/main amd64 Packages
+libc-l10n:
+  Installed: 2.24-9
+  Candidate: 2.24-9
+  Version table:
+ *** 2.24-9 100
+        100 /var/lib/dpkg/status
+</PRE>
+
+<h3>Try to downgrade glibc to 2.19 via the following commands</h3>
+
+<PRE>
+$ cat DowngradeGlibc.sh
+#! /bin/bash
+
+if [ $EUID != 0 ]
+  then echo "Only Super user can execute this script."
+  exit 1
+fi
+
+# Empty our package cache to prevent accidentally reinstalling the improper packages
+sudo apt-get clean
+sudo apt-get install libc6=2.19-18+deb8u7 libc6-dev=2.19-18+deb8u7 libc6-i386=2.19-18+deb8u7 libc-dev-bin=2.19-18+deb8u7 libc-bin=2.19-18+deb8u7 locales=2.19-18+deb8u7 libpam0g=1.1.8-3.1+deb8u2 adduser=3.113+nmu3 libpam-runtime=1.1.8-3.1+deb8u2 perl-base=5.20.2-3+deb8u6 debconf=1.5.56 libpython-stdlib=2.7.9-1 libc-l10n-
+$ sudo ./DowngradeGlibc.sh 
+0 upgraded, 1 newly installed, 12 downgraded, 131 to remove and 0 not upgraded.
+Need to get 16.6 MB of archives.
+After this operation, 1526 MB disk space will be freed.
+# pkg-config=0.29 needs to be removed, we need to downgrade, not remove it
+$ apt-cache policy pkg-config
+pkg-config:
+  Installed: 0.29-4+b1
+  Candidate: 0.29-4+b1
+  Version table:
+ *** 0.29-4+b1 100
+        100 /var/lib/dpkg/status
+     0.28-1 500
+        500 http://140.120.7.21/debian jessie/main amd64 Packages
+# sudo apt-get install pkg-config=0.28-1
+$ sudo apt --fix-broken install
+# After this stage, a lot of packages became "automatically installed"
+$ sudo apt-get autoremove; sudo apt-get autoclean 
+# We need <b>synaptic</b> to reinstall gcc.  <b>gcc</b> was removed during the process 
+# of downgrading libc6 to 2.19-18. <b>synaptic</b> to be installed is 0.81.2
+$ apt-cache  policy synaptic
+synaptic:
+  Installed: (none)
+  Candidate: 0.81.2
+  Version table:
+     0.84.1 -1
+        100 /var/lib/dpkg/status
+     0.81.2 500
+        500 http://140.120.7.21/debian jessie/main amd64 Packages
+# As usual, figure our the dependency of synaptic one by one, and choose the oldest 
+# version available.
+$ sudo apt-get install synaptic=0.81.2 libgtk-3-0=3.14.5-1+deb8u1 libvte-2.90-9=1:0.36.3-1 librest-0.7-0=0.7.92-3 libsoup2.4-1=2.48.0-1 glib-networking=2.42.0-2 libproxy1=0.4.11-4+b2 glib-networking-services=2.42.0-2 glib-networking-common=2.42.0-2
+# As usual, we then use the familiar commands "$ sudo aptitude clean; deborphan" and 
+# "$ sudo apt-get autoremove; $ sudo apt-get autoclean to clean up the mess. 
+# Make sure our glibc version is <b>2.19</b>
+$ find /lib/x86* -name "libc*so"
+/lib/x86_64-linux-gnu/libc-2.19.so
+/lib/x86_64-linux-gnu/libcidn-2.19.so
+/lib/x86_64-linux-gnu/libcrypt-2.19.so
+# After all of these procedures, must make sure our VM is still bootable by shutting it 
+# down and then boot it in foreground and shut it down again.
+# To prevent glibc, i.e. libc-2.19, from upgrading to newer package, edit avoid-systemd 
+# file by adding the next three lines to it:
+$ diff /etc/apt/preferences.d/avoid-systemd /etc/apt/preferences.d/avoid-systemd~
+5,7d4
+< Package: libc6
+< Pin: release a=stable
+< Pin-Priority: 2000
+</PRE>
+
+<P> Also comment out the sid branch in the /etc/apt/sources.list file.
+
+<h3>Gcc-4.8 or Gcc-4.9?</h3>
+
+<p><a href="http://lkml.iu.edu//hypermail/linux/kernel/1407.3/00650.html" 
+target="_b">gcc-4.9 is no good?</a>  I hence decided to install <b>gcc-4.8</b> via 
+<b>synaptic</b>. By the way <b>synaptic</b> spitted a lot of messages, such as:
+
+<PRE>
+"GLib-GObject-CRITICAL **: g_object_ref: assertion 'G_IS_OBJECT (object)' failed"
+</PRE>
+
+<OL>
+  <LI>Need to mount /usr/local rw 
+
+<PRE>
+$ diff /etc/rc.local /etc/rc.local.orig
+16c16
+< mount none /usr/local -t hostfs -o /usr/local 
+---
+> mount none /usr/local -t hostfs -o /usr/local -r
+</PRE>
+
+  <LI>Only fetch packages from jessie
+
+<PRE>
+$ diff /etc/apt/sources.list /etc/apt/sources.list~
+4c4
+< # deb http://140.120.7.21/debian sid main contrib
+---
+> deb http://140.120.7.21/debian sid main contrib
+</PRE>
+
+  <LI>Increase the storage space by 3500M
+
+<PRE>
+ Amath-Client20:/src3/UML$ ResizeRootFS DevUan-UltraLight.ext4 3500
+ Amath-Client20:/src3/UML$ ls -l DevUan-UltraLight.ext4
+ # -rw-r--r-- 1 hsu hsu 5243928576 Mar  9 22:31 DevUan-UltraLight.ext4
+</PRE>
+
+
+  <LI>Install emacs development related package
+
+<PRE>
+ $ cd InstallPackages
+ $ sudo ./reinstallMyPkg packages.txt
+ # The above command was done on ac20 
+ # 17 upgraded, 226 newly installed, 0 to remove and 0 not upgraded.
+ # Need to get 1093 MB of archives.
+ # During software installation, only 691MB storage space left.
+ # $ df
+ # Filesystem     1K-blocks    Used Available Use% Mounted on
+ # /dev/root        5007872 4044020    691420  86% / 
+ # package ca-certificates: Contains the certificate authorities shipped with 
+ # Mozilla's browser to allow SSL-based applications to check for the 
+ # authenticity of SSL connections. A rather lousy package, Always purge it if 
+ # possible at all!  After purging ca-certificates and all other packages: 
+ # $ df
+ # Filesystem     1K-blocks    Used Available Use% Mounted on
+ # /dev/root        5007872 2799440   1936000  60% /
+</PRE>
+
+  <LI> Porting <b>widgetlib</b> and <b>chinput</b>
+
+<b>Note: (03/09/2017)</b> We should try our best to place CHinese package in 
+   /src1.  This CHinese package was placed in /home directory in 1990 since 
+   our storage space is rather limited and usually, <b>/home</b> filesystem 
+   is seldom used. The following files have hardcoded "CHinese/Xwin" string 
+   in them.
+
+<PRE>
+$ pwd
+/home/CHinese/Xwin
+$ findstr -d . CHinese/Xwin
+./pcffont/plus
+./chinput/ch
+./widgetlib/Makefile
+$ findstr -d /src1/emacs-21 CHinese/Xwin
+./ChEUC/ChLog-21.4
+./src/chinput.c
+./src/Makefile.in
+</PRE>
+
+  <LI> Porting <b>emacs</b>
+
+<PRE>
+ $ cd /src1/emacs-21/objects 
+ $ myconf 
+</PRE> 
+
+  <LI> About <b>ch</b>
+
+<PRE>
+$ cat /src1/CH*/Xwin/chinput/ch
+#!/bin/bash
+cd /src1/CHinese/Xwin/chinput
+xset fp+ /src1/CHinese/Xwin/pcffont
+xset fp rehash
+xrdb -merge Chinese
+./CHinputCL -fn  ascii12x24&
+</PRE> 
+
+<P> We need to scp /src1/CHinese/Xwin directory to our physical host!
+
+<PRE>
+# In the host,
+$ sudo mkdir /src1/CHinese; sudo chown hsu:hsu /src1/CHinese
+$ scp $HOME/.emacs 192.168.2.*:$HOME/
+$ cd /src1/CHinese
+$ scp -r 192.168.2.*:`pwd`/Xwin . 
+# In the VM, 
+# $ cd /src1/CHinese
+# The next command won't work, host does not allow packets from 192.168.2.*
+# $ scp -r Xwin <i><b>host-ip</b></i>:/src1/CHinese
+</PRE>
+
+  <LI> Maybe a nice software development VM: 
+
+    <P>After installation of the compiled emacs-21.4, I have been testing it for a 
+       while.  So far so good.  We then try to port psgml and OpenJade packages
+
+    <P> Recall that we need to install more packages: xmlto, fort77 before we can 
+        successfully execute myconf. fort77 depends on gcc-4.9, unfortunately.  
+        So, I forcefully install it. And I dismiss class immediately. Well, it is 
+        a sound decision! At home, I spent 3 hours to investigate the problem we 
+        encountered. Although, OpenSP compilation was done successfully, and after 
+        installation, all commands, such as: <b>onsgmls</b> and <b>osgmlnorm</b>
+        can be invoked from emacs session, and behaved normally.
+
+    <P> But, after further investigation, C code was compiled by gcc-4.9 and cpp-4.9,
+        C++ code was compiled by g++-4.8.  Can we trust the software environment we 
+        created?  Sorry, a resounding NO!!  I then tried to link gcc related commands 
+        back to version 4.8 and recompiled everything.  So far so good.  But, We need 
+        to test our software environment more thoroughly!!  It is our honor in hand.
+       
+    <P> I then successfully compiled openjade-1.3.3 
+
+        <P> myconf end at the error message: <code>can not link config.h to 
+            ../include/config.h</code>, file exists.  But, with make command, 
+            successfully finished the openjade-1.3.3 compilation.  I spent another 
+            one hour to fix the C software development, such as symbolically link 
+            gcc back to gcc-4.8, etc. And then I made a new VM template so that next 
+            week, we can have a clean fresh start.
+
+
+    <P> We then successfully compiled guile-2 and dsc 
+    
+
+    <P> While generating document for dsc (<b>esch2</b>), we need the shell script 
+        <b>snarf-check-and-output-texi</b> to be in the directory: 
+        <code>/usr/local/share/guile/2.0/scripts</code> 
+        We have one copy in ac20! Also, need to install <b>texinfo</b> and 
+        <b>texi2html</b> packages to produce doc.txt (documentation for esch2).
+ 
+    <P> This is the first time we use UML to create a trustworthy software development 
+        VM and use it to enrich our software environment.  You learn a lot.
+
+  <LI>  ilisp+jacal+slib 
+
+<P> <code>$ cd /src1/guile-2/ilisp+jacal+slib</code>, and use firefox to read the 
+    <code>README.html</code> file first.
+
+<P> More References: 
+<OL>
+  <LI><a href="http://amdm/LectureNotes/Diaries/Topic-OS-1-2016.html#SchemeEnv" 
+         target="_b">Our Scheme Environment</a>
+
+  <LI><b>ilisp installation and maintenance</b>
+
+<PRE>
+   cd ilisp;
+   make compile
+   make loadfile
+   sudo make install
+   make clean
+</PRE>
+
+  <P> We then start an emacs session.  In it, "Esc-x load-library", answer it with 
+      "ilisp", then we execute "Esc-x run-ilisp".  If we are lucky, "Dialect: " is 
+      asked, answer it with "guile"
+
+  <P> If it complains with message "libaries not found", then we need to execute 
+      "sudo ldconfig" to update the database of share object library  searching 
+      path.
+
+  <P> Also, the older version of fns-21.4.1.el file was installed, but emacs will be 
+      searching for fns-21.4.1-x.el.  Don't know why, yet. We may make a symbolic link 
+      as follow:
+
+<PRE>
+$ ls -l /usr/local/libexec/emacs/21.4/fns-21.4.1*
+lrwxrwxrwx 1 root staff    13 Mar 27 11:30 /usr/local/libexec/emacs/21.4/fns-21.4.1-x.el -> fns-21.4.1.el
+-rw-r--r-- 1 root staff 54204 Jun  1  2016 /usr/local/libexec/emacs/21.4/fns-21.4.1.el
+</PRE>
+
+  <P> If emacs specifically complains about "libgc.so.1" (garbage collection share 
+      object library) not found. Need to reinstall it 
+
+<PRE>
+ $ sudo apt-get install libgc1c2 
+ # After we install it by hand, it will be reported as an orphaned package.  
+ # Very plausible, it will be accidently removed or purged.
+ hsu@av20:~$ deborphan
+libgc1c2
+</PRE>
+
+
+  <LI><a href="http://people.csail.mit.edu/jaffer/SLIB.html" target="_b">SLIB.html</a>
+
+<PRE>
+$ pwd
+/src1/guile-2/ilisp+jacal+slib/slib
+$ diff ./guile-2.init guile-2.init.orig
+562c562,563
+< 
+---
+> ;; DIMENSIONS->UNIFORM-ARRAY and list->uniform-array in Guile-1.6.4
+> ;; cannot make empty arrays.
+565,571c566,568
+<     (let ((fill (if (memv 0 (array-dimensions prot))
+<                    *unspecified*
+<                    (apply array-ref prot (map car (array-shape prot))))))
+<       (apply make-typed-array
+<             (array-type prot)
+<             fill
+<             args))))
+---
+>     (dimensions->uniform-array args (array-prototype prot)
+>                                (apply array-ref prot
+>                                       (map car (array-shape prot))))))
+624,641c621,641
+< (define (make-typed-wrapper pair)
+<   (lambda opt
+<     (if (null? opt)
+<        (list->typed-array (car pair) 1 (list (cdr pair)))
+<        (list->typed-array (car pair) 0 (car opt)))))
+< (define ac64 (make-typed-wrapper '(c64 . 0.0+0.0i)))
+< (define ac32 (make-typed-wrapper '(c32 . 0.0+0.0i)))
+< (define ar64 (make-typed-wrapper '(f64 . 0.0)))
+< (define ar32 (make-typed-wrapper '(f32 . 0.0)))
+< (define as64 (make-typed-wrapper '(s64 . 0)))
+< (define as32 (make-typed-wrapper '(s32 . 0)))
+< (define as16 (make-typed-wrapper '(s16 . 0)))
+< (define as8  (make-typed-wrapper '(s8 . 0)))
+< (define au64 (make-typed-wrapper '(u64 . 0)))
+< (define au32 (make-typed-wrapper '(u32 . 0)))
+< (define au16 (make-typed-wrapper '(u16 . 0)))
+< (define au8  (make-typed-wrapper '(u8 . 0)))
+< (define at1  (make-typed-wrapper '(b . #f)))
+---
+> (define (make-uniform-wrapper prot)
+>   (if (string? prot) (set! prot (string->number prot)))
+>   (if prot
+>       (lambda opt
+>         (if (null? opt)
+>             (list->uniform-array 1 prot (list prot))
+>             (list->uniform-array 0 prot (car opt))))
+>       vector))
+> (define ac64 (make-uniform-wrapper "+i"))
+> (define ac32 ac64)
+> (define ar64 (make-uniform-wrapper "1/3"))
+> (define ar32 (make-uniform-wrapper "1."))
+> (define as64 vector)
+> (define as32 (make-uniform-wrapper -32))
+> (define as16 as32)
+> (define as8  as32)
+> (define au64 vector)
+> (define au32 (make-uniform-wrapper  32))
+> (define au16 au32)
+> (define au8  au32)
+> (define at1  (make-uniform-wrapper  #t))
+# A file of 162 white space characters
+$ cat FileOfSize162
+                                                                                                                                                                
+# In case, during installation, you see "can't find ~$rnamdb.scm" message 
+cp FileOfSize162 \~\$rnamdb.scm
+# Next command can successfully install slib-3b5
+$ sudo make -d install 2>&1 | tee /tmp/slib-intallation.txt
+# In case, during installation, you see "can't create clrnamdb.scm"
+# clrnamdb.scm file exists.  It is dated 2011, much older than "Feb  1 20:44", the date
+# of file mkclrnam.scm
+$ touch clrnamdb.scm 
+</PRE>
+
+  <LI><a href="http://people.csail.mit.edu/jaffer/JACAL.html" target="_b">JACAL.html</a>
+
+  <LI><a href="https://sourceforge.net/projects/ilisp/" target="_b">sourceforge ilisp</a>
+
+  <LI><a href="" target="_b"></a>
+
+</OL>
+
+</OL>
+
+<a name="MoreNotesEmacs21.4Compilation"></a>
+<a href="http://emacs.1067599.n8.nabble.com/bug-24857-emacs24-25-FTBFS-since-a-long-time-on-GNU-Hurd-td412363.html" target="_b">emacs bug#24857</a>
+
+<h3>GCC-4 to GCC-5</h3>
+
+<P> References:
+
+<OL>
+  <LI><a href="https://gcc.gnu.org/onlinedocs/libstdc++/manual/using_dual_abi.html" 
+         target="_b">C++ forbids Copy-On-Write strings and requires lists to keep track 
+         of their size.</a>
+  <LI><a href="https://gcc.gnu.org/gcc-5/porting_to.html" target="_b"><b>Porting to 
+      GCC 5</b></a>
+  <LI><a href="http://devdocs.io/gcc/" target="_b"><b>GCC 6
+	documentation</b></a>&nbsp;&nbsp;
+    <a href="https://gcc.gnu.org/onlinedocs/gcc/Standards.html#C-Language"
+       target="_b"><b>Standards.html#C-Language</b></a>&nbsp;&nbsp;
+      <a href="https://linux.die.net/man/1/gcc" target="_b"><b>GCC 6
+      available -std options</b></a>
+</OL>
+
+<h4>Changes in ../src/emacs.c</h4>
+
+<PRE>
+$ diff ../src/emacs.c ../src/emacs.c~
+698,701c698
+< /* void (*__malloc_initialize_hook) () = malloc_initialize_hook; */
+< voidfuncptr volatile __malloc_initialize_hook __attribute__((externally_visible))
+<   = malloc_initialize_hook;
+< 
+---
+> void (*__malloc_initialize_hook) () = malloc_initialize_hook;
+</PRE>
+
+<h4>Changes in ../src/lisp.h</h4>
+
+<PRE>
+$ diff ../src/lisp.h ../src/lisp.h~
+2990,2991d2989
+< 
+< typedef void (*voidfuncptr) (void);
+</PRE>
+
+<h4>Changes in ../src/dispnew.c</h4>
+
+<PRE>
+$ diff ../src/dispnew.c ../src/dispnew.c.orig
+1259c1259
+< static INLINE void
+---
+> INLINE void
+</PRE>
+
+<h4>Changes in ../src/syntax.c</h4>
+
+<PRE>
+$ diff ../src/syntax.c ../src/syntax.c.orig
+319c319
+< static INLINE int
+---
+> INLINE int
+333c333
+< static INLINE int
+---
+> INLINE int
+</PRE>
+
+<h4>Changes in src/Makefile</h4>
+<PRE>
+$ diff Makefile Makefile~
+36c36
+< CFLAGS=-std=gnu90 -no-pie -g -O2
+---
+> CFLAGS=-g -O2
+81c81
+< LD=$(CC) -no-pie -nostdlib
+---
+> LD=$(CC) -nostdlib
+</PRE>
+
+<h4>Changes in src/config.h</h4>
+<PRE>
+  33c33
+< /* #define GNU_MALLOC 1 */
+---
+> #define GNU_MALLOC 1
+36,37c36
+< /* #define DOUG_LEA_MALLOC 1 */
+< /* #undef DOUG_LEA_MALLOC */
+---
+> #define DOUG_LEA_MALLOC 1
+41c40
+< /* #define REL_ALLOC 1 */
+---
+> #define REL_ALLOC 1
+</PRE>
+
+<h4><a href="https://opensource.apple.com/source/emacs/emacs-95/patches/src_eval.c.25331628.diff.auto.html" 
+target="_b">Changes in ../src/eval.c</a></h4>
+
+<PRE>
+$ diff ../src/eval.c ../src/eval.c~
+1013c1013
+<   volatile struct catchtag c;
+---
+>   struct catchtag c;
+1015,1017d1014
+<   /********************************************************/
+<   if (!&c) malloc (sizeof c);
+<   /********************************************************/
+1163,1164c1160,1161
+<   volatile struct catchtag c;
+<   volatile struct handler h;
+---
+>   struct catchtag c;
+>   struct handler h;
+1184,1186d1180
+<   /********************************************************/
+<   if (!&c) malloc (sizeof c);
+<   /********************************************************/
+1211,1213d1204
+<   /********************************************************/
+<   if (!&h) malloc (sizeof h);
+<   /********************************************************/
+1243,1244c1234,1235
+<   volatile struct catchtag c;
+<   volatile struct handler h;
+---
+>   struct catchtag c;
+>   struct handler h;
+1255,1257d1245
+<   /********************************************************/
+<   if (!&c) malloc (sizeof c);
+<   /********************************************************/
+1273,1276d1260
+< 
+<   /********************************************************/
+<   if (!&h) malloc (sizeof h);
+<   /********************************************************/
+1299,1300c1283,1284
+<   volatile struct catchtag c;
+<   volatile struct handler h;
+---
+>   struct catchtag c;
+>   struct handler h;
+1302,1304d1285
+<   /********************************************************/
+<   if (!&c) malloc (sizeof c);
+<   /********************************************************/
+1320,1323d1300
+< 
+<   /********************************************************/
+<   if (!&h) malloc (sizeof h);
+<   /********************************************************/
+1349,1350c1326,1327
+<   volatile struct catchtag c;
+<   volatile struct handler h;
+---
+>   struct catchtag c;
+>   struct handler h;
+1352,1354d1328
+<   /********************************************************/
+<   if (!&c) malloc (sizeof c);
+<   /********************************************************/
+1370,1373d1343
+< 
+<   /********************************************************/
+<   if (!&h) malloc (sizeof h);
+<   /********************************************************/
+</PRE>
+
+<P> On ac07, I did the following:
+
+<PRE>
+$ cat /proc/sys/kernel/randomize_va_space
+2
+$ echo "0" | sudo tee /proc/sys/kernel/randomize_va_space
+$ cat /proc/sys/kernel/randomize_va_space
+0
+$ cd /home/CHinese/Xwin/widgetlib
+# Edit the Makefile 
+$ diff Makefile Makefile.orig
+8c8
+< CFLAGS	=	-no-pie $(OPTIONS) -L/usr/X386/include 
+---
+> CFLAGS	=	$(OPTIONS) -L/usr/X386/include 
+$ cd ../chinput 
+# Edit the Makefile 
+$ cd ../chinput
+$ diff Makefile Makefile.orig
+3c3
+<              CC = gcc -no-pie 
+---
+>              CC = gcc 
+$ cd ../widgetlib; make; make clean; cd ../chinput; make; make clean
+# Execute "$ ch&", It should work normally.
+$ cd /src1/emacs-21/objects 
+$ cpuarc="x86_64"; export cpuarc; echo $cpuarc
+x86_64
+$ ../configure  --build ${cpuarc}-pc-linux-gnu --with-x-toolkit=lucid  --without-xim --prefix=/usr/local
+$ chmod 644 src/Makefile
+$ emacs src/Makefile # Add string "-dynamic-linker /lib/x86_64-linux-gnu/ld-2.24.so" to 
+                     # The LDFLAGS macro.
+LDFLAGS=-dynamic-linker /lib/x86_64-linux-gnu/ld-2.24.so 
+$ cd /usr/lib
+$ sudo ln -s x86_64-linux-gnu/crt1.o crt1.o
+[sudo] password for hsu: 
+$ sudo ln -s x86_64-linux-gnu/crti.o crti.o
+$ sudo ln -s x86_64-linux-gnu/crtn.o crtn.o
+$ cd /src1/emacs-21/objects
+$ setarch x86_64  make
+/usr/lib/crt1.o: relocation R_X86_64_32S against symbol `__libc_csu_fini' can not be used
+$ emacs src/Makefile&
+# At line 36 and line 81 of src/Makefile, add string "-no-pie" to CFLAGS and LD macros.
+CFLAGS=-no-pie -g -O2
+LD=$(CC) -no-pie -nostdlib
+# Sorry, by the way, indeed, "-no-pie" is an option for linking, 
+# <a href="https://gcc.gnu.org/onlinedocs/gcc/Link-Options.html" target="_b">ld Options</a>
+# -no-pie: Don't produce a position independent executable. 
+# Add string "-dynamic-linker /lib/x86_64-linux-gnu/ld-2.24.so" to LDFLAGS at line 38
+LDFLAGS=-dynamic-linker /lib/x86_64-linux-gnu/ld-2.24.so 
+$ diff Makefile Makefile.orig
+66,67c66,67
+< CFLAGS=-no-pie -g -O2
+< LDFLAGS=-dynamic-linker /lib/x86_64-linux-gnu/ld-2.24.so 
+---
+> CFLAGS=-g -O2
+> LDFLAGS= 
+$ cwd=`pwd`
+# Sorry, this makes things worse. 
+# <a href="http://dev.gentoo.org/~vapier/crt.txt" target="_b">misc libc/gcc crt files</a>
+# In short, <a href="http://stackoverflow.com/questions/16436035/whats-the-usage-of-mcrt1-o-and-scrt1-o" target="_b">(Source Origin)</a>
+# crt0.o
+#   Older style of the initial runtime code ?  Usually not generated anymore
+#   with Linux toolchains, but often found in bare metal toolchains.  Serves
+#   same purpose as crt1.o (see below).
+# crt1.o
+#   Newer style of the initial runtime code.  Contains the _start symbol which
+#   sets up the env with argc/argv/libc _init/libc _fini before jumping to the
+#   libc main.  glibc calls this file 'start.S'.
+# crti.o
+#   Defines the function prolog; _init in the .init section and _fini in the
+#   .fini section.  glibc calls this 'initfini.c'.
+# crtn.o
+#   Defines the function epilog.  glibc calls this 'initfini.c'.
+# Scrt1.o
+#   Used in place of crt1.o when generating PIEs.
+# gcrt1.o
+#   Used in place of crt1.o when generating code with profiling information.
+#   Compile with -pg.  Produces output suitable for the gprof util.
+# Mcrt1.o
+#   Like gcrt1.o, but is used with the prof utility.  glibc installs this as
+#   a dummy file as it's useless on linux systems.
+$ cd /usr/lib
+$ sudo rm crt1.o; sudo ln -s x86_64-linux-gnu/Scrt1.o crt1.o
+$ setarch x86_64  make
+$ ls -l src/temacs
+$ src/temacs --help
+Usage: src/temacs [OPTION-OR-FILENAME]...
+
+Run Emacs, the extensible, customizable, self-documenting real-time
+   . 
+   . 
+   . 
+</PRE> 
+
+<h3>Downgrade GCC
+
+<a href="http://askubuntu.com/questions/724872/downgrade-gcc-from-5-2-1-to-4-9-ubuntu-15-10"  
+target="_b">From 5.2.1 to 4.9 Howto</a>.</h3>
+
+<P> The gcc compilers 5.4 and 6.3 in our mirror have rather different shortcomings.  I 
+    tested both of them. And    there are a whole bunch of incompatible (and 
+    inconsistent/doubtful) solutions.  It seems none of them would be a long term 
+    solution.  Well, let's wait and see.
+
+<P> The available gcc- from our mirror:
+
+<OL>
+  <li><a href="http://amdm/debian/pool/main/g/gcc-3.3/" 
+         target="_b">gcc-3.3</a>
+  <li><a href="http://amdm/debian/pool/main/g/gcc-4.8/" 
+         target="_b">gcc-4.8</a>
+  <li><a href="http://amdm/debian/pool/main/g/gcc-4.9/" 
+         target="_b">gcc-4.9</a>
+  <li><a href="http://amdm/debian/pool/main/g/gcc-5/" 
+         target="_b">gcc-5</a>
+  <li><a href="http://amdm/debian/pool/main/g/gcc-6/" 
+         target="_b">gcc-6</a>
+  <li><a href="http://amdm/debian/pool/main/g/" 
+         target="_b">parent g directory</a>
+</OL> 
+
+
+<h3>Notes On Emacs Compilation</h3>
+
+<OL>
+  <LI> Because of <code>exec-shield</code> problem described in the file 
+       <code>/usr/local/share/emacs/21.4/etc/PROBLEMS</code>, "dump emacs"
+       always causes segmentation fault or an emacs of huge size, say more than 1 GB.
+
+<PRE>
+$ make 
+emacs: Can't ftruncate (/src1/emacs-21/objects/src/emacs): errno 22
+$ ls -l src/emacs
+-rw-r--r-- 1 hsu hsu 0 Feb 17 22:27 src/emacs
+$ make 
+   .
+   .
+Makefile:505: recipe for target 'bootstrap-emacs' failed
+make[2]: *** [bootstrap-emacs] Segmentation fault
+   .
+   .
+$ ls -l src/emacs
+-rw-r--r-- 1 hsu hsu 811814384 Feb 17 22:29 src/emacs
+# 811MB, 
+</PRE>
+
+    <P> Two (or three) things must be resolved: The third is doubtful.
+
+    <UL>
+       <LI> For security reason, the <a href="#AboutExecShield" 
+            target="_b"><b>exec-shield</b></a> feature in modern linux is always on.
+            In recent linux kernel, this is controlled by <code>randomize_va_space</code>
+
+<PRE>
+$ Amath-Client07:~$ cat /proc/sys/kernel/randomize_va_space
+2
+$ Amath-Client07:~$ sudo dmesg | grep --color '[NX|DX]*protection'
+[    0.000000] NX (Execute Disable) protection: active
+# Do not randomize stack and vdso page.
+$ Amath-Client07:~$ echo "0" | sudo tee /proc/sys/kernel/randomize_va_space
+$ Amath-Client07:~$ cat /proc/sys/kernel/randomize_va_space
+0
+</PRE>
+
+           <P>Hopefully, this will correctly produce emacs 21.4, our beloved tool.
+       <LI> INLINE function declaration need to be prefixed with static.  Otherwise, 
+            undefined reference to 'copy_row_except_pointers'. dispnew.c and syntax.c
+       <LI> In the <code>src/Makefile</code>, at two places, <code>./temacs</code> is 
+            invoked, add "setarch x86_64 " string in front of it.
+    </UL>
+
+  <LI> Emacs chinese support: 
+
+     <UL>
+       <LI> Gcc 6.3 
+         <P> Add the "-no-pie" string to the CFLAGS and CC macros respectively in the 
+             <code>widgetlib/Makefile</code> and <code>chinput/Makefile</code> files.
+             Otherwise, CHinputCL will causes segmentation fault.</p>
+       <LI> Gcc 5.4: Nothing to be done. 
+     </UL>
+  <LI> relocation R_X86_64_32S against `__libc_csu_fini' can't be used when making a 
+       .so; recompile with -fPIC: 
+
+     <UL>
+        <LI> <b>Plausible Solution:</b> Check:
+       <a href="#libc_csu_finiAnd_init" target="_b">libc_csu_fini</a>, <b>first</b>.
+
+        <LI> <b>Probably, a false statement: (02/25/2017)</b>  Can be solved by linking 
+        against <code>/usr/lib/x86_64-linux-gnu/Scrt1.o</code>, instead of 
+        <code>crt1.o</code> in the <code>src/Makefile</code>.  I haven't yet completed 
+        the whole test. 
+
+        <P> src/temacs executable created successfully and the command "src/temacs 
+           --help" executed successfully.
+     </UL>
+
+  <LI> On ac10, downgrade gcc 6 to gcc 5.
+
+<PRE>
+ $ myconf
+ # src/temacs /src/emacs were built successfully
+ $ src/emacs
+*** Error in `src/emacs': corrupted double-linked list: 0x000000000094eca0 ***
+^C
+</PRE>
+
+<P>Probably, the message 
+<a href="https://sourceware.org/git/?p=glibc.git;a=blob;f=malloc/malloc.c#l1382" 
+target="_b">corrupted double-linked list</a> is produced by malloc.c of glibc. 
+Probably, need to trace the 
+<a href="https://lists.gnu.org/archive/html/bug-gnu-emacs/2016-02/msg00026.html" 
+target="_b">bug#22522 breaks emacs</a>&nbsp;&nbsp;
+<a href="https://lists.gnu.org/archive/html/emacs-bug-tracker/2016-02/msg00025.html" 
+target="_b">bug#22522: closed</a>
+ 
+ <P> Hopefully, the following might provide a cure: <a target="_b" 
+href="https://lists.gnu.org/archive/html/emacs-diffs/2016-02/msg00025.html">Port 
+malloc.h hygiene fix to LTO</a>
+
+<PRE>
+From: 	Paul Eggert
+Subject: [Emacs-diffs] master 39d8cac: Port malloc.h hygiene fix to LTO
+Date: 	Tue, 02 Feb 2016 17:16:51 +0000
+
+branch: master
+commit 39d8cac38b1668b3dc12dd5a2cfa35ce57adbac9
+Author: Paul Eggert <address@hidden>
+Commit: Paul Eggert <address@hidden>
+
+    Port malloc.h hygiene fix to LTO
+    
+    * src/alloc.c (__malloc_initialize_hook):
+    Make it externally visible (Bug#22522).
+---
+ src/alloc.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
+
+diff --git a/src/alloc.c b/src/alloc.c
+index 57ef4c5..b40c1f3 100644
+--- a/src/alloc.c
++++ b/src/alloc.c
+@@ -157,10 +157,12 @@ malloc_initialize_hook (void)
+     }
+ }
+ 
++/* Declare the malloc initialization hook, which runs before 'main' starts.
++   EXTERNALLY_VISIBLE works around Bug#22522.  */
+ # ifndef __MALLOC_HOOK_VOLATILE
+ #  define __MALLOC_HOOK_VOLATILE
+ # endif
+-voidfuncptr __MALLOC_HOOK_VOLATILE __malloc_initialize_hook
++voidfuncptr __MALLOC_HOOK_VOLATILE __malloc_initialize_hook EXTERNALLY_VISIBLE
+   = malloc_initialize_hook;
+ #endif
+</PRE>
+
+<P> See <a href="https://github.com/emacs-mirror/emacs/blob/master/src/alloc.c#L165" 
+   target="_b">alloc.c line: 165</a>, the patched file.  For older emacs, (say 21.4), 
+   this function is defined in emacs.c (Line 698).
+
+<P> For the externally_visible function attribute, see <a target="_b" 
+href="https://gcc.gnu.org/onlinedocs/gcc/Common-Function-Attributes.html#index-g_t_0040code_007bexternally_005fvisible_007d-function-attribute-3306">externally_visible</a>
+
+<P> 
+  <OL>
+    <LI>Get emacs-26 source from https://github.com/emacs-mirror/emacs/blob/master
+    <LI>Use myconf to make.  Successfully done the compilation
+    <LI>Modify src/Makefile by adding the next three lines at Line 553.  Notice the 
+        the leading spaces at lines 2 and 3 are tab characters.  These two lines are 
+        commands for "make" to execute
+
+<PRE>
+alloc: alloc.c
+	@$(MKDEPDIR)
+	$(AM_V_CC)cpp -DDOUG_LEA_MALLOC -E $(CPPFLAGS) -I/usr/include/unistring  -I/usr/include/linux -I/usr/include/c++/5/tr1 -I/usr/include/c++/5 -I/usr/lib/gcc/x86_64-linux-gnu/5/include  -I/usr/include/x86_64-linux-gnu/c++/5/ $(ALL_CFLAGS) $(PROFILING_CFLAGS) $<
+</PRE>
+
+    <LI>make alloc | tee /tmp/alloc.C
+
+       <P> From file <code>/tmp/alloc.C</code>, we found out the macro (at line 171) 
+           got processed (by cpp) to the second line.
+
+<PRE>
+voidfuncptr __MALLOC_HOOK_VOLATILE __malloc_initialize_hook EXTERNALLY_VISIBLE
+voidfuncptr volatile __malloc_initialize_hook __attribute__((externally_visible))
+  = malloc_initialize_hook;
+</PRE>
+    <LI>Accordingly, we modify <code>src/emacs.c</code> as follow:
+
+<PRE>
+$ diff emacs.c emacs.c~
+698,699c698
+< /* void (*__malloc_initialize_hook) () = malloc_initialize_hook; */
+< voidfuncptr volatile __malloc_initialize_hook __attribute__((externally_visible))
+<   = malloc_initialize_hook;
+---
+> void (*__malloc_initialize_hook) () = malloc_initialize_hook;
+</PRE>
+    <LI> Still, when executing src/emacs-21.4, we saw: 
+
+<PRE>
+*** Error in `src/emacs-21.4': corrupted double-linked list: 0x0000000000d93520 ***
+</PRE>
+  </OL>
+</OL>
+
+<hr>
+
+<a name="AboutExecShield"></a>
+<h3 class="headline" itemprop="headline">Debian Linux: Turn On Exec-Shield Buffer 
+Overflow Protection 
+<a href="https://www.cyberciti.biz/faq/ubuntu-exec-shield-protection-nx-bit-protection-sysctl/"
+target="_b">(Source Origin)</a></h3>
+
+<P><span class="post_author_intro">by</span> <span class="post_author" 
+   itemprop="author">Vivek Gite</span>
+   <span class="post_date_intro">on</span> <span class="post_date" 
+   title="2013-05-19">May 19, 2013<span style="font-style: italic; text-transform: 
+   lowercase;"> last updated </span>June 4, 2013</span> 
+   <span class="post_cats_intro">in</span> 
+   <a href="https://www.cyberciti.biz/faq/category/security/" rel="category 
+   tag">Security</a>,<a href="https://www.cyberciti.biz/faq/category/ubuntu-linux/" 
+   rel="category tag">Debian Linux</a>
+</P>
+
+<blockquote><p>sysctl -w kernel.exec-shield=1<br>
+error: "kernel.exec-shield" is an unknown key</p></blockquote>
+
+<p>How do I fix this problem and make sure exec-shield buffer overflow  protection 
+security feature turned on Debian Linux?<br>
+<span id="more-13280"></span><br>
+Linux kernel (or patch to kernel) provides ExecShield feature to protect against buffer 
+overflows such as:</p>
+
+<ol>
+  <li>Random placement of the stack </li>
+  <li>Random placement of memory regions</li>
+  <li>Prevention of execution in memory that should only hold data</li>
+  <li>Handling of text buffers with care and more.</li>
+</ol>
+
+<p>Debian kernel has <kbd>No Execute (NX)</kbd> or <kbd>Execute Disable (XD)</kbd>
+ support. This does exactly the same thing  to prevent code execution on
+ a per memory page basis. If you are using Intel processors you should 
+ see the following message when system boots:</p>
+
+ <pre>
+    <span style="color: #c20cb9;">dmesg | grep --color '[NX|DX]*protection'</span>
+ </pre></td></tr>
+
+
+<p>Sample outputs:
+
+<PRE>
+$ sudo dmesg | grep --color '[NX|DX]*protection'
+[sudo] password for hsu: 
+[    0.000000] NX (Execute Disable) protection: active
+</PRE>
+</p>
+
+<P>This is the equivalent of the CentOS or SL or RHEL (Red Hat) Exec Shield kernel 
+security feature. If you do not see the message, reboot the server and set XD/NX 
+protection using BIOS setup.<p></p>
+
+<h4>Make sure kernel.randomize_va_space enabled</h4>
+
+<p>Type the  command: <code>sysctl -w kernel.randomize_va_space=1</code><br>
+OR, edit the file <code>/etc/sysctl.conf</code> and append/modify as follows:</p>
+
+<pre>
+  kernel.randomize_va_space = 1
+</pre>
+
+<p>The <kbd>randomize_va_space</kbd> can have any one of the following values:</p>
+<ul>
+  <li>0 - Do not randomize stack and vdso page.</li>
+  <li>1 - Turn on protection and randomize stack, vdso page and mmap.</li>
+  <li>2 - Turn on protection and randomize stack, vdso page and mmap + randomize brk 
+          base address.</li>
+</ul>
+
+<p>I highly recommend that you read our faq 
+<a href="https://www.cyberciti.biz/faq/linux-kernel-etcsysctl-conf-security-hardening/" 
+target="_b">Security Hardening Via Sysctl</a> for more information.</p>
+<hr>
+
+<a name="libc_csu_finiAnd_init"></a>
+<h3 itemprop="name">Linking a C program directly with ld fails with undefined reference 
+to '__libc_csu_fini' 
+<a href="http://stackoverflow.com/questions/6656317/linking-a-c-program-directly-with-ld-fails-with-undefined-reference-to-libc-c" 
+target="_b">(Source Origin)</a></h3>
+
+<P><b>Note: (02/25/2017)</b> Edited by Felix Hsu for Debian.
+
+<p>I'm trying to compile a C program under Linux. However, out of curiosity, I'm trying to execute some steps by hand: I use:</p>
+
+<ul>
+<li>the gcc frontend to produce assembler code</li>
+<li>then run the GNU assembler to get an object file</li>
+<li>and then link it with the C runtime to get a working executable.</li>
+</ul>
+
+<p>Now I'm stuck with the linking part.</p>
+
+<p>The program is a very basic "Hello world":</p>
+
+<pre>
+#include &lt;stdio.h&gt;
+int main() {
+   printf("Hello\n");
+   return 0;
+}
+</pre>
+
+<p>I use the following command to produce the assembly code:</p>
+
+<pre>
+$ gcc hello.c -S 
+</pre>
+
+<p>I'm telling gcc to quit after compiling and dump the assembly code with Intel syntax.</p>
+
+<p>Then I use th GNU assembler to produce the object file:</p>
+
+<pre>
+$ as -o hello.o hello.s
+</pre>
+
+<p>Then I try using ld to produce the final executable. But I keep on getting the 
+following error message: </p>
+
+<pre>
+$ ld hello.o /usr/lib/x86_64-linux-gnu/libc.so /usr/lib/crt1.o -o hello
+/usr/lib/crt1.o: In function `_start':
+(.text+0x12): undefined reference to `__libc_csu_fini'
+/usr/lib/crt1.o: In function `_start':
+(.text+0x19): undefined reference to `__libc_csu_init' 
+# __libc_csu_fini and __libc_csu_init are undefined in crt1.o
+$ nm /usr/lib/crt1.o | grep libc_csu
+                 U __libc_csu_fini
+                 U __libc_csu_init
+# In fact, they are defined in libc_nonshared.a 
+$ nm /usr/lib/x86_64-linux-gnu/libc_nonshared.a  | grep libc_csu
+0000000000000070 T __libc_csu_fini
+0000000000000000 T __libc_csu_init
+</pre>
+
+<p>The symbols <code>__libc_csu_fini/init</code> seem to be a part of glibc, but I can't 
+find them anywhere! I tried linking against libc statically (against 
+<code>/usr/lib/libc.a</code>) with the same result.</p>
+
+<p>What could the problem be?</p>
+
+
+<P>what does objdump show for your crt1.o.  Mine shows those symbols -
+    -&nbsp;<a href="http://stackoverflow.com/users/348312/jim-mcnamara">jim mcnamara</a>
+<a class="comment-link" href="#comment7868069_6656317">Jul 11 '11 at 21:02</a>
+
+<PRE>
+$ objdump -t /usr/lib/crt1.o
+
+/usr/lib/crt1.o:     file format elf64-x86-64
+
+SYMBOL TABLE:
+0000000000000000 l    d  .text	0000000000000000 .text
+0000000000000000 l    d  .note.ABI-tag	0000000000000000 .note.ABI-tag
+0000000000000000 l    d  .rodata.cst4	0000000000000000 .rodata.cst4
+0000000000000000 l    d  .eh_frame	0000000000000000 .eh_frame
+0000000000000000 l    d  .data	0000000000000000 .data
+0000000000000000 l    d  .bss	0000000000000000 .bss
+0000000000000000 l    d  .note.GNU-stack	0000000000000000 .note.GNU-stack
+0000000000000000         *UND*	0000000000000000 __libc_csu_fini
+0000000000000000 g     F .text	000000000000002b _start
+0000000000000000         *UND*	0000000000000000 __libc_csu_init
+0000000000000000         *UND*	0000000000000000 main
+0000000000000000  w      .data	0000000000000000 data_start
+0000000000000000         *UND*	0000000000000000 _GLOBAL_OFFSET_TABLE_
+0000000000000000 g     O .rodata.cst4	0000000000000004 _IO_stdin_used
+0000000000000000         *UND*	0000000000000000 __libc_start_main
+0000000000000000 g       .data	0000000000000000 __data_start
+</PRE>
+
+<P> Fixing the object file order and adding <code>/usr/lib/crti.o</code> to the mix gets 
+me past the linker but the resultant executable won't run (<code>bash: ./hello: No such 
+file for directory</code>) so something else is missing.
+  -&nbsp;<a href="http://stackoverflow.com/users/479863/mu-is-too-short">mu is too 
+short</a>
+ <a class="comment-link" href="#comment7868470_6656317">Jul 11 '11 at 21:26</a>
+ 
+<P> Same for code manually written in assembly: <a href="http://stackoverflow.com/questions/3577922/how-to-link-a-gas-assembly-file-as-a-c-program-with-ld-without-using-gcc/30705769#30705769">stackoverflow.com/questions/3577922/...</a>
+   -&nbsp;Ciro Santilli Jun 8 '15 at 10:49
+                                                                     
+<h4>7 Answers</h4>
+<hr>
+ 
+<OL>
+  <LI><b>A quick answaer:</b>
+
+    <P>I found <a href="http://stackoverflow.com/questions/5821237/linking-a-dynamically-linked-executable-with-ld/6656952#6656952">another post</a> which contained a clue: 
+<code>-dynamic-linker /lib/ld-linux.so.2</code>.</p>
+
+<p>Try this:</p>
+
+<pre>
+$ gcc hello.c -S -masm=intel
+$ as -o hello.o hello.s
+$ ld -o hello -dynamic-linker /lib/ld-linux.so.2 /usr/lib/crt1.o /usr/lib/crti.o hello.o -lc /usr/lib/crtn.o
+$ ./hello
+hello, world
+$ 
+</pre>
+
+<pre>
+# In Debian, Gcc 6.3
+$ ld -o hello -dynamic-linker /lib/ld-linux.so.2 /usr/lib/crt1.o /usr/lib/crti.o hello.o -lc /usr/lib/crtn.o
+$ ./hello
+bash: ./hello: Accessing a corrupted shared library
+# The above command invokes 32 bit dynamically linked stripped shared object.
+$ ls -l /lib/ld-linux.so.2
+lrwxrwxrwx 1 root root 20 Jan 17 01:43 /lib/ld-linux.so.2 -> /lib32/ld-linux.so.2
+$ ls -l /lib32/ld-*
+-rwxr-xr-x 1 root root 146716 Jan 17 01:43 /lib32/ld-2.24.so
+lrwxrwxrwx 1 root root     10 Jan 17 01:43 /lib32/ld-linux.so.2 -> ld-2.24.so
+$ file /lib32/ld-2.24.so
+/lib32/ld-2.24.so: ELF 32-bit LSB shared object, Intel 80386, version 1 (SYSV), dynamically \
+linked, BuildID[sha1]=eb5b66c4b94806d65ac49b221d5dab568c9c99b9, stripped
+# Our hosts are all 64-bit, use the suitable dynamically linked stripped shared object.
+$ find /lib -name ld-2.24.so # We need a genuine 64-bit dynamically linked shared object.
+/lib/x86_64-linux-gnu/ld-2.24.so
+$ ld -o hello -dynamic-linker /lib/x86_64-linux-gnu/ld-2.24.so /usr/lib/crt1.o /usr/lib/crti.o hello.o -lc /usr/lib/crtn.o
+hsu@amd-6:/tmp/tmp$ ./hello
+Hello
+$ ls -l /lib/x86_64-linux-gnu/ld-2.24.so
+-rwxr-xr-x 1 root root 153288 Jan 17 01:43 /lib/x86_64-linux-gnu/ld-2.24.so
+$ file /lib/x86_64-linux-gnu/ld-2.24.so
+/lib/x86_64-linux-gnu/ld-2.24.so: ELF 64-bit LSB shared object, x86-64, version 1 (SYSV),\ 
+dynamically linked, BuildID[sha1]=095935d2da92389e2991f2b56d14dab9e6978696, stripped
+</pre>
+<hr>
+            
+  <LI><b>A reasonable Answer</b>
+
+    <P><code>/usr/lib/libc.so</code> is a linker script which tells the linker to pull in 
+the shared library <code>/lib/libc.so.6</code>, and a non-shared portion, 
+<code>/usr/lib/libc_nonshared.a</code>.</p>
+
+<PRE>
+$ find /usr/lib -name libc.so
+/usr/lib/x86_64-linux-gnu/libc.so
+$ cat /usr/lib/x86_64-linux-gnu/libc.so
+/* GNU ld script
+   Use the shared library, but some functions are only in
+   the static library, so try that secondarily.  */
+OUTPUT_FORMAT(elf64-x86-64)
+GROUP ( /lib/x86_64-linux-gnu/libc.so.6 /usr/lib/x86_64-linux-gnu/libc_nonshared.a  AS_NEEDED ( /lib/x86_64-linux-gnu/ld-linux-x86-64.so.2 ) )
+</PRE>
+
+<p><code>__libc_csu_init</code> and <code>__libc_csu_fini</code> come from 
+<code>/usr/lib/libc_nonshared.a</code>.  They're not being found because references to 
+symbols in non-shared libraries need to appear <em>before</em> the archive that defines 
+them on the linker line.  In your case, <code>/usr/lib/crt1.o</code> (which references 
+them) appears <em>after</em> <code>/usr/lib/libc.so</code> (which pulls them in), so it 
+doesn't work.</p>
+
+<PRE>
+$ find /usr/lib -name libc_nonshared.a
+/usr/lib/x86_64-linux-gnu/libc_nonshared.a
+hsu@amd-6:~$ nm /usr/lib/x86_64-linux-gnu/libc_nonshared.a | grep __libcsu_
+hsu@amd-6:~$ nm /usr/lib/x86_64-linux-gnu/libc_nonshared.a | grep __libc_csu_
+0000000000000070 T __libc_csu_fini
+0000000000000000 T __libc_csu_init
+</PRE>
+
+<p>Fixing the order on the link line will get you a bit further, but then you'll 
+probably get a new problem, where <code>__libc_csu_init</code> and 
+<code>__libc_csu_fini</code> (which are now found) can't find <code>_init</code> and 
+<code>_fini</code>.  In order to call C library functions, you should also link 
+<code>/usr/lib/crti.o</code> (after <code>crt1.o</code> but <em>before</em> the C 
+library) and <code>/usr/lib/crtn.o</code> (<em>after</em> the C library), which 
+contain initialisation and finalisation code.</p>
+
+<h4>Where are <code>crt1.o</code>, <code>crti.o</code>, and <code>crtn.o</code>?</h4>
+
+<P><b>Note: (02/25/2017)</b> Apparently, they are symbolical link created by me several 
+years ago.
+
+<PRE>
+$ ls -l /usr/lib/crt*
+lrwxrwxrwx 1 root root 23 Jul  8  2012 /usr/lib/crt1.o -> x86_64-linux-gnu/crt1.o
+lrwxrwxrwx 1 root root 23 Jul  8  2012 /usr/lib/crti.o -> x86_64-linux-gnu/crti.o
+lrwxrwxrwx 1 root root 23 Jul  8  2012 /usr/lib/crtn.o -> x86_64-linux-gnu/crtn.o
+</PRE>
+
+<p>Adding those should give you a successfully linked executable.  It <em>still</em>
+ won't work, because it uses the dynamically linked C library without specifying what 
+the dynamic linker is.  You'll need to tell the linker that as well, with something 
+like <code>-dynamic-linker /lib/ld-linux.so.2</code> (for 32-bit x86 at least; the 
+name of the standard dynamic linker varies across platforms).</p>
+
+<PRE>
+$ ls -l /lib/ld-linux.so.2
+lrwxrwxrwx 1 root root 20 Jan 17 01:43 /lib/ld-linux.so.2 -> /lib32/ld-linux.so.2
+$ find /lib -name ld-2.24.so # We need a genuine 64-bit dynamically linked shared object.
+/lib/x86_64-linux-gnu/ld-2.24.so
+</PRE>
+
+<p>If you do all that (essentially as per Rob's answer), you'll get something that works 
+in simple cases.  But you may come across further problems with more complex code, as 
+GCC provides some of its own library routines which may be needed if your code uses 
+certain features.  These will be buried somewhere deep inside the GCC installation 
+directories...</p>
+
+<p>You can see what <code>gcc</code> is doing by running it with either the 
+<code>-v</code> option (which will show you the commands it invokes as it runs), or 
+the <code>-###</code> option (which just prints the commands it would run, with all 
+of the arguments quotes, but doesn't actually run anything).  The output will be 
+confusing unless you know that it usually invokes <code>ld</code> indirectly via one 
+of its own components, 
+<a href="http://gcc.gnu.org/onlinedocs/gcc-4.6.1/gccint/Collect2.html" 
+target="_b"><code>collect2</code></a> (which is used to glue in C++ constructor calls 
+at the right point).</p>
+
+<P><blockquote>Brilliant. Clearly-explained, concise, and pared down to the essentials.  
+I have been navigating the jungle that is ld, porting a directly-linked executable from 
+Solaris to Linux and ended up here because I was reduced to swapping the order of the 
+objects on the linker line as I attempted to resolve a "Permission denied" error when 
+executing the just-linked executable.  For anyone else who encounters "Permission 
+denied" after compiling or linking an executable, the ticket may be specifying the 
+dynamic linker as Matthew explains.  It was for me.
+  -&nbsp;<a href="http://stackoverflow.com/users/1112244/peter">Peter</a> 
+Jun 11 '13 at 16:55</blockquote>
+<hr>
+  
+<a name="6658034"></a>
+  <LI><b>What gcc is doing?</b>
+
+<p>Assuming that a normal invocation of <code>gcc -o hello hello.c</code> produces a 
+working build, run this command:</p>
+
+<pre>
+$ gcc --verbose -o hello hello.c
+</pre>
+
+<p>and gcc will tell you how it's linking things.  That should give you a good idea of 
+everything that you might need to account for in your link step.</p>
+<hr>
+
+  <LI><b>ubuntu 11.10</b>
+
+<p>This is how I fixed it on ubuntu 11.10:</p>
+
+<pre>
+$ apt-get remove libc-dev
+</pre>
+
+<p>Say yes to remove all the packages but copy the list to reinstall after.</p>
+
+<pre>
+$ apt-get install libc-dev
+</pre>
+<hr>
+
+
+  
+<a name="6656635"></a>
+  <LI><b>64-bit OS</b>
+<p>If you're running a 64-bit OS, your glibc(-devel) may be broken. By looking at 
+<a href="http://www.linuxquestions.org/questions/linux-general-1/undefined-reference-to-%60__libc_csu_fini-849247/">this</a> and 
+<a href="http://www.archivum.info/gnu.gcc.help/2006-05/00006/__libc_csu_fini-and-__libc_csu_init.html">this</a> 
+you can find these 3 possible solutions:</p>
+
+<ol>
+  <li>add lib64 to LD_LIBRARY_PATH</li>
+  <li>use lc_noshared</li>
+  <li>reinstall glibc-devel</li>
+</ol>
+<hr>
+
+  <LI><b> doing the link process by hand</b> 
+<p>Since you are doing the link process by hand, you are forgetting to link the C run time initializer, or whatever it is called.</p>
+
+<p>To not get into the specifics of where and what you should link for 
+you platform, after getting your intel asm file, use gcc to generate 
+(compile and link) your executable.</p>
+
+<p>simply doing <code>gcc hello.c -o hello</code> should work.</p>
+    </div>
+
+
+  
+<hr>
+<a name="30711076"></a>
+  <LI><b>
+<p>In Ubuntu 14.04 (GCC 4.8), the minimal linking command is:</p></b>
+
+<pre>
+ld -dynamic-linker /lib64/ld-linux-x86-64.so.2 \
+  /usr/lib/x86_64-linux-gnu/crt1.o \
+  /usr/lib/x86_64-linux-gnu/crti.o \
+  -L/usr/lib/gcc/x86_64-linux-gnu/4.8/ \
+  -lc -lgcc -lgcc_s \
+  hello.o \
+  /usr/lib/x86_64-linux-gnu/crtn.o
+</pre>
+
+<p>Although they may not be necessary, you should also link to <code>-lgcc</code> and 
+<code>-lgcc_s</code>, since GCC may emit calls to functions present in those libraries 
+for operations which your hardware does not implement natively, e.g. <code>long long 
+int</code> operations on 32-bit. See also: 
+<a href="http://stackoverflow.com/questions/9414625/do-i-really-need-libgcc" 
+target="_b">Do I really need libgcc?</a></p>
+
+<pre>
+$ find /usr/lib -name "*gcc_s*"
+/usr/lib/gcc/x86_64-linux-gnu/5/32/libgcc_s.so
+/usr/lib/gcc/x86_64-linux-gnu/5/libgcc_s_x32.so
+/usr/lib/gcc/x86_64-linux-gnu/5/libgcc_s_32.so
+/usr/lib/gcc/x86_64-linux-gnu/5/libgcc_s.so
+/usr/lib/gcc/x86_64-linux-gnu/5/x32/libgcc_s.so
+</pre>
+
+<p>I had to add:</p>
+
+<pre>
+  -L/usr/lib/gcc/x86_64-linux-gnu/4.8/ \
+</pre>
+
+<p>because the default linker script does not include that directory, and that is 
+where <code>libgcc.a</code> was located. </p>
+
+<p>As mentioned by Michael Burr, you can find the paths with <code>gcc -v</code>. More 
+precisely, you need:</p>
+
+<pre>
+$ gcc -v hello_world.c |&amp; grep 'collect2' | tr ' ' '\n'
+
+/usr/lib/gcc/x86_64-linux-gnu/5/collect2
+-plugin
+/usr/lib/gcc/x86_64-linux-gnu/5/liblto_plugin.so
+-plugin-opt=/usr/lib/gcc/x86_64-linux-gnu/5/lto-wrapper
+-plugin-opt=-fresolution=/tmp/ccPDVy0N.res
+-plugin-opt=-pass-through=-lgcc
+-plugin-opt=-pass-through=-lgcc_s
+-plugin-opt=-pass-through=-lc
+-plugin-opt=-pass-through=-lgcc
+-plugin-opt=-pass-through=-lgcc_s
+--sysroot=/
+--build-id
+--eh-frame-hdr
+-m
+elf_x86_64
+--hash-style=gnu
+-dynamic-linker
+/lib64/ld-linux-x86-64.so.2
+/usr/lib/gcc/x86_64-linux-gnu/5/../../../x86_64-linux-gnu/crt1.o
+/usr/lib/gcc/x86_64-linux-gnu/5/../../../x86_64-linux-gnu/crti.o
+/usr/lib/gcc/x86_64-linux-gnu/5/crtbegin.o
+-L/usr/lib/gcc/x86_64-linux-gnu/5
+-L/usr/lib/gcc/x86_64-linux-gnu/5/../../../x86_64-linux-gnu
+-L/usr/lib/gcc/x86_64-linux-gnu/5/../../../../lib
+-L/lib/x86_64-linux-gnu
+-L/lib/../lib
+-L/usr/lib/x86_64-linux-gnu
+-L/usr/lib/../lib
+-L/usr/lib/gcc/x86_64-linux-gnu/5/../../..
+/tmp/cc8h9yWB.o
+-lgcc
+--as-needed
+-lgcc_s
+--no-as-needed
+-lc
+-lgcc
+--as-needed
+-lgcc_s
+--no-as-needed
+/usr/lib/gcc/x86_64-linux-gnu/5/crtend.o
+/usr/lib/gcc/x86_64-linux-gnu/5/../../../x86_64-linux-gnu/crtn.o
+</pre>
+</OL>
+
+<a name="ChLaTeX"></a>
+<h3>ChLaTeX Porting</h3>
+
+  <OL>
+    <LI> ChLaTeX Installation
+
+<PRE>
+ $ mkdir ChLaTeX
+ $ cd ChLaTeX
+ # In the <code>/src1/CHDB/ChLaTeX</code> directory, execute <b>ReleaseChLaTeX</b>, 
+ # we get new contents in the $HOME/ChLaTeX directory.  We then use <b>bkp-src</b>
+ # command to get the backup file: <code>/backup/tmp/ChLaTeX-2017-05-14.tgz</code>.
+ $ scp ac20:/backup/tmp/ChLaTeX-2017-05-14.tgz .
+ $ ls -l
+ $ tar -zxvf ChLaTeX-2017-05-14.tgz
+ $ ls -l
+ $ rm ChLaTeX-2017-05-14.tgz
+ $ ChLaTeXInstall.sh
+ $ sudo texhash
+ $ ls -l
+ $ gcc -o 2ltx 2ltx.c
+ $ ls -l /usr/share/texlive/texmf-dist/fonts/map/fontname/
+ $ ls -l
+ $ cd Let*
+ $ ls -l
+ $ ltr SampLetter
+ $ ls -l
+ $ gv SampLetter.ps
+ $ rm  SampLetter.ps
+ $ cd ..
+ $ 2ltx ChLaTeX.ctx >tmp/ChLaTeX.ltx
+ $ cd tmp
+ $ latex *.ltx; latex *.ltx; latex *.ltx;
+ $ xdvi ChLaTeX&
+ $ ls -l
+ $ dvips -o ChLaTeX.ps ChLaTeX.dvi
+ $ gv ChLaTeX.ps&
+ $ ls -l
+ $ rm *
+ $ cd ..
+</PRE>
+
+    <LI> Files edited:
+
+<PRE>
+$ pwd
+/src1/CHDB/ChLaTeX
+$ find . -type f -mtime -7
+./updateSpecial
+./ChLaTeXInstall.sh
+./ReleaseChLaTeX
+$ diff ./updateSpecial ./updateSpecial.orig
+3c3
+< FILE=`find /usr/share/texlive -name special.map`
+---
+> FILE=`find /usr/share/texmf* -name special.map`
+8c8,12
+< {
+---
+> { cat  ${FILE} | grep chfs | grep cheuc >>/dev/null
+> 
+>   if [ $? = 0 ]
+>     then echo "Already got cheuc chfs font description!"
+>   else 
+22a27
+>   fi
+25,29c30
+< cat  ${FILE} | grep chfs | grep cheuc >>/dev/null
+< 
+< if [ $? = 0 ]
+<     then echo "Already got cheuc chfs font description!"
+< elif [ -f ${FILE}.orig ]
+---
+> if [ -f ${FILE}.orig ]
+30a32
+>        updateSpec
+32,36d33
+<   if [ $EUID != 0 ]
+<     then echo "Only Super user can modify ${FILE}."
+<     exit 1
+<   fi
+< 
+$ diff ./ChLaTeXInstall.sh ./ChLaTeXInstall.sh.orig
+6,7c6,7
+< if [ ! -f ChFont-20[01][0-9]-[01][0-9]-[0-3][0-9].tgz ]
+<    then echo "tared Font File does not exist."
+---
+> if [ ! -f ChFont-2007-10-13.tgz ]
+>    then echo "Font Files tar file does not exist."
+10c10
+<    then echo "ChLaTeX implementation tared file does not exist."
+---
+>    then echo "ChLaTeX implementation tar file does not exist."
+14c14
+< tar -zxvf ChFont-20[01][0-9]-[01][0-9]-[0-3][0-9].tgz
+---
+> tar -zxvf ChFont-2007-10-13.tgz
+34c34
+<   then echo "It seems pk files for ChLaTeX already existed."
+---
+>   then echo "It seems pk files for ChLaTeX existed."
+75c75
+< echo "Now you are ready to modify texmf.cnf and execute texhash."
+---
+> echo "Now you are ready to modify texmf.cnf and execute texconfig."
+$ diff ./ReleaseChLaTeX ./ReleaseChLaTeX.orig
+12,13c12
+< cp -r Letter $HOME/ChLaTeX
+< cp /backup/ChFont/ChFont-*tgz $HOME/ChLaTeX 
+---
+> cp /backup/ChFont/ChFont-2007*tgz $HOME/ChLaTeX 
+28,30c27
+< echo "5. Skip this step" >>$HOME/ChLaTeX/README
+< echo "   # Nowadays, 05TeXMF.cnf is not used.  00debian.cnf is the newest (2012!) one." >>$HOME/ChLaTeX/README
+< echo "   $ cd /etc/texmf/texmf.d" >>$HOME/ChLaTeX/README
+---
+> echo "5. $ cd /etc/texmf/texmf.d" >>$HOME/ChLaTeX/README
+40,42c37,38
+< echo "6. texconfig command no longer exists, tlmgr replaces it." >>$HOME/ChLaTeX/README 
+< echo "   $ which tlmgr; tlmgr --help" >>$HOME/ChLaTeX/README 
+< echo "   # After Installation, texconfig tex system and choose paper and rehash" >>$HOME/ChLaTeX/README
+---
+> 
+> echo "6. After Installation, texconfig tex system and choose paper and rehash" >>$HOME/ChLaTeX/README
+54c50
+< echo "7. The Letter Directory contains a sample file called" >>$HOME/ChLaTeX/README 
+---
+> echo "7. The /src1/CHDB/ChLaTeX/Letter Directory contains a sample file called" >>$HOME/ChLaTeX/README 
+</PRE>
+
+    <LI>Nowadays <b>VARTEXFONTS</b> variable is defined in 
+        <code>/etc/texmf/texmf.d/00debian.cnf</code> file
+
+<PRE>
+% Where generated fonts may be written.  This tree is used when the sources
+% were found in a system tree and either that tree wasn't writable, or the
+% varfonts feature was enabled in MT_FEATURES in mktex.cnf.
+VARTEXFONTS = /var/cache/fonts
+<b>Source Origin:</b> <a href="file:///usr/share/texlive/texmf-dist/web2c/texmf.cnf" target="_b">texmf.cnf</a>
+$ diff 05TeXMF.cnf.postinst-bak 05TeXMF.cnf.orig
+1,2d0
+< This file is no longer used and has therefore been renamed by the postinst 
+< script of the tex-common package.
+129c127
+< VARTEXFONTS = /var/cache/fonts
+---
+> VARTEXFONTS = /tmp/texfonts
+$ cat /etc/texmf/texmf.d/00debian.cnf
+VARTEXFONTS=/tmp/texfonts
+</PRE>
+
+    <LI> <b>texconfig</b> command no longer exists. References:
+
+         <UL>
+<LI><a href="https://tex.stackexchange.com/questions/220041/need-help-installing-tex-on-new-computer" 
+target="_b">Need help installing TeX on new computer</a>&nbsp;&nbsp; 
+<LI><a href="https://tex.stackexchange.com/questions/21726/how-does-latex-find-package-files"
+target="_b">How does LaTeX find package files?</a>&nbsp;&nbsp; 
+<LI><a href="https://www.sharelatex.com/learn/Page_size_and_margins"
+target="_b">Page size and margins</a>&nbsp;&nbsp; 
+<LI><a href="https://www.tug.org/texlive/doc/fmtutil.html"
+target="_b"><b>fmtutil</b></a>
+         </UL>
+
+    <LI>We need to modify the <code>/src1/CHDB/ChLaTeX/ReleaseChLaTeX</code> shellscript 
+        accordingly
+
+    <LI>special.map is in <code>/usr/share/texlive/texmf-dist/fonts/map/fontname/</code> 
+        directory.  <b>updateSpecial</b> shellscript needs to be modified accordingly.
+
+    <LI><b>/var/lib/texmf/ls-R</b> contains chfs[0-9]+.tfm, (TeX Font Metric) lines and 
+        chfs[0-9]+.300pk, chfs[0-9]+.600pk font info lines.  The <b>texhash</b>, a 
+        symbolic link of mktexlsr, command updates these files.
+
+<PRE>
+# ls-R and ls-R-TEXMFMAIN are the most recently modified ones.
+$ ls -l /var/lib/texmf | grep ls-R
+-rw-r--r-- 1 root root  32794 Apr  5 07:17 ls-R
+-rw-r--r-- 1 root root 300116 Feb 15  2012 ls-R-TEXLIVE
+-rw-r--r-- 1 root root 392008 Mar 16 15:11 ls-R-TEXLIVEDIST
+-rw-r--r-- 1 root root     79 Jul 26  2013 ls-R-TEXLIVEMAIN
+-rw-r--r-- 1 root root  95014 Apr  5 07:17 ls-R-TEXMFMAIN
+$ sudo texhash
+[sudo] password for hsu: 
+texhash: Updating /usr/local/share/texmf/ls-R... 
+texhash: Updating /var/lib/texmf/ls-R-TEXLIVEDIST... 
+texhash: Updating /var/lib/texmf/ls-R-TEXMFMAIN... 
+texhash: Updating /var/lib/texmf/ls-R... 
+texhash: Done.
+$ ls -l /usr/share/texmf/ls-R
+lrwxrwxrwx 1 root root 29 Jan 17 10:45 /usr/share/texmf/ls-R -> /var/lib/texmf/ls-R-TEXMFMAIN
+$ kpsewhich -all fmtutil.cnf
+/usr/share/texmf/web2c/fmtutil.cnf
+$ ls -l /usr/share/texmf/web2c/fmtutil.cnf
+lrwxrwxrwx 1 root root 33 Mar  4 14:53 /usr/share/texmf/web2c/fmtutil.cnf -> /var/lib/texmf/fmtutil.cnf-DEBIAN
+$ ls -l /var/lib/texmf/fmtutil*
+-rw-r--r-- 1 root root  417 Mar 31 07:33 /var/lib/texmf/fmtutil.cnf-DEBIAN
+-rw-r--r-- 1 root root 1261 Mar 31 07:33 /var/lib/texmf/fmtutil.cnf-TEXLIVEDIST
+</PRE>
+  </OL>
+
+<a name="SoftwareUpgrade"></a>
+<h3>Software Upgrade</h3>
+
+<P> Last week (05/10/2017), we spent all of our precious time on upgrading the systems 
+    on both disk A and disk B.  Also, we modify the <b>/etc/grub.d/0[89]_Debian*</b> 
+    and /boot/grub/grub.cfg files (on both disk A and B), to make sure we boot to the 
+    new kernel so that we can purge the old kernel.  Thanks, everyone.  Nice job!
+
+<P> The <b>sd</b> and <b>gp</b> VMs were created for special purposes.  They are 
+    proven to be nice tools for their designed purposes.  In the foreseeable future,
+    we need to use them from time to time to solve our problems at hand.  Hence, we 
+    also need to maintain their software environments.  At one hand, we are glad that 
+    VM technique provides us the important tools for system maintenance and software 
+    porting tools.  On the other hand, when more and more such kind of special purpose 
+    VMs have been created, it becomes a huge burden to maintain their operating systems 
+    up to date.  At home, I have cnfs, gv, vid VMs, dedicated for ceph nfs, (uml-based) 
+    network simulation and x<b>vi</b>sor <b>d</b>evelopment virtual machines.  At 511, 
+    we have <b>brpi2</b>, <b>br</b>, <b>armbian</b> and numerous cross compilation VMs 
+    for cross compiling kernel and software for arm-based machines, such as raspberry 
+    pi2 and odroid-xu4.  
+
+<a name="UmlCompilation"></a>
+<h3>Uml Compilation</h3>
+
+<PRE>
+ # On the host
+ $ sudo chown hsu:hsu /usr/local/src 
+ # Then, I will copy linux-source-4.9-2017-05-28.tgz to each host.
+ # Start sd, login it. 
+ # Before doing anything, update and upgrade our software environment in sd.
+ $ sudo mkdir /src1/kernel
+ $ sudo chown hsu:hsu /src1/kernel
+ $ cd /src1/kernel 
+ $ mkdir gz
+ $ cd gz
+ $ ln -s /usr/local/src/linux-source-4.9-2017-05-28.tgz .
+ $ cd .. 
+ # Install libncurses5-dev libvdeplug2 libvdeplug-dev libpcap-dev bc
+ $ sudo apt-get install libncurses5-dev libvdeplug2 libvdeplug-dev libpcap-dev bc
+ # Copy AutoUmlCompilation.sh (from /src3/kernel) to /src1/kernel. Sorry, Need to copy   
+ # AutoUmlCompilation.sh from sd for security reason.
+ $ sudo ./AutoUmlCompilation.sh
+</PRE>
+
+<P> It is rather ridiculous that we can not compile kernel source, (albeit uml one), 
+    in our own environment.  Basically, the reason is that some of the needed object 
+    files from the system shared object libraries were not able to be extracted or 
+    loaded.
+
+<P> I pulled the source of dbus, pacp, vde2 packages, compiled them and copy the needed 
+    object files to <code>arch/um/drivers</code> directory.  This is not right.  It is 
+    obvious that it will become our own duty to keep the source of the above packages 
+    up to date.  In the open source community, <b>collaboration</b> is the only way to 
+    survive in the ever changing world of IT.
+
+<P> Hopefully, we will be able to compile the UML source in our sd VM!  Don't forget 
+    that our sd VM is based on devuan, not debian.  <b>Yes!</b> We have successfully 
+    compiled and installed UML on sd VM.  The size of new <b>linux.uml</b> is 9.7M, 
+    much smaller tan the original 15M.  We can declare that our sd VM fulfils its 
+    software development purpose. Quite an achievement.  More importantly, a solid 
+    example of VirTech application in the real world.

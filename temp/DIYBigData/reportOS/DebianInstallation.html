@@ -1,0 +1,613 @@
+Congratulation! But, more things to be done, according to my experiences:
+
+<OL>
+  <LI> Add hsu to /etc/sudoers, logout and login again so that sudo can take effect.
+
+<P> A rather important <b>self-protection</b> mechanism.
+
+<font size="5"><PRE>
+ # Use nano to edit this file
+ $ su
+ # cp /etc/sudoers /etc/sudoers.orig
+ # nano /etc/sudoers 
+ $ diff /etc/sudoers /etc/sudoers.orig
+18d17
+< hsu	ALL=(ALL) ALL
+</PRE></font>
+
+  <LI> Network Configuration
+
+<P> <b>Note:(03/30/2015)</b> 
+
+<OL>
+  <LI> /etc/apt/sources.list 
+    <P> Mirrors for upgrading software packages.
+  <LI> /etc/hosts 
+    <P> The known hosts, their nicknames, Ip addresses in the Laboratory.
+  <LI> /etc/hosts.allow 
+    <P> Who (based on Ip addresses) and what services are allowed.
+  <LI> /etc/hosts.deny 
+    <P> Who (based on Ip addresses) will be denied services.
+  <LI> /etc/network/interfaces
+    <P> Network Setting, (Ethercards and loopback devices)
+  <LI> /etc/resolv.conf 
+    <P> The addresses of Domain Name Servers.
+</OL>
+
+<P> (If we are sure the other disk is reliable,) we can get /etc/apt/sources.list, 
+    /etc/hosts, /etc/hosts.allow, /etc/hosts.deny, /etc/resolv.conf, 
+    /etc/network/interfaces from that disk or even from the master host. 
+
+<P> <b>Note: (03/30/2015)</b> The first two lines (about loopback addresses) of the  
+    /etc/hosts file and the Ip addresses of ethercards in the /etc/network/interfaces 
+    file must be modified accordingly.
+
+
+<P> <b>Note: (03/14/2013)</b> I completely forgot that we must purge network-manager 
+and network-manager-gnome, two packages inherited from Ubuntu world.  Thanks, Su.
+<a href="http://bugs.debian.org/cgi-bin/pkgreport.cgi?pkg=network-manager#_0_2_2" 
+target="newwindow">network-manager</a>,&nbsp;&nbsp; 
+<a href="http://bugs.debian.org/cgi-bin/pkgreport.cgi?pkg=network-manager-gnome"
+target="newwindow">network-manager-gnome</a>: unfit for release.  It shouldn't have 
+been released.  On the other hand, I don't know why they are installed, either.  As 
+far as I can recall, I never saw these two packages got installed in my Debian 
+machines, previously.
+
+<font size="5"><PRE>
+#############################################################
+# Already got DebianInstallation.html and network-setting in 
+# our home directory. No need to execute the next 5 commands.
+# Only "$ cp network-setting /tmp" will be fine.
+# $ sudo mkdir /mnt/tmp 
+# $ sudo mount /dev/sda8 /mnt/tmp
+# $ cp /mnt/tmp/hsu/inet/DebianInstallation.html /tmp 
+# $ cp /mnt/tmp/hsu/inet/network-setting /tmp 
+# $ sudo umount /mnt/tmp 
+#############################################################
+$ sudo dpkg -P network-manager network-manager-gnome 
+$ cat  /tmp/network-setting 
+#! /bin/bash
+
+sudo mkdir /mnt/tmp /media/sda1 /media/sda2 /media/sda3 /media/sda5 /media/sda6 \
+     /media/sda7 /media/sda8 /media/sda10 /media/sda11 /media/sda12 /media/sda13 \
+     /media/sda14 /media/sda15 
+sudo mount /dev/sda2 /media/sda2 
+sudo cp /etc/hosts /etc/hosts.orig 
+sudo mv /etc/hosts.allow /etc/hosts.allow.orig
+sudo mv /etc/hosts.deny /etc/hosts.deny.orig
+sudo mv /etc/resolv.conf /etc/resolv.conf.orig
+sudo mv /etc/network/interfaces /etc/network/interfaces.orig
+sudo cp /media/sda2/etc/hosts /etc 
+sudo cp /media/sda2/etc/hosts.allow /etc 
+sudo cp /media/sda2/etc/hosts.deny /etc 
+sudo cp /media/sda2/etc/resolv.conf /etc 
+sudo cp /media/sda2/etc/network/interfaces /etc/network 
+sudo umount /media/sda2 
+sudo /etc/init.d/networking start 
+# We now execute the network-setting shell script to set up netwotk
+$ /tmp/network-setting
+</PRE>
+
+<PRE>
+# Creat our own sources.list file!
+$ sudo mv /etc/apt/sources.list /etc/apt/sources.list.orig 
+###############################################################
+# sudo mount /dev/sda2 /media/sda2 
+# sudo cp /media/sda2/etc/apt/sources.list /etc/apt
+# sudo cp /media/sda2/etc/apt/preferences.d/preferences /etc/apt/preferences.d
+# sudo umount /media/sda2  
+###############################################################
+$ more /etc/apt/sources.list
+deb http://amdm/debian jessie main contrib
+deb http://amdm/debian sid main contrib
+deb http://security.debian.org/ jessie/updates main contrib
+deb http://security.debian.org/ testing/updates main
+# deb-src http://free.nchc.org.tw/debian/ jessie main
+# Need to update software package database, first.
+$ sudo apt-get update 
+</PRE></font>
+
+  <LI> Install openssh-server, emacs, deborphan, synaptic, artha, aptitude 
+
+<P>
+<OL>  
+  
+  <LI> <b>aptitude</b>
+
+    <P> Package management system, check dependency through and through.
+  <LI> <b>artha</b>
+
+    <P> The <b>artha</b> package provides off-line English dictionary.   
+  <LI> <b>deborphan</b>
+    <P> After system being upgraded, the <b>deborphan</b> package will check if 
+        any old package becomes orphaned.  If so, the package won't be used anymore.  
+        However, system upgrading process will need to take care of it.  More bandwidth 
+        is needed if new version of this useless package is available.   
+  <LI> <b>emacs</b> 
+    <P> The <b>emacs</b> is our text editor system.  It is really more than that.    
+  <LI> <b>openssh-server</b>
+    <P> The <b>openssh-server</b> package allows our hosts to accept remote login via 
+       <b>ssh</b>.
+  <LI> <b>synaptic</b> 
+    <P> The <b>synaptic</b> package is a GUI program for package management in Debian 
+        world, probably initiated by Ubuntu.   
+</OL>
+
+<font size="5"><PRE>
+ $ sudo apt-get install openssh-server emacs deborphan synaptic artha aptitude 
+ $ sudo aptitude clean; deborphan 
+ $ sudo emacs /etc/ssh/ssh_config 
+ # Allow X window to be used remotely. 
+ $ diff /etc/ssh/ssh_config /etc/ssh/ssh_config.orig
+22c22
+<     ForwardX11Trusted yes
+---
+> #   ForwardX11Trusted yes
+39c39
+<     Port 22
+---
+> #   Port 22
+# Not allow "root" login, security reason.
+$ diff /etc/ssh/sshd_config /etc/ssh/sshd_config.orig
+26c26
+< PermitRootLogin no
+---
+> PermitRootLogin yes
+ $ sudo mv /etc/ssh/ssh_config~ /etc/ssh/ssh_config.orig
+ $ sudo mv /etc/ssh/sshd_config~ /etc/ssh/sshd_config.orig
+</PRE></font>
+
+  <LI> Nowadays, Debian (Jessie) uses <b>systemd</b> as its default init process.  
+       This is really harmful and shameful.  The <b>worst scandal</b> in the entire 
+       Unix history.
+
+<font size="5"><PRE>
+ $ sudo apt-get install sysvinit-core
+ # More importantly, prevent aptitude and apt-get to re-install it behind our back.
+ # $ sudo emacs /etc/apt/preferences.d/preferences
+ $ more  /etc/apt/preferences.d/preferences
+Package: systemd-sysv
+Pin: origin ""
+Pin-Priority: -1
+ $ cd /etc/apt 
+ $ sudo ln -s preferences.d/preferences preferences 
+ ############################################################################
+ # Restart the system so that init is really the process 1 in our system. 
+ # $ sudo init 6   !!!Choose sdb menu-entry!!!
+ ############################################################################
+ $ ps l -C init 
+F   UID   PID  PPID PRI  NI    VSZ   RSS WCHAN  STAT TTY        TIME COMMAND
+4     0     1     0  20   0  15484  1684 ?      Ss   ?          0:00 init [2]  
+ # After synaptic installation, we can use it to remove "systemd" package completely.
+ # Will do it in the next step.  A lot of packages will be purged, too. Hence, don't 
+ # need to upgrade them, save a lot of network traffic.
+</PRE></font>
+
+<a name="PoetteringwareBanning"></a>
+<LI> Sysvinit and Switch display manager:
+
+
+<P> We will purge <b>systemd</b> package right away.  This causes <b>gdm3</b> display 
+manager to be purged, too.  This is really nice. But, first, let us choose and install 
+<b>lightdm</b> as our DM.
+
+<font size="5"><PRE>
+  $ sudo synaptic 
+  # Searching for lightdm and install it. 
+  $ sudo apt-get install lightdm 
+  # Shall we logout and login again so that lightdm would take effect?
+  # lightdm refuses to handle profile setting.  Do it ourselves.
+  $ emacs .xsessionrc
+  $ cat .xsessionrc
+. $HOME/.profile 
+  $ sudo synaptic 
+  # Purge systemd completely and that causes gdm3 to be purged, too. 
+  $ sudo apt-get autoremove 
+  $ sudo aptitude clean; deborphan
+  $ sudo dpkg -P `deborphan`
+  # Repeat the last two commands until all orphaned packages are gone. 
+  # We also need to prevent apt or aptitude from installing systemd related 
+  # packages behind our back.
+  $ sudo emacs /etc/apt/preferences.d/preferences 
+  $ cat /etc/apt/preferences.d/preferences 
+Package: systemd-sysv
+Pin: origin ""
+Pin-Priority: -1
+  $ cwd=`pwd`; cd /etc/apt/; sudo ln -s preferences.d/preferences preferences; cd $cwd 
+</PRE></font>
+
+  <LI> sudo aptitude update; sudo aptitude safe-upgrade
+
+<P> The system we installed will include the <b>sid</b> (still in development) branch 
+of debian distribution.  More conservative one would be <b>testing</b> branch.  The 
+most stable (i.e. boring) one would be Jessie.   But, according to my experience, 
+<b>sid</b> is <b>usually</b> stable enough, i.e. occasionally, some bumpy ride is 
+unavoidable.
+
+
+  <LI> We didn't mirror i18n translation files in amdm, do something about it.
+
+<font size="5"><PRE>
+ $ sudo emacs /etc/apt/apt.conf.d/05translations
+ $ cat /etc/apt/apt.conf.d/05translations
+Acquire::Languages "none";
+</PRE></font>
+
+  <LI> ShellScripts/mkBpSubD; ShellScripts/getSource;
+
+<font size="5"><PRE>
+ $ scp as:$HOME/inet/ShellScripts/[mg][ke][Bt][pS][So]u* . 
+ $ sudo ./mkBpSubD; ./getSource;
+</PRE></font>
+
+  <LI> Get the Installation web pages:
+
+<font size="5"><PRE>
+ $ cd $HOME/inet 
+ $ cp as:`pwd`/DebianInstallation* .  
+ # Now you may browse this web page via firefox
+ $ to # Choose DebianInstallation.html to open it.
+</PRE></font>
+
+
+  <LI> sudo apt-get install ntpdate; sudo ShellScripts/SetSysClock 
+
+<P> From time to time, we need to synchronize our system time with the national 
+  standard time organization. <b>Unfortunately</b>, owing to <b>systemd</b> adopted 
+  by debian, our system will contact ntp server every 6 seconds, <b>God damns it</b>! 
+  The word <b>damn</b> is a crude one, an educated person seldom uses it.
+
+<P> <b>Note: (03/30/2015)</b> Probably, this causes the <b>DOS attack</b>, we are no 
+  longer able to use <b>ntpdate</b> freely to synchronize our system time.
+
+<font size="5"><PRE>
+$ sudo ntpdate
+[sudo] password for hsu: 
+30 Mar 15:53:22 ntpdate[2660]: no servers can be used, exiting 
+# SetSysClock still uses ntpdate, but with different port, not the official port. 
+$ sudo ShellScripts/SetSysClock
+[sudo] password for hsu: 
+30 Mar 15:54:33 ntpdate[2665]: step time server 59.124.29.241 offset -7.097995 sec
+</PRE></font>
+
+  <LI> # sudo mkdir /mnt/tmp 
+
+<P> Frequently, we need to mount root filesystem of all sort of VMs, we mount them 
+    on this directory. <b>Note:</b> Done in network-setting shell script.
+
+  <LI> We need to configure panel as follows: 
+
+<font size="5"><PRE>
+$ diff $HOME/.config/lxpanel/LXDE/panels/panel $HOME/.config/lxpanel/LXDE/panels/panel.bkp
+56,59c56
+<             id=/home/hsu/.local/share/applications/lxterminal.desktop
+<         }
+<         Button {
+<             id=/home/hsu/.local/share/applications/artha.desktop
+---
+>             id=lxde-x-www-browser.desktop
+  $ mkdir $HOME/.local/; mkdir $HOME/.local/share; mkdir $HOME/.local/share/applications;
+  # $ mkdir -p $HOME/.local/share/applications
+$ src=/usr/share/applications
+$ cp $src/lxterminal.desktop $src/artha.desktop $HOME/.local/share/applications 
+</PRE></font>
+
+<P> <b>Note (03/03/2014):</b> Recently, I painfully found out that if 
+<code>.config/lxpanel/LXDE/panels</code> directory has another file, say panel.bkp, the 
+panel setup won't work in some Debian installations, but not others. I really don't 
+know why.
+
+  <LI> modify profile
+
+<font size="5"><PRE>
+ $ sudo emacs /etc/profile
+ $ diff  /etc/profile /etc/profile.orig
+14,17c14,15
+<     PS1='\h:\w\$ '
+<     if [ -f $HOME/.profile ]; then
+<       . $HOME/.profile
+<     elif [ -f /etc/bash.bashrc ]; then
+---
+>     # PS1='\h:\w\$ '
+>     if [ -f /etc/bash.bashrc ]; then
+</PRE></font>
+
+  <LI> Installing Chinese Fonts
+
+<font size="5"><PRE>
+ $ sudo apt-get install ttf-arphic-bkai00mp ttf-arphic-bsmi00lp
+ # The above two packages are transitional dummy package.  Hopefully, 
+ # fonts-arphic-bkai00mp and fonts-arphic-bsmi00lp will be installed. 
+</PRE></font>
+
+  <LI> Install sshfs fuse
+
+<P> SSHFS (SSH Filesystem) is a filesystem client to mount and interact with 
+    directories and files located on a remote server or workstation. Package 
+    fuse contains the fusermount utility which is necessary to mount 
+    fuse filesystems. 
+
+<font size="5"><PRE>
+$ sudo apt-get install sshfs fuse 
+# It seems fuse group no longer exists in Jessie. (Not true anymore.)
+# Instead, fuse-utils package is no longer available.
+$ sudo adduser hsu fuse
+# $ sudo adduser hsu sudo
+# logout and login again.  The last item of id output says hsu is allowed to access 
+# fuse utilities.
+$ id
+uid=1000(hsu) gid=1000(hsu) groups=1000(hsu),20(dialout),24(cdrom),25(floppy),29(audio),44(video),46(plugdev),\
+110(netdev),113(powerdev),115(kvm),119(fuse)
+$ which fusermount
+/usr/bin/fusermount  # Now, it is in /bin directory, check via "$ ls -l /bin/fuserm*"
+# It seems that we must add ourself to fuse group, then we logout and login again for 
+# it to take effect.
+$ sudo gpasswd -a $LOGNAME fuse
+$ cat /etc/group | grep fuse
+fuse:x:120:hsu
+$ man gpasswd
+NAME
+       gpasswd - administer /etc/group and /etc/gshadow
+</PRE></font>
+
+<P> I found out the permission bits for my <code>/etc/group</code> file was 640, not 
+644.  Consequence: <b>id</b> reported incomprehensible digits. And the group of 
+<code>/bin/fusermount</code> was wrongly assigned to quagga (117).  This causes 
+the <b>which</b> command could not locate <b>fusermount</b>.  Solution:
+
+<font size="5"><PRE>
+ #  $ sudo chmod 644 /etc/group
+ #  $ sudo chown root:fuse /bin/fusermount 
+ # After the above command, fusermount no loger will be a suid program!
+ #  $ sudo chmod 4755 /bin/fusermount 
+ $ ls -l  /etc/fuse.conf
+-rw-r----- 1 root quagga 280 Jun 29  2012 /etc/fuse.conf 
+ #  $ sudo chown root:fuse /etc/fuse.conf
+ $ which fusermount 
+ $ rmnt as:/usr/local/bin
+ $ ls -l /mnt/rfs  
+ $ which rumnt 
+ $ rumnt 
+ $ ls -l /mnt/rfs  
+</PRE></font>
+
+  <LI> Install gv - PostScript and PDF viewer for X. 
+
+<font size="5"><PRE>
+ $ sudo synaptic
+</PRE></font>
+
+  <LI> Install qemu-kvm vde2 uml-utilities screen  
+
+<P> These are virtualization related packages.
+
+<font size="5"><PRE>
+ $ sudo apt-get install qemu-kvm vde2 uml-utilities screen 
+</PRE></font>
+
+  <LI> Setting Locales
+
+<P> In the user mode linux, invoke Guile-2 failed. Even man command causes error 
+message.
+
+<font size="5"><PRE>
+$ man setlocale
+man: can't set the locale; make sure $LC_* and $LANG are correct
+$ sudo apt-get update
+$ sudo apt-get install gcc-5-locales localepurge # Remove gcc-4.6, etc.
+$ sudo emacs /etc/locale.gen
+# make sure "en_US.UTF-8 UTF-8" entry is enabled, guile needs it.
+$ diff /etc/locale.gen /etc/locale.gen.orig
+433c433
+< zh_TW BIG5
+---
+> # zh_TW BIG5
+$ sudo locale-gen
+$ sudo localepurge
+$ sudo aptitude clean; deborphan 
+# As far as I recalled, kvm was reported as an orphaned package, purge it!
+# sudo dpkg -P `deborphan`
+</PRE></font>
+
+<P> By the way, install localepurge package and use it to remove all locale related 
+data files, we save a lot of disk space (250 M).  The best effect is that we save a 
+lot of time downloading useless manual pages which we are not able to read.
+
+  <LI> Must prepare <code>/etc/grub.d/08_Debian-sid</code> file so that we get the 
+     right first two menu entries written on the grub.cfg file. 
+
+    <P> <b>Note:</b> 
+    <UL>
+      <LI><b>(01/10/2013)</b> must chmod to 755 for this 
+             <code>/etc/grub.d/0[89]_Debian-sid*</code> script!  
+      <LI><b>(01/23/2013)</b> 0[89]_Debian-sid* file syntax error, since its 4th line 
+             was inadvertently broken to two lines during copying. Let's shorten it.
+    </UL>
+
+<font size="5"><PRE>
+ $ scp as:/home/hsu/inet/0[89]_Debian-sid* /tmp
+ $ more /tmp/08_Debian-sid*
+#!/bin/sh -e
+echo "Adding Debian-Jessie on Disk A" >&2
+cat << EOF
+menuentry 'Debian Jessie, (Kernel 3.16.0-4-amd64) on /dev/sda' {
+	insmod ext2
+	set root='(hd0,1)'
+	echo	'Loading Linux 3.16.0-4-amd64 ...'
+	linux	/vmlinuz-3.16.0-4-amd64 root=/dev/sda2 ro quiet
+	echo	'Loading initial ramdisk ...'
+	initrd	/initrd.img-3.16.0-4-amd64
+}
+EOF
+ $ sudo cp /tmp/0[89]_Debian-sid* /etc/grub.d
+ $ sudo mount /dev/sda2 /media/sda2 
+ $ sudo rm -f /media/sda2/etc/grub.d/0[89]* 
+ $ sudo cp /tmp/0[89]_Debian-sid* /media/sda2/etc/grub.d/ 
+ $ ls -l /etc/grub.d/0[89]*  /media/sda2/etc/grub.d/0[89]*
+-rwxr-xr-x 1 root root 333 Feb 10 13:55 /etc/grub.d/08_Debian-sid-DiskA
+-rwxr-xr-x 1 root root 333 Feb 10 13:57 /etc/grub.d/09_Debian-sid-DiskB
+-rwxr-xr-x 1 root root 333 Feb 18 13:57 /media/sda2/etc/grub.d/08_Debian-sid-DiskA
+-rwxr-xr-x 1 root root 333 Feb 18 09:35 /media/sda2/etc/grub.d/09_Debian-sid-DiskB
+ $ sudo umount /media/sda2
+ $ sudo update-grub 
+</PRE></font>
+
+  <LI> sudo ShellScripts/reinstallMyPkg ShellScripts/packages.txt
+
+<font size="5"><PRE>
+ $ cd ShellScripts
+ # dselect: front end for dpkg.
+ $ sudo apt-get install dselect; sudo dselect update 
+ $ sudo ./reinstallMyPkg packages.txt
+ $ sudo aptitude clean; deborphan 
+ $ cd $HOME/inet
+</PRE></font>
+
+
+<LI> Debian with newest kernel 
+
+<P>Liquorix Kernel:  Liquorix is a distro kernel replacement built using the best 
+configuration and kernel sources for desktop, multimedia, and gaming workloads.
+
+<P> Debian:
+
+<font size="5"><PRE>
+# /etc/apt/sources.list.d/liquorix.list
+deb http://liquorix.net/debian sid main
+</PRE></font>
+
+<P> All packages in the liquorix repository are signed. Run the command below to install 
+all the keyring packages for liquorix.net.
+
+<font size="5"><PRE>
+apt-get install '^liquorix-([^-]+-)?keyring.?'
+</PRE></font>
+
+
+<P> If this kernel or its sources helped you in anyway, please donate to help me keep 
+this project going.  <b>Web pages:</b>
+<a href="http://liquorix.net/" target="newwindow">liquorix.net home page</a>&nbsp;&nbsp;
+<a href="http://liquorix.net/debian" target="newwindow">liquorix.net 
+debian</a>&nbsp;&nbsp;<br>
+</OL>
+
+<P> <b>Congratulation!</b>  You have a 
+<a href="http://www.usingenglish.com/reference/idioms/lean+and+mean.html" 
+target="newwindow">lean and mean</a> workstation!  Also, let us say <b>"thanks"</b> 
+to Mr. su!  We corrected a lot of typo errors, although the whole Installation 
+notes is based on my experiences for maintaining my own personal cluster.
+
+<font size="5"><PRE>
+$ uname -a
+Linux Amath-Client20 3.2.0-4-amd64 #1 SMP Debian 3.2.35-2 x86_64 GNU/Linux
+Amath-Client20:~/inet$ df
+Filesystem     1K-blocks    Used Available Use% Mounted on
+rootfs           4805760  298900   4262740   7% /
+udev               10240       0     10240   0% /dev
+tmpfs             406268     716    405552   1% /run
+/dev/sda2        4805760  298900   4262740   7% /
+tmpfs               5120       0      5120   0% /run/lock
+tmpfs            2374740       0   2374740   0% /run/shm
+/dev/sda14      28835836  720080  26650976   3% /backup
+/dev/sda1         457760   19810    413528   5% /boot
+/dev/sda8       19223252  243608  18003160   2% /home
+/dev/sda10      19223252  576372  17670396   4% /src1
+/dev/sda11      19223252  317204  17929564   2% /src2
+/dev/sda12      38445384  180104  36312208   1% /src3
+/dev/sda13      38445384  180104  36312208   1% /src4
+/dev/sda7        9611492  152584   8970668   2% /tmp
+/dev/sda3       14418416 3375196  10310804  25% /usr
+/dev/sda6        9611492  153920   8969332   2% /usr/local
+/dev/sda5        9611492  423244   8700008   5% /var
+/dev/sda15      20722936  176064  19494200   1% /video
+</PRE></font>
+
+<P> Reference: <a href="./DebianAndAmd6Installation.html">This tested one</a>.
+
+<h3>DebianFailureRescue</h3>
+
+<P> <b>Note: (11/10/2014)</b> Since long time ago, We have been keeping a copy of the 
+<a href="./DebianFailureRescue.html" target="_blank">DebianFailureRescue</a> web page.
+
+<p> Reference: Failure in the middle of a Debian upgrade 
+<a href="http://unix.stackexchange.com/questions/90022/failure-in-the-middle-of-a-debian-upgrade">(Source Origin)</a>
+
+<p><b>Note: (10/17/2013)</b> During aptitude update; aptitude safe-upgrade</p>
+
+<OL> 
+   <LI> initrd was indeed produced, but could not be used to boot the system.
+
+<font size="5"><PRE>
+update-initramfs: Generating /boot/initrd.img-3.10-3-amd64
+install: error reading '/lib/modules/3.10-3-amd64/kernel/drivers/scsi/3w-sas.ko': Input/output error
+</PRE></font>
+   <LI> We get a copy from /dev/sdb 
+
+<P> First booting the system via sdb.
+
+<font size="5"><PRE>
+ $ sudo mount /dev/sda2 /mnt; cd /mnt/lib/modules 
+ $ diff 3.10-3-amd64/kernel/drivers/scsi/3w-sas.ko /lib/modules/3.10-3-amd64/kernel/drivers/scsi/3w-sas.ko
+diff: 3.10-3-amd64/kernel/drivers/scsi/3w-sas.ko: Input/output error
+ $ sudo mv 3.10-3-amd64/kernel/drivers/scsi/3w-sas.ko 3.10-3-amd64/kernel/drivers/scsi/3w-sas.ko.ioerr
+ $ sudo cp /lib/modules/3.10-3-amd64/kernel/drivers/scsi/3w-sas.ko 3.10-3-amd64/kernel/drivers/scsi/3w-sas.ko 
+ $ sudo umount /mnt 
+</PRE></font>
+   <LI> Mount the needed directories:
+
+<font size="5"><PRE>
+sudo mount /dev/sda2 /mnt
+sudo mount /dev/sda1 /mnt/boot
+sudo mount /dev/sda3 /mnt/usr
+sudo mount /dev/sda5 /mnt/var
+for i in proc dev sys dev/pts ; do sudo mount -o bind /$i /mnt/$i ; done
+sudo chroot /mnt
+# We then can do system administration works
+</PRE></font>
+
+   <LI> We then update initrd
+<font size="5"><PRE>
+ # update-initramfs -u -k 3.11-1-amd64
+</PRE></font>
+
+  <P> "3.11-1-amd64" is the directory for linux kernel modules.
+
+   <LI> Outch!
+
+<P> After <a href="#ExitChroot">exit the chroot</a>, fail to umount a lot of bind 
+    mounted filesystems.  Shutdown the system.  At least, successfully booting disk A 
+    and remotely login the system to fix the X system by installing xserver-xorg and 
+    xorg packages.
+
+<P> Patiently, use the following commands serveral times to umount all filesystems in 
+  /mnt directory one by one:
+
+<font size="5"><PRE>
+  $ mount # Report mounted filesystems.  We check fs with /mnt prefix.
+  $ sudo fuser -m /mnt/sys/fs/cgroup # If needed, kill processes who are holding the fs.
+  $ sudo fuser -m /mnt/boot
+</PRE></font>
+  <LI>Create/Edit Your Own X11 Fonts
+
+    <P> <a href="http://profs.etsmtl.ca/mmcguffin/learn/x11fonts/"
+	   target="_b">Create/Edit Your Own X11 Fonts</a>
+    
+</OL>
+
+<h3>Audio Failure</h3>
+
+<h4><a href="http://elinux.org/R-Pi_Troubleshooting#Removal_of_installed_pulseaudio" 
+target="_blank">Purge Pulseaudio</a></h4>
+
+<P> Between December 2012 and February 2013 the standard raspbian jessie distribution, 
+and apt-get upgrade, included pulseaudio. Forum posts suggest that pulseaudio can 
+break alsa. Whilst some members identify various workarounds, others find only removal 
+of pulseaudio restores sound output.
+
+<font size="5"><PRE>
+ $ sudo apt-get --purge remove pulseaudio
+</PRE></font>
+
+<P> After that, reboot the system, we recover sound. Then, using "sudo synaptic" to 
+further get rid of pulse related packages, except two libpulse* library packages, 
+since remove them would also remove gdm3, etc. 

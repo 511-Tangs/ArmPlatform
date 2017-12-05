@@ -1,0 +1,29 @@
+#### Get source
+git clone git://git.kernel.org/pub/scm/fs/ext2/e2fsprogs.git -b 'v1.43.4'
+
+#### Create TGZ
+tar -cvzf e2fsprogs.tgz e2fsprogs
+
+#### Copy to arm-rootfs
+sudo cp e2fsprogs.tgz rootfs/tmp/
+sudo cp /src/fs/script/clearInstall.sh rootfs/tmp/
+
+#### Clear /usr/local
+sudo chroot rootfs
+cd /tmp/
+clearInstall.sh --yes-i-really-clear
+
+#### Tar file
+tar -zxvf e2fsprogs.tgz
+
+#### Build before compile
+mkdir e2fsprogs-bin
+cd e2fsprogs ;mkdir build ;cd build ;../configure --exec-prefix=/tmp/e2fsprogs-bin
+echo $?
+# If no error
+make
+echo $?
+make install
+echo $?
+ls -l /tmp/e2fsprogs-bin/
+

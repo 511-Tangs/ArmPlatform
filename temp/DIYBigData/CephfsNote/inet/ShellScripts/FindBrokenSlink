@@ -1,0 +1,5 @@
+#! /bin/bash
+
+>/tmp/BrokenSlink
+
+find / -type l -print 2>/dev/null | perl -nle '-e || print' >>/tmp/BrokenSlink

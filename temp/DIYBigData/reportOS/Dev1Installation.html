@@ -1,0 +1,597 @@
+<html>
+  <head><title></title>
+  </head>
+  <body>
+<OL>
+  <LI><a href="#Dev1Installation">Dev1 Installation</a>
+  <LI><a href="#TemplateResizing">Template Resizing</a>
+  <LI><a href="#Notes05-01-17">Notes (05/01/2017)</a>
+  <LI><a href="#VmTemplateCreation">Vm Template Creation (05/07/2017)</a>
+  <LI><a href="#DevUanNotes">Notes On Dev1</a>
+  <LI><a href="#TakeAnn">Takehome Announcement(05/03/2017)</a>
+</OL>
+
+<a name="Dev1Installation"></a>
+<h3>VM Installation</h3>
+
+<OL>
+  <LI> Get Iso file
+
+<PRE>
+$ wget https://sourceforge.net/projects/refracta/files/unofficial_devuan_live/devuan_jessie_1.0.0-RC_amd64-live.iso
+</PRE>
+
+<P> Since Debian environment is no longer user friendly anymore, especially for software 
+    development.  We choose DevUan.  But its bandwidth is rather limited, I got it 
+    first in ac20, and distributed one copy to each host in 511.  
+
+<PRE>
+ $ cd /src4/KVM/Resize 
+ $ ls -l devuan_jessie_1.0.0-RC_amd64-live.iso
+</PRE>
+
+<P> Live Iso:
+
+<OL>
+  <LI> Live CD
+
+<P> A cd you can boot up a system (without hard disk),  test and play with the system. 
+    More importantly, you can use it to mount your damaged hard and repair it from this 
+    live system.  Occasionally, I have being used it to recover my system. A really 
+    appreciated (and seldom used) system recovery tool.
+  <LI> ISO CD
+
+<P> A cd to boot up and install the (basic, e.g. lxde, xface, special purpose sever, 
+    etc.) system to your hard disk or virtual machine.
+
+</OL>
+
+  <LI> Create *img file and install linux OS in it.
+
+<PRE>
+ $ cd /src4/KVM/Resize 
+ $ qemu-img create Dev1-Mini.img 4G 
+ $ kvm -m size=512 -cdrom devuan_jessie_1.0.0-RC_amd64-live.iso  Dev1-Mini.img 
+ # Must specify size=512, otherwise, "no space left" error message eventually pup up.
+ # From application menu choose "install" option. 
+ # Use gparted to partition our virtual disk. First, 512M, ext2.  Second, 3061M, ext4. 
+ # Third, 512M for swap.  Then choose expert mode to install it.  Must be very careful 
+ # to make the right choices. It seems the whole installation process is taken care by 
+ # shell scripts.  It is fast and clean, if you made all the right choices.
+</PRE>
+
+  <P> We separate boot partition from the root file system.  Boot partition only need 
+      512M.  Ext2 filesystem will be a better choice for this small filesystem. Without 
+      swap partition, nowadays, Debian system refuses to be installed.  It seems, DevUan 
+      allows you to use swfile (swap file), instead of swap partition.  The size of swap 
+      partition is rather difficult to determine.  It really depends on the purpose of 
+      your VM.  For example, for the Ceph Virtual Storage Cluster, we need 1G memory, 
+      hence, at least 1G swap space for 1T storage.  When resize root file system, we 
+      need to remove swap partition, first.  Hence, swap partition will always be the 
+      third partition.
+
+  <LI>  Check the filesystem is working.
+
+<P> If the filesystem isn't working properly, why spend our precious time on it?
+
+<PRE>
+$ kvm  -m 512M  -hda Dev1-Mini.img 
+# bring up a terminal, in it executes
+$ /sbin/ifconfig -a ;; The ethercard is still eth0
+$ df ;; 91%, storage space was used in /, only 300M left.
+$ sudo apt-get clean ;; recover 2% of storage space.
+$ uname -a ;; Kernel is linux 3.16.39
+$ ls -l /lib/x86*/libc.so* ;; libc.so is 2.19, not 2.24.
+$ more /etc/apt/pre*d/avoid*
+$ sudo init 0 
+</PRE>
+  <LI>  List  the  partition  tables  for Dev1-Mini.img
+<PRE>
+$ fdisk -l  Dev1-Mini.img
+Disk Dev1-Mini.img: 4 GiB, 4294967296 bytes, 8388608 sectors
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+Disklabel type: dos
+Disk identifier: 0x8117fe25
+
+Device         Boot   Start     End Sectors  Size Id Type
+Dev1-Mini.img1         2048 1050623 1048576  512M 83 Linux
+Dev1-Mini.img2      1050624 7340031 6289408    3G 83 Linux
+Dev1-Mini.img3      7340032 8388607 1048576  512M 82 Linux swap / Solaris
+</PRE>
+  <LI> The Offset of the second partition
+<PRE>
+$ Offset=$((512 * 1050624))
+hsu@amd-6:/src3/KVM/Resize$ echo $Offset
+537919488
+</PRE>
+  <LI> Mount the second partition to /mnt/tmp 
+
+<P> Notice that this partition is very similar to your host's root filesystem, only 
+    it is the root filesystem of your VM.
+
+<PRE>
+$ sudo mount -o loop,offset=537919488 Dev1-Mini.img /mnt/tmp
+$ ls -l /mnt/tmp
+$ more /mnt/tmp/etc/apt/sources.list
+## package repositories
+deb http://auto.mirror.devuan.org/merged jessie main
+deb http://auto.mirror.devuan.org/merged jessie-updates main
+deb http://auto.mirror.devuan.org/merged jessie-security main
+#deb http://auto.mirror.devuan.org/merged jessie-backports main
+
+## source repositories
+#deb-src http://auto.mirror.devuan.org/merged jessie main
+#deb-src http://auto.mirror.devuan.org/merged jessie-updates main
+#deb-src http://auto.mirror.devuan.org/merged jessie-security main
+#deb-src http://auto.mirror.devuan.org/merged jessie-backports main
+;; We only has 300M free space available in the / partition, too bad.
+;; System upgrade could fail!
+$ sudo umount /mnt/tmp 
+</PRE>
+  <LI> Modify Config-Kvm script 
+<PRE>
+$ cd ../bin 
+$ cp Config-Kvm  Config-Kvm-New
+$ emacs Config-Kvm-New&
+$ diff  Config-Kvm-New Config-Kvm
+88c88
+<    then sudo mount -o loop,offset=537919488 $1 /mnt/tmp
+---
+>    then sudo mount -o loop,offset=511705088 $1 /mnt/tmp
+</PRE>
+  <LI> Create shell scripts for bringing up and shutting down our new VM. 
+<PRE>
+$ Config-Kvm-New
+$ Config-Kvm-New ../Resize/Dev1-Mini.img dev1 192.168.0.120 eth0 
+</PRE>
+  <LI> Bring up dev1 in the foreground.
+
+<P> Try using the <b>ssh</b> command to remote login.  Failed miserably.  Reason: 
+    have not installed ssh server, yet.
+  <LI> Install openssh-server, i.e. the sshd.
+
+<PRE>
+# Update the software database, first. 
+# It is advised not to mix DevUan with Debian.  But, it seems OK by experience.
+$ sudo apt-get update
+# We then install ssh server.
+$ sudo apt-get install openssh-server 
+;; 36 packages upgraded, 17 newly installed.  These 53 packages come from Debian!
+;; After sudo apt-get clean, only 199M free space left.
+;; But, we can use <b>ssh</b> to remote login, now.  Check it!
+</PRE>
+</OL>
+
+<a name="TemplateResizing"></a>
+<h3>Template Resizing</h3>
+
+<P> Usually, after creating root filesystem, we test it for some period.  If it is 
+stable enough, and satisfies our expectation or requirement, we then compress and save 
+it in our server.  For different purposes, we create a few templates, e.g. VM for 
+software development, VM for parallel computing, VM for desktop environment, etc.  
+When we need to create a VM, choose one of the suitable templates, download it from 
+our server and uncompress it.  Using our tools, we can generate the shell scripts 
+for booting it up and shutting it down quickly.  We are in business in no time.
+
+<P> Since we need to backup our templates in our server and download them from the 
+server, this need a lot of bandwidth and storage space (in the server).  We tend 
+to create our templates with minimum space.  When we need to install more special 
+purpose packages, we must resize our VM so that it has enough space to hold the 
+newly installed packages, has free space for software compilation, has free space 
+for data analytic.  Case in point:  The VM image we created last week, after the 
+<b>openssh-server</b> package installation, we got only 199M free space left.  
+Without resizing it, I doubt we can successfully update its software. (P.S. 
+we actually can update its software and I have done it.)
+
+<P> Still, we are lucky, our live.iso is the newest.  A few more weeks later, when 
+    more and more packages are available for upgrade, we sure won't have enough space 
+    to complete our software upgrade task.
+
+<PRE>
+$ ls -l ../Resize/Dev* ;; 4G
+-rw-r--r-- 1 hsu hsu 4294967296 Apr 19 11:42 ../Resize/Dev1-Mini.img
+-rw-r--r-- 1 hsu hsu 4294967296 Apr 19 15:21 ../Resize/DevOne-Mini.img
+</PRE>
+
+<OL>
+  <a name="StablizingVM"></a>
+  <LI> Keep our <b>dev1</b> VM as stable as possible.
+
+<P> We are lucky to create our <b>dev1</b> VM as a rather stable environment for 
+software development.  But I am not happy about it.  If we update our software in 
+this VM, all the dirty tricks adopted by Debian will pollute our VM in no time.  
+Let us try our best to prolong its cleanness for as long as possible by doing the 
+following configurations:
+
+<OL>
+  <LI> Disable the sid branch in the <code>/etc/apt/sources.list</code> file. 
+
+  <LI> And add the following three lines to the end of 
+       <code>/etc/apt/preferences.d/avoid-systemd</code> files.
+
+<PRE>
+Package: libc6
+Pin: release a=stable
+Pin-Priority: 2000
+</PRE>
+  <LI> Also, when would our ethercard be renamed from <b>eth0</b> to something else? 
+      I really don't know.  But it will happen eventually, since <b>kvm</b> is 
+      completely dominated by RedHat.  The following configuration may prevent this 
+      from happening, but for how long?
+
+<PRE>
+$ diff /etc/default/grub /etc/default/grub.orig
+10c10
+< GRUB_CMDLINE_LINUX="net.ifnames=0 biosdevname=0"
+---
+> GRUB_CMDLINE_LINUX=""
+</PRE>
+  <LI> VA (virtual address) space has been randomized, even in UML.
+
+<PRE>
+$ cat /proc/sys/kernel/randomize_va_space
+2
+</PRE>
+  <LI> A copy of DevOne-Mini.img.gz has been archived in /src2/kvm-rfs/Resize directory 
+       of our mirror.
+</OL>
+
+  <LI> Prepare 1G free (clean) space 
+
+<PRE>
+ $ cd /src4/KVM/Resize 
+ # $ dd if=/dev/zero of=./blank.ext4 bs=1024K count=1000
+ $ gunzip blank.ext4.gz 
+</PRE>
+  <LI> Add 1G space to Dev1-Mini.img
+ 
+<PRE>
+     # Execute only the first or second commands, not both of them.
+     # $ cat Dev1-Mini.img blank.ext4 >>Debian-Resized.img
+     $ qemu-img resize Dev1-Mini.img +1000M
+</PRE>
+  <LI> Preparing shell script for resizing purpose
+<PRE>
+ $ cd ../bin 
+ $ ls -l *gp* 
+ $ cp start-gp-6-efs start-gp-6-resizing 
+ $ emacs start-gp-6-resizing&
+ $ diff start-gp-6-efs start-gp-6-resizing 
+11a12,32
+> ###########################################################
+> # Newly added lines
+> ###########################################################
+> if [ $# != 1 ]
+>   then echo "$0 image-to-be-resized"
+>        exit 2
+> fi
+> 
+> ImageFile="no"
+> file $1 | grep "boot sector"
+> if [ $? = 0 ]
+>   then ImageFile="yes"
+> fi
+> 
+> if [ ${ImageFile} = "no" ]
+>   then echo "$1 is not an image file."
+>        exit 3
+> else echo "$1 is an image file."
+> fi
+> ###########################################################
+> 
+25c46,49
+< kvm -net vde,vlan=0,sock=/src3/KVM/network-9381 -net nic,vlan=0,macaddr=1c:6f:65:18:3d:58 -m 512M -monitor \
+unix:/src3/KVM/network-9381/MonSock,server,nowait -hda ../Resize/Debian-Gparted.img -hdb /dev/sda&
+---
+> ###########################################################
+> # kvm -net vde,vlan=0,sock=/src3/KVM/network-9381 -net nic,vlan=0,macaddr=1c:6f:65:18:3d:58 -m 512M -monitor \
+unix:/src3/KVM/network-9381/MonSock,server,nowait -hda ../Resize/Debian-Gparted.img -hdb /dev/sda&
+> ###########################################################
+> kvm -net vde,vlan=0,sock=/src3/KVM/network-9381 -net nic,vlan=0,macaddr=1c:6f:65:18:3d:58 -m 512M -monitor \
+unix:/src3/KVM/network-9381/MonSock,server,nowait -hda ../Resize/Debian-Gparted.img -hdb <b>$1</b>&
+
+</PRE>
+
+  <LI> <b>Resizing template remotely</b>
+
+<P> Owing to the X window exposure event is not handled properly, the X window will 
+    be frozen after a few keystrokes.  We can avoid this embarrassing situation by 
+    resizing our template remotely. (P.S. From time to time, X window events 
+    have being mistreated, e.g. on linux 3.8, <b>winch</b> was missing. The symptom: 
+    when resizing a UML console, it crashed abruptly.
+
+<P> Remote login to other host,
+
+<PRE>
+ $ cd /src4/KVM/bin 
+ $ ls -l *gp*
+ $ start-gp-6-resizing
+Super User passwd, please:
+./start-gp-6-resizing image-to-be-resized
+ $ ls -l ../Resize/Dev*
+-rw-r--r-- 1 hsu hsu 4819255296 Apr 22 18:03 ../Resize/Dev1-Mini.img
+-rw-r--r-- 1 hsu hsu 4294967296 Apr 19 15:21 ../Resize/DevOne-Mini.img
+ $ start-gp-6-resizing ../Resize/Dev1-Mini.img 
+ $ more start-gp-6
+ # Check the IP for gp
+ $ ssh -X hsu@192.168.0.248
+ # Inside gp
+ $ ls -l /dev/sd*
+ # /dev/sda? are the partitions for gp, /dev/sdb? are partitions for dev1
+brw-rw---- 1 root disk 8,  0 Apr 22 18:12 /dev/sda
+brw-rw---- 1 root disk 8,  1 Apr 22 18:12 /dev/sda1
+brw-rw---- 1 root disk 8,  2 Apr 22 18:12 /dev/sda2
+brw-rw---- 1 root disk 8, 16 Apr 22 18:12 /dev/sdb
+brw-rw---- 1 root disk 8, 17 Apr 22 18:12 /dev/sdb1
+brw-rw---- 1 root disk 8, 18 Apr 22 18:12 /dev/sdb2
+ # We need to use GUI to resize /dev/sdb as a super user.
+ $ sudo cp .Xau* /root
+ $ sudo gparted /dev/sdb 
+ # 1. Delete swap partition 
+ # 2. Resize / so that we have 512M free space left.
+ # 3. Create swap partition on the remain 512M free space.
+ $ exit 
+ # From the host 
+ $ stop-gp-restore-lan-6 
+ # Check whether we can successfully boot dev1
+ $ start-dev1 
+ # It is difficult to position the mouse focus at the right place.  Using the 
+ # mouse to shutdown VM is really a mission impossible. Shut dev1 down via the 
+ # "sudo init 0" command.
+ $ stop-dev1-restore-lan
+</PRE>
+
+  <LI> The pain of the longevity of special purpose VMs:
+
+<P> I have been maintaining our gp VM for almost 10 or more years.  I have also 
+    created quite a few VMs for the cross compilation purpose, such as: The VMs 
+    (in x86 environment) for compiling software for RPI2, Xvisor, odroid-xu4, etc. 
+    Recently, we have created an sd (software development) VM (, yes, uml based) for 
+    software porting purpose and successfully porting our own software environment 
+    back to our hosts.  Trust me, it will be a precious VM for the forthcoming 
+    software development environment.
+
+</OL>
+
+<a name="Notes05-01-17"></a>
+<h3>Downgrade libc-2.24.so to libc-2.19.so</h3> 
+
+<P> Is there any meaning to keep on working on a broken system?  At least, you know 
+software compilation on it bounds to fail, name of ethercard might be changed. Worst 
+of all, the "Corrupted double-linked lists" message might pup up on the window you 
+are running some critical application. (On May/01/2017, with this phrase, I found  
+2,340,000 items by google.)  The VM we have been creating and maintaining for the 
+last two weeks starts with a friendly environment.  The moment we updated its 
+software database with our amdm mirror, it was polluted.  Gee!
+
+
+<P> This semester, we have been spending a lot of our precious time to create a UML 
+based VM, called sd, and porting our own software to our hosts.  And, thank you, all 
+of you, nice job.  On the other hand, you learned a lot, especially software 
+development and VM applications, a new topic never taught before.  For me, painfully, 
+I realized that, very soon, we must migrate our operating system to a more respectable 
+distribution.
+
+<P> For the last two weeks, we were lucky to get the devuan rc live iso.  Based on it, 
+we have successfully created our KVM VM template and booted up and remotely login-ed 
+to it by installing an additional openssh-server package.  Unfortunately, installing 
+openssh-server caused the libc.so library to be upgraded to version 2.24, a brain 
+damaged one.  When would the <b>"corrupted double-linked list"</b> error message 
+show up in our terminal, we really have no idea.  I created a shell script, called 
+"DowngradeGlibc.sh". Using this shell script, I downgraded libc.so back to 2.19. 
+
+<PRE>
+ $ cat DowngradeGlibc.sh
+#! /bin/bash
+
+if [ $EUID != 0 ]
+  then echo "Only Super user can execute this script."
+  exit 1
+fi
+
+# Empty our package cache to prevent accidentally reinstalling the improper packages
+sudo apt-get clean
+sudo apt-get install libc6=2.19-18+deb8u7 libc-bin=2.19-18+deb8u7 locales=2.19-18+deb8u7  policykit-1=0.105-15~deb8u2 libpam-systemd=215-17+deb8u6 systemd=215-17+deb8u6 systemd-sysv=215-17+deb8u6 libcryptsetup4=2:1.6.6-5 libsystemd0=215-17+deb8u6 libdevmapper1.02.1=2:1.02.90-2.2+deb8u1 udev=215-17+deb8u6 libudev1=215-17+deb8u6 dmsetup=2:1.02.90-2.2+deb8u1 libc-l10n-
+$ ls -l /lib/x*/libc.so*
+lrwxrwxrwx 1 root root 12 Nov 28 12:26 /lib/x86_64-linux-gnu/libc.so.6 -> libc-2.19.so
+</PRE>
+
+<P> Today, we download the compressed image from ac20:/src2/kvm-rfs/Resize, first. 
+    We then uncompressed it, generate the necessary shell srcipts for booting it up 
+    and shutting it down.  We then boot it up and modify the "/etc/apt/sources.list" 
+    so that its software upgrade process will only take the jessie branch packages.
+
+<P> On 05/05/2017, at home, I spent two hours (21:00 - 23:00) to investigate the 
+    software installed in our dev1 template.  From the following commands I extracted 
+    form <b>history</b>, after purging libreoffice, audio, video, etc., related 
+    packages, I recovered almost 800M storage space.  For a minimalist VM or VM for 
+    parallel computation, these packages are redundant.  For a common desktop, we 
+    probably need to supply some heavy duty packages, such as TeX, bison, cpp, flex, 
+    gcc, g++, etc.  It is only suitable for a personal desktop.  But, we must add 
+    <b>aptitude</b>, <b>deborphan</b>,  <b>emacs</b>, <b>openssh-server</b>, and 
+    <b>synaptic</b> packages for the purpose of system maintenance.  For the system 
+    security reason, <b>fail2ban</b> is a must.
+
+<P> After we make sure our resized VMs can boot in background successfully, we will 
+    learn how to augment our software environment.  Hopefully, you realize that 
+    with the techniques we have taught so far, you can create a VM template and boot 
+    and shutdown it in no time. The more important and valuable skills are resizing 
+    and customizing the template the way you see fit.  When you need a VM in a hurry, 
+    copy one of the suitable VM templates from the server, uncompress it, create the 
+    necessary online and offline shellscripts, you are in business within 30 minutes.
+
+<P> Probably, you believe <b>kvm</b>, <b>libvirt</b>, or <b>mininet</b> is the only 
+    game in town.  But, if you need to have a say about the destination of your VM, 
+    UML is the only trusted one, believe me!
+
+<a name="PurgeUselessPackages"></a>
+<PRE>
+ $ sudo dpkg -P libreoffice-core libreoffice-gtk libreoffice-help-en-us libreoffice-base-core libreoffice-common libreoffice-java-common libreoffice-math libreoffice-style-galaxy libreoffice-style-tango libreoffice-writer
+ $ sudo apt-get clean; deborphan
+ $ sudo dpkg -P python3-uno  mythes-en-us libreoffice-core libreoffice-common
+ $ sudo apt-get clean; deborphan
+ $ sudo dpkg -P `deborphan`
+ $ sudo dpkg -P libavutil54 libavresample2 libavcodec56
+ $ sudo dpkg -P vlc-nox vlc vlc-plugin-notify vlc-plugin-samba
+ $ sudo dpkg -P libavcodec56 libavformat56 libavutil54 libavresample2
+ $ sudo dpkg -P libasound2-plugins gstreamer1.0 pulseaudio pulseaudio-module-x11
+ $ sudo dpkg -P libavresample2 libavformat56 libavcodec56 libavutil54 libavcodec-extra-56
+ $ sudo apt-get install libavcodec-extra-56
+ $ sudo dpkg -P libgegl-0.2-0 gimp
+ $ sudo dpkg -P libavutil54 libavresample2 libavformat56 libavcodec-extra-56
+ $ sudo dpkg -P libicu52 libpsl0 xbrlapi wget libpsl0 hplip printer-driver-postscript-hp
+ $ sudo apt-get clean; deborphan
+ $ sudo dpkg -P `deborphan`
+ $ sudo apt-get autoremove; sudo apt-get autoclean
+ $ df
+Filesystem     1K-blocks    Used Available Use% Mounted on
+/dev/sda2        3029776 1980176    993216  67% /
+</PRE>
+
+<a name="VmTemplateCreation"></a>
+<h3>Vm Template Creation</h3>
+
+<P> We have learned how to quickly complete our VM image installation.  Also by 
+following the steps listed <a href="#StablizingVM" target="_b">here</a>, we try to 
+keep our VM environment as stable as possible. We then install the missing package 
+<b>openssh-server</b>, we can remotely login our VM immediately.  Although not 
+difficult, it is rather tedious to go through all these routines, (error-prone, 
+I might add), to obtain a VM image.  On second thought, we can create three, (1) 
+minimalist, (2) parallel computimg, (3) common desktop VM templates, test them 
+thoroughly, we then compress these templates and store them in a server.  Every time 
+we need a new VM, we choose a suitable one, download and uncompress it, we will be 
+ready to boot our VM in no time.  From time to time, we upgrade the software in these 
+templates, we can guarantee that the VM we obtained is almost up-to-date.
+
+<P> Today, we will learn how to create such a template. Basically, we will install 
+the following more packages to dev1 VM.  But, let us make sure dev1 is stable, i.e. 
+we can boot it in the background, update its software packages, first.
+
+<PRE>
+$ more DebianNetFiles/DebianNet-UltraLight.txt
+aptitude					install
+deborphan					install
+dnsutils					install
+emacs						install
+fail2ban					install
+geoip-bin					install
+less						install
+libpng12-0					install
+openssh-client					install
+openssh-server					install
+sysvinit					install
+sysvinit-core					install
+sysvinit-utils					install
+synaptic					install
+xaw3dg                                   	install
+xterm						install
+</PRE>
+
+<a name="DevUanNotes"></a>
+<h3>DevUan Notes</h3>
+
+<P> <b>Notes (05/24/2017)!</b> I examine the package installation history carefully.
+It seems not very successful, since systemd and sysvinit-core are mutual exclusive 
+and systemd is running.  Sure, we can not remove systemd, hence sysvinit-core is not 
+installed.  Must install it via "sudo apt-get install sysvinit-core" by hand and 
+reboot our VM, check the real process <b>init</b> is running then we are able to 
+purge <b>systemd</b>.  But, still, we must remove everything under the directory: 
+<code>/etc/systemd</code> by hand via "sudo rm -rf /etc/systemd/*" command.  For 
+the <b>synaptic</b> command causing our display to be frozen, I guess its the X 
+window exposure event is not handled properly. 
+<a href="https://linux.die.net/man/1/dselect" target="_b">dselect man page</a>
+
+<PRE>
+ # dselect failed to install sysvinit-core, since like aptitude, it checks dependency 
+ # more carefully.
+ $ dpkg -s sysvinit-core
+ $ sudo apt-get install sysvinit-core 
+ # Usually, we start VMs without Xorg, the X server. Slim, (Simple Login Manager), 
+ # automatically starts X server.
+ $ sudo update-rc.d -f slim remove
+ $ dpkg -s ifupdown
+ # Without this package, network loopback device won't be enable.
+ $ sudo apt-get install ifupdown 
+ # Shutdown and reboot our VMs, it should be fine now.
+</PRE>
+
+<P> <b>Good And Bad News (05/23/2017)!</b>  None of our Dev1 VMs are functional!  The 
+reson: After updating and upgrading our software packages, the process init, (in fact 
+changed to systemd, after openssh-server installation), is gone forever.  Some of the 
+packages, such as libreoffice, libav*, etc. are marked as depending on systemd.  But, 
+the avoid-systemd file prevents systemd-sysv from automatically installing.  We end up 
+with <b>/bin/sh</b> as our first process, neither <b>init</b> nor <b>systemd</b>. This 
+result is to be expected, since devuan says don't mess devuan archive with the debian 
+one. But, we have been doing this for a long time and we don't have devuan mirror in 
+Taiwan.
+
+<P> On Apr 30, I purged quite a few packages from Dev1 template and compressed and 
+stored the .gz image in ac20:/src2/kvm-rfs/Resize/DevOne.img.gz.  Based on it, I 
+successfully built a VM, upgraded its software.  Still, I encountered quite a few 
+obstacles.  I believe we can learn much more from failure experience.  Today, let 
+us start it all over again.
+
+<PRE>
+ $ cd /src4/KVM/bin 
+ $ start-dev1-23
+ $ stop-dev1-restore-lan-23
+ $ cd /src4/KVM/Resize
+ $ rm Dev1-Mini.img
+ $ scp /src2/kvm-rfs/Resize/DevOne.img.gz Dev1-Mini.img.gz
+</PRE>
+
+<P> Moreover, the OS environments we built based on Devuan are rather solid, especially 
+the (UML based) sd which we have been using it for software development for the whole 
+semester.  
+
+<PRE>
+# We usually start VMs without Xorg, the X Server.  Hence, disable slim, (Simple Login 
+# Manager).  This also automatically prevents Xorg, the X Sever, from starting at boot.
+$ sudo update-rc.d -f slim remove
+$ sudo cat /var/log/auth.log | grep internet-domain
+   .
+   .
+   .
+May 22 15:35:15 d1 sshd[2130]: error: Failed to allocate internet-domain X11 display socket.
+# Apparently, on d1, loopback is down.
+hsu@d1:~$ /sbin/ifconfig -a
+eth0      Link encap:Ethernet  HWaddr 00:1f:d0:03:33:5c  
+          inet addr:192.168.31.120  Bcast:192.168.31.255  Mask:255.255.255.0
+          inet6 addr: fe80::21f:d0ff:fe03:335c/64 Scope:Link
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:600 errors:1 dropped:0 overruns:0 frame:1
+          TX packets:503 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000 
+          RX bytes:49759 (48.5 KiB)  TX bytes:331241 (323.4 KiB)
+
+lo        Link encap:Local Loopback  
+          LOOPBACK  MTU:65536  Metric:1
+          RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:0 
+          RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
+# We confirm it by the next command
+hsu@d1:~$ ping -c 3 localhost
+PING localhost.localdomain (127.0.0.1) 56(84) bytes of data.
+
+--- localhost.localdomain ping statistics ---
+3 packets transmitted, 0 received, 100% packet loss, time 2016ms
+hsu@d1:~$ dpkg -s ifupdown
+Package: ifupdown
+Status: deinstall ok config-files
+hsu@d1:~$ sudo apt-get install ifupdown 
+# We then reboot d1
+hsu@d1:~$ echo $DISPLAY
+localhost:10.0
+# We also successfully run X wnidow programs.
+</PRE>
+
+<a name="TakeAnn"></a>
+<h3>Takehome Announcement</h3>
+
+<P> The raw image of your Takehome is available now.  To find out your raw image and 
+IP arrangement, etc., please read the <a href="./Takehome-Readme-2017.html" 
+target="_b">Takehome-Readme-2017</a> file.
+  </body></html>

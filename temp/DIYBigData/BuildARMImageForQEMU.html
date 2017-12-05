@@ -1,0 +1,1254 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head><title>Build Your ARM Image for QEMU | Medicine's Blog</title>
+  </head>
+
+<body>
+<h4>Table Of Contents</h4>
+
+<OL>
+  <LI><a href="#BuildYourARMImage">Build Your ARM Image for QEMU</a>
+  <LI><a href="#ArmDeviceBootSequence">Arm Device Boot Sequence</a>
+  <LI><a href="#"></a>
+  <LI><a href="#"></a>
+</OL>
+
+<a name="BuildYourARMImage"></a>
+<h3 class="entry-title">Build Your ARM Image for QEMU 
+<a href="https://medicineyeh.wordpress.com/2016/03/29/buildup-your-arm-image-for-qemu/" 
+target="_b">(Source origin)</a></h3>
+
+
+<p> Hello there! I've been using QEMU for a while. Recently, I updated my ARM image and 
+found that it has some difficulties to make an ARM image and could be an impossible job 
+for those who are not familiar with embedded systems. I decided to write a comprehensive 
+post to share some knowledge and how to build you own ARM image. This post could be very 
+useful for those who want to know how Linux works with minimum requirements (root file 
+system, in short <strong>rootfs</strong>). I use <strong>Vexpress</strong> as the target 
+board in the tutorial.</p>
+
+<p><span id="more-787"></span></p>
+
+<p>This post is separated into three parts. The first part teaches you how a Linux works 
+from a programmer's view who wants to port Linux on different platforms, such as QEMU. 
+The second part is a tutorial for building a Linux kernel and rootfs running on QEMU. 
+The last part is how to run existing kernel and images on QEMU. I believe this is very 
+comprehensive for someone who want to learn or start a new project on ARM with QEMU or 
+other ARM platforms.</p>
+
+<h3>How Does a Linux Boot</h3>
+
+<p>Many people know boot loader and some <a href="#ArmDeviceBootSequence" 
+target="_b">Linux boot sequence</a>. You can Google it to find the detail version. Here 
+I would like to point out how QEMU boot Linux, which is the most central and fundamental 
+part that one should understand!!</p>
+
+<p>QEMU has a command argument called "-kernel". It is a very handy function!! Because 
+of this feature, we don't need to bother the complicated boot sequence and problems on 
+locating Kernel Image. We could just use "-kernel" to pass kernel image to QEMU. Then, 
+QEMU will uncompress the kernel image to a proper memory location and start to run the 
+kernel code. This function saves the time to figure out how to boot Kernel on QEMU.</p>
+
+<p>Now, let's talk about how Linux Boot. If you read the paragraph above, then you are 
+done!! All you need to do to run a kernel is to specify kernel image with "-kernel" 
+argument to QEMU!!  Linux Kernel is a complete program that could be run without other 
+shared libraries. So... that's it!! However!!! it is useless to run it that way because 
+the only thing you can do is watching it printing messages which end up with "kernel 
+panic ... unable to mount rootfs ...". This indicates that kernel could not complete 
+"init" procedure. So, next section will teach you how to build a rootfs (root file 
+system) to run a Linux Kernel correctly.</p>
+
+<p>Finally, I would like to talk about kernel modules. Of cause, you can build all 
+modules in your kernel, so that you don't need to deal with this problem. Since this 
+is a tutorial, I want to dive deeper. Kernel modules are mostly drivers, both hardware 
+drivers and software drivers.  For example, the Ethernet!  If the driver is a kernel 
+module stored in root file system, Linux kernel will not be able to access the Internet 
+before mounting the root file system. Another example is <strong>ext3, ext4</strong> 
+driver, Linux Kernel must contain these basic file system driver in order to execute 
+<strong>init procedure </strong>because the<strong> init files</strong> are located in 
+root file system. It's somehow a very common problem which was very popular in early 
+years. That's why we have so-called <strong>initramfs</strong> or <b>rootfs</b>. They 
+are minimal file system images containing all kernel modules (.ko files), init procedure 
+scripts, and necessary binaries to boot a full system. In the following tutorial, we 
+will build the ethernet driver to a separate <strong>.ko</strong> file to illustrate the 
+usage of a kernel module on ethernet.</p>
+
+<p>Last part about booting Linux is device tree. A device tree is a tree data structure 
+with nodes that describe the physical devices in a system. Linux reads the dtb (device 
+tree blob) file to know the underlying hardware information and achieves portability. 
+To further understand what information are included in the device tree, you can read the 
+following articles.</p>
+
+<ol>
+  <li><a href="https://en.wikipedia.org/wiki/Device_tree">Wiki</a></li>
+  <li><a href="http://elinux.org/images/a/a3/Elce2013-petazzoni-devicetree-for-dummies.pdf">Device Tree for Dummies</a></li>
+  <li><a href="https://www.youtube.com/watch?v=wlXbeqtW0hI">Xilinx Zynq Example</a></li>
+</ol>
+
+<h3>How to Build an ARM Image</h3>
+
+<p>To build ARM image running on QEMU. One should prepare the following things. These 
+are all the repos we are going to cover in this section. To compile QEMU correctly, you 
+might need to install some packages which are not mentioned in this article.</p>
+
+<h4>Git Repos:</h4>
+
+<ul>
+  <li>QEMU: <a href="https://github.com/qemu/qemu">https://github.com/qemu/qemu</a></li>
+  <li>Linux: <a href="https://github.com/torvalds/linux">torvalds/linux</a></li>
+  <li>Busybox: (Deprecated, use the link below)</li>
+  <li>Buildroot: git://git.buildroot.net/buildroot</li>
+</ul>
+
+<h4>Websites:</h4>
+
+<ul>
+  <li>Busybox: <a href="https://busybox.net/downloads/">https://busybox.net/downloads/</a></li>
+  <li>Linaro ARM compiler (hard floating): <a href="https://releases.linaro.org/14.11/components/toolchain/binaries/arm-linux-gnueabihf/gcc-linaro-4.9-2014.11-x86_64_arm-linux-gnueabihf.tar.xz">gcc-linaro-4.9-2014.11-x86_64_arm-linux-gnueabihf.tar.xz</a></li>
+  <li>Linaro ARM compiler: <a href="https://releases.linaro.org/14.11/components/toolchain/binaries/arm-linux-gnueabi/gcc-linaro-4.9-2014.11-x86_64_arm-linux-gnueabi.tar.xz" target="_blank">gcc-linaro-4.9-2014.11-x86_64_arm-linux-gnueabi.tar.xz</a></li>
+</ul>
+
+<h4>Prepare ARM compiler:</h4>
+
+<p>First, download Linaro ARM compiler with "<strong>hf</strong>" (hard floating point 
+calling convention) support!! You can download it from the link above. Extract it and 
+put it in a proper location. Then, edit your .bashrc file and export an environment 
+variable like this. Here I put it to "~/bin/linaro-arm-linux-gnueabihf". You need to 
+modify this path to your location.</p>
+
+<p><span style="color:#ff0000;">NOTE</span>: If you are doing this for other platforms 
+without hardware floating points supports, use the one without "<strong>hf</strong>" 
+instead. The following commands and scripts are written with 
+<strong>linaro-arm-linux-gnueabihf</strong> compiler.</p>
+
+<PRE>
+$ cat ~/.bashrc
+export PATH=~/bin/linaro-arm-linux-gnueabihf/bin:$PATH
+export PATH=~/bin/linaro-arm-linux-gnueabi/bin:$PATH
+</PRE>
+
+
+<p>Then, reload the file by:</p>
+
+
+<PRE>
+~$ source ~/.bashrc
+</PRE>
+
+<h4>Compiling Linux Kernel:</h4>
+
+<p>Here, I used <strong>Linux 4.4</strong> as my image version. You may or may not need 
+some adjustments in newer versions. Download and compile Linux kernel with target board 
+default configuration. There are two configurations you need to modify. First is 
+"<b>CONFIG_FHANDLE</b>", please refer to <a href="https://www.olimex.com/forum/index.php?
+topic=3260.0">thread1</a>, 
+<a href="http://www.gossamer-threads.com/lists/linux/kernel/1392896">thread2</a> for 
+more information about why doing this. Second is the ethernet driver SMC91C1xxx.</p>
+
+<p>Enable <strong>CONFIG_FHANDLE</strong> by pressing &lt;Y> key.</p>
+
+<pre>
+General setup --->
+[*] open by fhandle syscalls
+</pre>
+
+<p>Set <strong>devtmpfs</strong> settings for correct behavior of /dev system. If this 
+feature is not set, some device driver might not work and report "Internal Error" or 
+"Major Minor number not found" errors due to the major-minor number would be redirected 
+to an incorrect number when this feature is disabled.</p>
+
+<pre>
+Device Drivers  --->
+  Generic Driver Options  --->
+    [*] Maintain a devtmpfs filesystem to mount at /dev
+    [*]   Automount devtmpfs at /dev, after the kernel mounted the rootfs
+</pre>
+
+<p>Set <b>SMC91C1xxx</b> to loadable kernel module by pressing &lt;M> key.</p>
+
+<p><em>P.S. This  is just for tutorial use. 
+For convenience, you don't need to make this change in the real situation. Just leave 
+it included, shown as &lt;*>. If you mark it included, you might probably don't do 
+anything with root file system since kernel modules are already included in your kernel 
+image. If you mark it loadable, you will need to copy the kernel modules into root file 
+system to make it work correctly.</em></p>
+
+<pre>
+Device Drivers ---> Network device support ---> Ethernet driver support --->
+[*]   SMC (SMSC)/Western Digital devices
+&lt;M>     SMC 91C9x/91C1xxx support
+&lt; >     SMSC LAN911[5678] support
+&lt;M>     SMSC LAN911x/LAN921x families embedded ethernet support
+</pre>
+
+
+<PRE>
+# Download linux<br>
+~$ git clone <a href="https://github.com/torvalds/linux">torvalds/linux</a><br>
+~$ cd linux<br>
+# Switch to version 4.4 (It's not necessary!!!!)<br>
+~/linux$ git checkout v4.4<br>
+# Load default config for target board<br>
+~/linux$ ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- make vexpress_defconfig<br>
+# Adjust some settings as mentioned above<br>
+~/linux$ ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- make menuconfig<br>
+# Compile the kernel<br>
+~/linux$ ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- make -j4
+</PRE>
+
+
+<p> </p>
+
+<p>After successfully compiling Linux, the image we need is located in 
+"arch/arm/boot/zImage" and device tree file for Vexpress is in 
+"arch/arm/boot/dts/vexpress-v2p-ca9.dtb". That's it! You can now run it 
+with QEMU to get a first taste by running:</p>
+
+
+<PRE>
+~/linux$ qemu-system-arm \<br>
+-M vexpress-a9 \<br>
+-dtb ./arch/arm/boot/dts/vexpress-v2p-ca9.dtb \<br>
+-kernel ./arch/arm/boot/zImage \<br>
+-append "console=ttyAMA0" \<br>
+--nographic
+</PRE>
+
+
+<p> </p>
+
+<p>You will stop with a kernel panic, but it's fine. We still lack root file system for 
+Linux kernel to complete the init procedure. Next, we are going to build a root file 
+system for Linux to run.</p>
+
+<pre>
+Please append a correct "root=" boot option; here are the available partitions:
+1f00          131072 mtdblock0  (driver?)
+1f01           32768 mtdblock1  (driver?)
+Kernel panic - not syncing: VFS: Unable to mount root fs on unknown-block(0,0)
+CPU: 0 PID: 1 Comm: swapper/0 Not tainted 4.4.0+ #5
+Hardware name: ARM-Versatile Express
+[&lt;8001640c>] (unwind_backtrace) from [&lt;80012f28>] (show_stack+0x10/0x14)
+[&lt;80012f28>] (show_stack) from [&lt;8025978c>] (dump_stack+0x88/0x98)
+[&lt;8025978c>] (dump_stack) from [&lt;800a4cd0>] (panic+0xa0/0x204)
+[&lt;800a4cd0>] (panic) from [&lt;80646254>] (mount_block_root+0x1c0/0x25c)
+[&lt;80646254>] (mount_block_root) from [&lt;8064640c>] (mount_root+0x11c/0x124)
+[&lt;8064640c>] (mount_root) from [&lt;8064656c>] (prepare_namespace+0x158/0x19c)
+[&lt;8064656c>] (prepare_namespace) from [&lt;80645ef0>] (kernel_init_freeable+0x268/0x278)
+[&lt;80645ef0>] (kernel_init_freeable) from [&lt;804b8f44>] (kernel_init+0xc/0xe8)
+[&lt;804b8f44>] (kernel_init) from [&lt;8000f538>] (ret_from_fork+0x14/0x3c)
+</pre>
+
+<p> </p>
+
+<h4>Root File System (rootfs)</h4>
+
+<p>There are two ways to make a root file system, <a href="https://www.busybox.net/" 
+target="_b">Busybox</a> and <a href="https://buildroot.org/" target="_b">Buildroot</a>. 
+Busybox is a very old way to build a minimal root file system with only basic binaries. 
+The user needs to create "/dev" and "/etc" folders with appropriate settings. On the 
+other hand, Buildroot, integrating many pieces of stuff, is a very easy way with lots 
+of supports of different libraries and binaries to build a root file system under your 
+needs. Personally, I prefer Buildroot since build root is easier to add some extra 
+binaries, libraries and system services (systemV, systemd, etc.).</p>
+
+<p>Download Busybox and set the setting as follows:</p>
+
+<pre>
+Busybox Settings ---> Build Options --->
+[*] Build BusyBox as a static binary (no shared libs)
+</pre>
+
+<p>Instructions:</p>
+
+
+<PRE>
+~$ cd busybox<br>
+# Adjust some settings as mentioned above<br>
+~/busybox$ ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- make menuconfig<br>
+# Compile Busybox<br>
+~/busybox$ ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- make -j4
+</PRE>
+
+
+<p>Next, you need to create basic device nodes and init scripts. I prepare the scripts 
+to complete this task and make life easier. The origin is from this 
+<a href="http://www.cnblogs.com/pengdonglin137/p/5023342.html">post</a>; I'm not the 
+person who wrote this script, but I modified it.</p>
+
+<PRE>
+#!/bin/bash
+ 
+#Remove old files
+sudo rm -rf rootfs
+rmdir tmpfs
+rm -f a9rootfs.ext3
+ 
+#Create new rootfs folder
+sudo mkdir rootfs
+sudo cp busybox/_install/* rootfs/ -raf
+ 
+#Create folders required by Linux convention
+sudo mkdir -p rootfs/proc/
+sudo mkdir -p rootfs/sys/
+sudo mkdir -p rootfs/tmp/
+sudo mkdir -p rootfs/root/
+sudo mkdir -p rootfs/var/
+sudo mkdir -p rootfs/mnt/
+ 
+#Download sample etc files with init procedure and copy it to rootfs
+wget http://files.cnblogs.com/files/pengdonglin137/etc.tar.gz
+tar -xf ./etc.tar.gz
+sudo cp etc rootfs/ -arf
+ 
+#Copy shared libraries to rootfs
+sudo cp -arf ~/bin/linaro-arm-linux-gnueabihf/libc/usr/lib rootfs/
+sudo rm rootfs/lib/*.a
+sudo arm-linux-gnueabihf-strip rootfs/lib/*
+ 
+#Create basic device nodes
+sudo mkdir -p rootfs/dev/
+sudo mknod rootfs/dev/tty1 c 4 1
+sudo mknod rootfs/dev/tty2 c 4 2
+sudo mknod rootfs/dev/tty3 c 4 3
+sudo mknod rootfs/dev/tty4 c 4 4
+sudo mknod rootfs/dev/console c 5 1
+sudo mknod rootfs/dev/ttyAMA0 c 204 64
+sudo mknod rootfs/dev/null c 1 3
+ 
+#Create ext3 image file
+dd if=/dev/zero of=a9rootfs.ext3 bs=1M count=$((32))
+mkfs.ext3 a9rootfs.ext3
+ 
+#Copy all the files in our rootfs to image
+mkdir -p tmpfs
+sudo mount -t ext3 a9rootfs.ext3 tmpfs/ -o loop
+sudo cp -r rootfs/* tmpfs/
+sudo umount tmpfs
+rmdir tmpfs
+</PRE>
+
+
+<p>Now, you can run QEMU with this rootfs.</p>
+
+
+<PRE>
+~/$ qemu-system-arm \<br>
+-M vexpress-a9 \<br>
+-dtb ./linux/arch/arm/boot/dts/vexpress-v2p-ca9.dtb \<br>
+-kernel ./linux/arch/arm/boot/zImage \<br>
+-append "root=/dev/mmcblk0 console=ttyAMA0" \<br>
+-sd ./a9rootfs.ext3 \<br>
+--nographic
+</PRE>
+
+
+<p> </p>
+
+<p>You will see the following messages when you succeed.</p>
+
+<pre>
+<strong><span style="color:#339966;">mmc0: new SD card at address 4567
+mmcblk0: mmc0:4567 QEMU! 32.0 MiB</span></strong>
+input: AT Raw Set 2 keyboard as /devices/platform/smb/smb:motherboard/smb:motherboard:iofpga@7,00000000/10006000.kmi/serio0/input/input0
+aaci-pl041 10004000.aaci: ARM AC'97 Interface PL041 rev0 at 0x10004000, irq 33
+aaci-pl041 10004000.aaci: FIFO 512 entries
+oprofile: using arm/armv7-ca9
+NET: Registered protocol family 17
+9pnet: Installing 9P2000 support
+Registering SWP/SWPB emulation handler
+Key type encrypted registered
+rtc-pl031 10017000.rtc: setting system clock to 2016-03-29 08:30:44 UTC (1459240244)
+ALSA device list:
+#0: ARM AC'97 Interface PL041 rev0 at 0x10004000, irq 33
+input: ImExPS/2 Generic Explorer Mouse as /devices/platform/smb/smb:motherboard/smb:motherboard:iofpga@7,00000000/10007000.kmi/serio1/input/input2
+EXT4-fs (mmcblk0): mounting ext3 file system using the ext4 subsystem
+EXT4-fs (mmcblk0): mounted filesystem with ordered data mode. Opts: (null)
+VFS: Mounted root (ext3 filesystem) readonly on device 179:0.
+Freeing unused kernel memory: 292K (80645000 - 8068e000)
+random: nonblocking pool is initialized
+mkdir: can't create directory '/var/lock': Read-only file system
+<span style="color:#339966;"><strong>
+Please press Enter to activate this console.
+</strong></pre>
+
+<p>The kernel successfully catches our SD card device with the name "QEMU" and the size 
+32MB, mapping at address 4567.  After pressing Enter, you will login single user mode, 
+which has only root account to do some maintenance. It is not convenient and sometimes 
+causes problems on executing a binary compiled by yourself. It's just a toy that shows 
+some functionality of Linux kernel but without user applications. So, I strongly suggest 
+using Buildroot to generate a minimal rootfs.</p>
+
+<h4>Buildroot, Making Embedded Linux Easy</h4>
+
+<p>Busybox does not complete the full system we need. In addition, it is  very 
+complicated for developers to understand the whole Linux root filesystem and init 
+procedures. Buildroot is the perfect solution which includes many repositories, 
+binaries, libraries from elsewhere. Buildroot is a tool providing a <em>menuconfig</em> 
+UI. Developers can quickly pick the system configurations they want and choose 
+libraries, binaries to be installed in the rootfs. The only drawback of using buildroot 
+is the download and compilation time since all the source codes, and even compilers are 
+downloaded by its scripts to ensure the integrity and functionality. Trading the 
+compilation time, developers save the time to build the environment and find the source 
+codes of those libraries. I think it is very worthy.</p>
+
+<p>To download (clone) and configure buildroot for our needs is super easy.</p>
+
+
+<PRE>
+~$ git clone git://git.buildroot.net/buildroot<br>
+~$ cd buildroot<br>
+# Please configure the settings listed below<br>
+~/buildroot$ make menuconfig<br>
+# Don't use -j<br>
+~/buildroot$ make
+</PRE>
+
+
+<p>Then, configure the basic, minimal rootfs as the following settings:</p>
+
+<pre>
+#Set to the proper processor if you use different CPU
+Target options --->
+    Target Architecture (<strong>ARM (little endian)</strong>)
+    Target Binary Format (<strong>ELF</strong>)
+    Target Architecture Variant (<strong>cortex-A9</strong>)
+    Target ABI (<strong>EABI</strong>)
+    Floating point strategy (<strong>Soft float</strong>)
+    ARM instruction set (<strong>ARM</strong>)
+#I prefer this toolchain rather than buildroot's
+Toolchain --->
+    Toolchain type (<strong>External toolchain</strong>)
+    Toolchain (<strong>Sourcery CodeBench ARM 2014.05</strong>)
+    Toolchain origin (<strong>Toolchain to be downloaded and installed</strong>)
+#This is the minimal setting one could use. 
+System configuration --->
+    Init system (<strong>BusyBox</strong>)
+    /dev management (<strong>Dynamic using devtmpfs only</strong>)
+    [<strong>*</strong>] Enable root login with password
+    (<strong>root</strong>) Root password
+        /bin/sh (<strong>busybox' default shell</strong>)
+#CPIO is more compatible and has readonly property when executing QEMU
+Filesystem images --->
+    [<strong>*</strong>] cpio the root filesystem (for use as an initial RAM filesystem)
+</pre>
+
+<p>Don't forget to set a password for root user here if you choose "Enable root login 
+with password" as I do here. This sample setting is the basic setup I prefer to use.  
+Actually, one could just set "Target options" to proper ARM CPU and "make". Here, my 
+setting is trying to demonstrate some critical rootfs settings one might need to 
+choose.<br>
+If you prefer fancy terminal instead of basic stuff, you can choose different init 
+system. Like this:</p>
+
+<pre>
+#This example uses different init system and shell
+System configuration --->
+    (hello_rootfs) System hostname
+    (From Medicine's Blog) System banner
+    #You can try <strong>systemd</strong> if you want :P
+    Init system (<strong>systemV</strong>)
+        #This is the default shell after login.
+        /bin/sh (<strong>bash</strong>)
+#Here, you can install multiple shells
+Target packages ---> Shell and utilities --->
+    -<strong>*</strong>- bash
+    [<strong>*</strong>] zsh
+</pre>
+
+<p>There are many convenient binaries you can install. Ex: sudo, htop, tmux, vim, 
+python, PHP, etc. and libraries, such as MySQL, zlib, libfuse, Javascript, x264, x265, 
+etc. Exploring how many binaries and libraries we could install are very interesting! 
+Take some time to look at all options! You might find something useful. Here I set 
+default shell to bash for more powerful and complete functions. You can pick 
+<em>zsh</em> or other shells you like as default.</p>
+
+<p>After a successful compilation, your rootfs.cpio file will be located in 
+"buildroot/output/images/rootfs.cpio"</p>
+
+<p>You can use the kernel compiled previously with this new image.</p>
+
+
+<PRE>
+~/$ qemu-system-arm \<br>
+-M vexpress-a9 \<br>
+-dtb ./linux/arch/arm/boot/dts/vexpress-v2p-ca9.dtb \<br>
+-kernel ./linux/arch/arm/boot/zImage \<br>
+-append "console=ttyAMA0" \<br>
+-initrd ./buildroot/output/images/rootfs.cpio \<br>
+--nographic
+</PRE>
+
+
+<pre>
+INIT: version 2.88 booting
+Starting logging: OK
+Initializing random number generator...
+done.
+Starting network...
+INIT: Entering runlevel: 3
+
+From Medicine's Blog
+hello_rootfs login:
+</pre>
+
+<p>This message means you made it!! Now, it's running multi-user mode under systemV 
+init procedure. You can log in "root" with password "root". If you fail to login, you 
+might forget to set the password for root when configuring Buildroot.</p>
+
+<p>That's it!! Enjoy your easy life with Buildroot. <img 
+src="https://s0.wp.com/wp-content/mu-plugins/wpcom-smileys/twemoji/2/svg/1f600.svg" 
+width="15" height="15"></p>
+
+<h3>Arch Linux (ARM)</h3>
+
+<p>Now, let's move to running a more rich and powerful Linux system on ARM QEMU. First, 
+go to <a href="https://archlinuxarm.org/">ArchLinux|ARM </a>website and download latest 
+image of Vexpress. In case you can't find it, here's the 
+<a href="https://archlinuxarm.org/platforms/armv7/arm/versatile-express">link</a>.  The 
+commands to extract the file and build a root file system are very simple. Basically, 
+what one needs to do is extract it in a folder. But what we are going to do is to build 
+a rootfs image for QEMU, we need to create an empty ext4 image and put everything in 
+it.</p>
+
+
+<PRE>
+~/$ mkdir root<br>
+~/$ dd if=/dev/zero of=./arch_rootfs.ext4 bs=1M count=$((4 * 1024))<br>
+~/$ mkfs.ext4 ./arch_rootfs.ext4<br>
+~/$ sudo mount ./arch_rootfs.ext4 ./root<br>
+~/$ wget <a href="http://archlinuxarm.org/os/ArchLinuxARM-armv7-latest.tar.gz">http://archlinuxarm.org/os/ArchLinuxARM-armv7-latest.tar.gz</a><br>
+~/$ sudo bsdtar -xpf ArchLinuxARM-armv7-latest.tar.gz -C ./root<br>
+~/$ sync<br>
+~/$ cp ./root/boot/zImage ./zImage_arch<br>
+~/$ cp ./root/boot/dtbs/vexpress-v2p-ca9.dtb ./<br>
+~/$ sudo umount ./root
+</PRE>
+
+
+<p>Now, the linux Kernel and Arch rootfs are ready. We don't need boot loader here. You 
+can now execute QEMU with the following command:</p>
+
+
+<PRE>
+~/$ qemu-system-arm \<br>
+-M vexpress-a9 \<br>
+-dtb ./vexpress-v2p-ca9.dtb \<br>
+-kernel ./zImage_arch \<br>
+-append "root=/dev/mmcblk0 rw roottype=ext4 console=ttyAMA0" \<br>
+-drive if=sd,driver=raw,cache=writeback,file=./arch_rootfs.ext4 \<br>
+--nographic \<br>
+-snapshot
+</PRE>
+
+
+<p>The message should be like this. You can log in "root" with password "root".</p>
+
+<pre>
+......
+Welcome to <span style="color:#00ccff;">Arch Linux ARM</span>!
+[  <span style="color:#99cc00;">OK</span>  ] Reached target Paths.
+[    6.270852] systemd[1]: Listening on udev Control Socket.
+[  <span style="color:#99cc00;">OK</span>  ] Listening on udev Control Socket.
+
+......
+Arch Linux 4.4.3-1-ARCH (ttyAMA0)
+
+vexpress-ARM login:
+</pre>
+
+<p>I use "-snapshot" to make all the changes in the image volatile for safety. If I run 
+QEMU without "-snapshot", all the changes I made on QEMU VM would be persistent. 
+However, if I terminate QEMU with the signal "ctrl+a then press c", some files in the 
+ext4 rootfs image might be broken. To prevent this tragedy, I use "-snapshot" to drop 
+all the writes and changes. Of course, if one shutdown QEMU with "poweroff" command on 
+guest OS, everything will be fine.</p>
+
+<h4>Running Arch Linux With Your Kernel</h4>
+
+<p>While running Arch with precompiled Linux kernel is easy, running Arch your kernel 
+might be hard. There are three steps in total. Copy the Linux kernel config file from 
+rootfs. Compile Linux with that ".config" file and compile kernel modules. Install your 
+kernel modules on rootfs. That's it! It's really easy but a little bit complicated when 
+you do it.</p>
+
+<p>For those who are familiar with kernel compile, I prepare a script to do all the jobs 
+and make our life easier. If you are familiar with the process of compiling kernel and 
+kernel modules, you can do it by yourself as well. It's the same thing when you compile 
+your own kernel and kernel modules on your x86 systems. Just don't forget to put kernel 
+headers and kernel modules in a correct location in rootfs.</p>
+
+<p>To retrieve the kernel config, you need to launch the image with QEMU. After you 
+launch QEMU, all you need to do is zcat.</p>
+
+
+<PRE>
+# In QEMU Guest OS<br>
+~$ zcat /proc/config.gz
+</PRE>
+
+
+<p>Now, you can compile your own kernel. There's one thing you must do is removing all 
+the external firmware drivers (CONFIG_EXTRA_FIRMWARE=""). They are not open source and 
+hard to download. Unless you need to run linux on thoes developement boards, just remove 
+them.</p>
+
+<pre>
+# Make sure this field is empty
+Device Drivers ---> Generic Driver Options --->
+    ()    External firmware blobs to build into the kernel binary
+</pre>
+
+
+<PRE>
+# Download linux<br>
+~$ git clone <a href="https://github.com/torvalds/linux">https://github.com/torvalds/linux</a><br>
+~$ cd linux<br>
+# Switch to the version of your Arch ARM<br>
+~/linux$ git checkout v4.4<br>
+# Load the external config we extracted from Arch ARM<br>
+~/linux$ cp ../arch_arm_config ./.config<br>
+# Remove all external firmware drivers which we don't have<br>
+# And adjust some settings if you need<br>
+~/linux$ ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- make menuconfig<br>
+# Compile the kernel<br>
+~/linux$ ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- make -j4<br>
+# Package the files we need. Need about 5 mins<br>
+~/linux$ ../install.sh<br>
+# Mount Arch ARM rootfs image<br>
+~/linux$ cd ../<br>
+~$ sudo mount ./arch_rootfs.ext4 ./root<br>
+~$ cd linux<br>
+# Copy packed kernel modules and headers<br>
+~/linux$ sudo cp -r ./output/usr/lib/modules/* ../root/usr/lib/modules/<br>
+# Copy zImage to where you place kernel image<br>
+~/linux$ cp ./output/boot/zImage ../zImage_arch<br>
+# Un-mount Arch ARM rootfs image<br>
+~/linux$ cd ../<br>
+~$ sudo umount ./root
+</PRE>
+
+
+<p>Here's the script, please copy paste it manually. The variables from line 4 to line 
+15 are related to kernel version and naming. Just modify the version number to your 
+Linux kernel version number. After executing this script, the output files are in 
+"./output" folder. Please copy all the files in "./output" to your rootfs and copy 
+"./output/boot/zImage" to where you place Linux kernel image.</p>
+
+<PRE>
+ $ cat install.sh
+#!/bin/bash
+buildarch=4
+ 
+KARCH=arm
+pkgbase=linux-armv7
+_srcname=linux-4.4
+_kernelname=${pkgbase#linux}
+_desc="ARMv7 multi-platform"
+pkgver=4.4.0
+pkgrel='ARCH'
+_kernver="${pkgver}-${pkgrel}"
+arch='armv7h'
+pkgdir=./output
+_basekernel=${_kernver%%-*}
+_basekernel=${_basekernel%.*}
+ 
+function generate_headers() {
+  install -dm755 "${pkgdir}/usr/lib/modules/${_kernver}"
+ 
+  install -D -m644 Makefile \
+    "${pkgdir}/usr/lib/modules/${_kernver}/build/Makefile"
+  install -D -m644 kernel/Makefile \
+    "${pkgdir}/usr/lib/modules/${_kernver}/build/kernel/Makefile"
+  install -D -m644 .config \
+    "${pkgdir}/usr/lib/modules/${_kernver}/build/.config"
+ 
+  mkdir -p "${pkgdir}/usr/lib/modules/${_kernver}/build/include"
+ 
+  for i in acpi asm-generic config crypto drm generated keys linux math-emu \
+    media net pcmcia scsi sound trace uapi video xen; do
+    cp -a include/${i} "${pkgdir}/usr/lib/modules/${_kernver}/build/include/"
+  done
+ 
+  # copy arch includes for external modules
+  mkdir -p ${pkgdir}/usr/lib/modules/${_kernver}/build/arch/$KARCH
+  cp -a arch/$KARCH/include ${pkgdir}/usr/lib/modules/${_kernver}/build/arch/$KARCH/
+  for i in dove exynos mvebu omap2 versatile; do
+    mkdir -p ${pkgdir}/usr/lib/modules/${_kernver}/build/arch/$KARCH/mach-${i}
+    cp -a arch/$KARCH/mach-${i}/include ${pkgdir}/usr/lib/modules/${_kernver}/build/arch/$KARCH/mach-${i}/
+  done
+  for i in omap orion samsung versatile; do
+    mkdir -p ${pkgdir}/usr/lib/modules/${_kernver}/build/arch/$KARCH/plat-${i}
+    cp -a arch/$KARCH/plat-${i}/include ${pkgdir}/usr/lib/modules/${_kernver}/build/arch/$KARCH/plat-${i}/
+  done
+ 
+  # copy files necessary for later builds, like nvidia and vmware
+  cp Module.symvers "${pkgdir}/usr/lib/modules/${_kernver}/build"
+  cp -a scripts "${pkgdir}/usr/lib/modules/${_kernver}/build"
+ 
+  # fix permissions on scripts dir
+  chmod og-w -R "${pkgdir}/usr/lib/modules/${_kernver}/build/scripts"
+  mkdir -p "${pkgdir}/usr/lib/modules/${_kernver}/build/.tmp_versions"
+ 
+  mkdir -p "${pkgdir}/usr/lib/modules/${_kernver}/build/arch/${KARCH}/kernel"
+ 
+  cp arch/${KARCH}/Makefile "${pkgdir}/usr/lib/modules/${_kernver}/build/arch/${KARCH}/"
+ 
+  cp arch/${KARCH}/kernel/asm-offsets.s "${pkgdir}/usr/lib/modules/${_kernver}/build/arch/${KARCH}/kernel/"
+ 
+  # add docbook makefile
+  install -D -m644 Documentation/DocBook/Makefile \
+    "${pkgdir}/usr/lib/modules/${_kernver}/build/Documentation/DocBook/Makefile"
+ 
+  # add dm headers
+  mkdir -p "${pkgdir}/usr/lib/modules/${_kernver}/build/drivers/md"
+  cp drivers/md/*.h "${pkgdir}/usr/lib/modules/${_kernver}/build/drivers/md"
+ 
+  # add inotify.h
+  mkdir -p "${pkgdir}/usr/lib/modules/${_kernver}/build/include/linux"
+  cp include/linux/inotify.h "${pkgdir}/usr/lib/modules/${_kernver}/build/include/linux/"
+ 
+  # add wireless headers
+  mkdir -p "${pkgdir}/usr/lib/modules/${_kernver}/build/net/mac80211/"
+  cp net/mac80211/*.h "${pkgdir}/usr/lib/modules/${_kernver}/build/net/mac80211/"
+ 
+  # add dvb headers for external modules
+  # in reference to:
+  # http://bugs.archlinux.org/task/9912
+  mkdir -p "${pkgdir}/usr/lib/modules/${_kernver}/build/drivers/media/dvb-core"
+  cp drivers/media/dvb-core/*.h "${pkgdir}/usr/lib/modules/${_kernver}/build/drivers/media/dvb-core/"
+  # and...
+  # http://bugs.archlinux.org/task/11194
+  mkdir -p "${pkgdir}/usr/lib/modules/${_kernver}/build/include/config/dvb/"
+  cp include/config/dvb/*.h "${pkgdir}/usr/lib/modules/${_kernver}/build/include/config/dvb/"
+ 
+  # add dvb headers for http://mcentral.de/hg/~mrec/em28xx-new
+  # in reference to:
+  # http://bugs.archlinux.org/task/13146
+  mkdir -p "${pkgdir}/usr/lib/modules/${_kernver}/build/drivers/media/dvb-frontends/"
+  cp drivers/media/dvb-frontends/lgdt330x.h "${pkgdir}/usr/lib/modules/${_kernver}/build/drivers/media/dvb-frontends/"
+  mkdir -p "${pkgdir}/usr/lib/modules/${_kernver}/build/drivers/media/i2c/"
+  cp drivers/media/i2c/msp3400-driver.h "${pkgdir}/usr/lib/modules/${_kernver}/build/drivers/media/i2c/"
+ 
+  # add dvb headers
+  # in reference to:
+  # http://bugs.archlinux.org/task/20402
+  mkdir -p "${pkgdir}/usr/lib/modules/${_kernver}/build/drivers/media/usb/dvb-usb"
+  cp drivers/media/usb/dvb-usb/*.h "${pkgdir}/usr/lib/modules/${_kernver}/build/drivers/media/usb/dvb-usb/"
+  mkdir -p "${pkgdir}/usr/lib/modules/${_kernver}/build/drivers/media/dvb-frontends"
+  cp drivers/media/dvb-frontends/*.h "${pkgdir}/usr/lib/modules/${_kernver}/build/drivers/media/dvb-frontends/"
+  mkdir -p "${pkgdir}/usr/lib/modules/${_kernver}/build/drivers/media/tuners"
+  cp drivers/media/tuners/*.h "${pkgdir}/usr/lib/modules/${_kernver}/build/drivers/media/tuners/"
+ 
+  # add xfs and shmem for aufs building
+  mkdir -p "${pkgdir}/usr/lib/modules/${_kernver}/build/fs/xfs"
+  mkdir -p "${pkgdir}/usr/lib/modules/${_kernver}/build/mm"
+ 
+  # copy in Kconfig files
+  for i in $(find . -name "Kconfig*"); do
+    mkdir -p "${pkgdir}"/usr/lib/modules/${_kernver}/build/`echo ${i} | sed 's|/Kconfig.*||'`
+    cp ${i} "${pkgdir}/usr/lib/modules/${_kernver}/build/${i}"
+  done
+ 
+  #chown -R root.root "${pkgdir}/usr/lib/modules/${_kernver}/build"
+  find "${pkgdir}/usr/lib/modules/${_kernver}/build" -type d -exec chmod 755 {} \;
+ 
+  # strip scripts directory
+  find "${pkgdir}/usr/lib/modules/${_kernver}/build/scripts" -type f -perm -u+w 2>/dev/null | while read binary ; do
+    case "$(file -bi "${binary}")" in
+      *application/x-sharedlib*) # Libraries (.so)
+        /usr/bin/strip ${STRIP_SHARED} "${binary}";;
+      *application/x-archive*) # Libraries (.a)
+        /usr/bin/strip ${STRIP_STATIC} "${binary}";;
+      *application/x-executable*) # Binaries
+        /usr/bin/strip ${STRIP_BINARIES} "${binary}";;
+    esac
+  done
+ 
+  # remove unneeded architectures
+  rm -rf "${pkgdir}"/usr/lib/modules/${_kernver}/build/arch/{alpha,arc,arm26,arm64,avr32,blackfin,c6x,cris,frv,h8300,hexagon,ia64,m32r,m68k,m68knommu,metag,mips,microblaze,mn10300,openrisc,parisc,powerpc,ppc,s390,score,sh,sh64,sparc,sparc64,tile,unicore32,um,v850,x86,xtensa}
+ 
+}
+ 
+function generate_modules() {
+  mkdir -p "${pkgdir}"/{lib/modules,lib/firmware}
+  ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- make INSTALL_MOD_PATH="${pkgdir}" modules_install
+  ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- make INSTALL_DTBS_PATH="${pkgdir}/boot/dtbs" dtbs_install
+  cp arch/$KARCH/boot/zImage "${pkgdir}/boot/zImage"
+ 
+  # remove build and source links
+  rm -f "${pkgdir}"/lib/modules/${_kernver}/{source,build}
+  # remove the firmware
+  rm -rf "${pkgdir}/lib/firmware"
+  # gzip -9 all modules to save 100MB of space
+  find "${pkgdir}" -name '*.ko' |xargs -P 2 -n 1 gzip -9
+  # make room for external modules
+  ln -s "../extramodules-${_basekernel}-${_kernelname:-ARCH}" "${pkgdir}/lib/modules/${_kernver}/extramodules"
+  # add real version for building modules and running depmod from post_install/upgrade
+  mkdir -p "${pkgdir}/lib/modules/extramodules-${_basekernel}-${_kernelname:-ARCH}"
+  echo "${_kernver}" > "${pkgdir}/lib/modules/extramodules-${_basekernel}-${_kernelname:-ARCH}/version"
+ 
+  # Now we call depmod...
+  depmod -b "$pkgdir" -F System.map "$_kernver"
+ 
+  # move module tree /lib -> /usr/lib
+  cp -r "$pkgdir/lib" "$pkgdir/usr"
+  rm -rf "$pkgdir/lib"
+}
+ 
+generate_headers
+generate_modules
+</PRE>
+
+
+<p>At the end, I would like to comment something you need to do for a better experience 
+of running Arch ARM on QEMU.</p>
+
+<p>First, you might need to compile Linux kernel and enable "open by fhandle syscalls" 
+as mentioned in this tutorial. Otherwise, you might wait for 1'30 for ttyAMA0. 
+Reference: <a href="https://www.olimex.com/forum/index.php?topic=3260.0">thread1</a>, 
+<a href="http://www.gossamer-threads.com/lists/linux/kernel/1392896">thread2</a>.</p>
+
+<p>Second, there are many <b>useless</b> system services and <b>unworkable</b> 
+services. You might be interested in <a target="_b" 
+href="http://www.ploxiln.net/arch_systemd_cleanup.html">clean up systemd</a>.  After 
+launching Arch ARM on QEMU and logging in, you can mask out all the unworkable (failed) 
+services in your Arch ARM. After doing this, don't forget to gently "poweroff" Arch 
+ARM.</p>
+
+<h3>Choose of Linaro Compiler</h3>
+
+<p>I would like to comment one of the most important things in developing the 
+application and the root file system. The Compiler. There are many toolchain providers 
+on the web, but there is one very popular and continuously updating their toolchain, 
+Linaro. Linaro also provides Linux kernels for ARM. I didn't choose that because I'm 
+more familiar with mainline Linux Kernel. However, Linaro's kernel is a good choice 
+with security as well.</p>
+
+<p>When you go to the <a target="_blank" 
+href="https://releases.linaro.org/components/toolchain/binaries/">release page</a>
+ of the toolchain, you will see different naming of compilers. If you are building a 
+rootfs for ARM processor supporting hardware floating point unit, feel free to choose 
+the one with "hf" suffix. If your processor does not have a hardware floating point 
+unit, go for the one without "hf", otherwise, your codes might not work due to 
+unsupported instructions. So, generally, you can use <strong>arm-linux-gnueabi</strong> 
+for your processor.</p>
+
+<p>arm-linux-gnueabi is the cross-toolchain package for the armel architecture. This 
+toolchain implies the EABI generated by gcc's -mfloat-abi=softfp options.</p>
+
+<p>arm-linux-gnueabihf is the cross-toolchain package for the armhf architecture. This 
+toolchain implies the EABI generated by the gcc -mfloat-abi=hard option.</p>
+
+<p>Specifying "soft" causes GCC to generate output containing library calls for 
+floating-point operations. "softfp" allows the generation of code using hardware 
+floating-point instructions, but still uses the soft-float calling conventions. "hard" 
+allows generation of floating-point instructions and uses FPU-specific calling 
+conventions.</p>
+
+<ul>
+  <li>arm-linux-gnueabi: The general tool chain with Linux dependency.</li>
+  <li>arm-linux-gnueabihf: Utilize hardware floating point registers.</li>
+  <li>armeb-linux-gnueabi: Big Endian.</li>
+  <li>armeb-linux-gnueabihf: Big Endian. Utilize hardware floating point registers.</li>
+  <li>arm-none-eabi: Bare metal. The general tool chain that does not rely on any Linux 
+      Kernel.</li>
+  <li>armeb-none-eabi: Bare metal. Big Endian.</li>
+</ul>
+
+<p>When you are compiling the Busybox and get an error with "libm.a" which is "-lm" in 
+the args, just don't use static linking. If that doesn't help, download 
+arm-linux-gnueabi<strong>hf</strong>. Because of unknown reason, the toolchain with 
+"hf" suffix contains libm.a while the other one does not.</p>
+
+<p>If you want to use Linaro's tool chain compiling Buildroot. You need to set the 
+following options:</p>
+
+<pre>
+Toolchain --->
+    Toolchain (Custom toolchain)
+    Toolchain origin (Pre-installed toolchain)
+    (/PATH/TO/TOOL_CHAIN/linaro-arm-linux-gnueabihf) Toolchain path
+    ($(ARCH)-linux-gnueabi) Toolchain prefix
+        External toolchain gcc version (4.9.x)
+        External toolchain kernel headers series (3.17.x)
+    [*] Toolchain has C++ support?
+</pre>
+
+<p>It seems like Linaro's toolchain does not pass the eabi test of 
+Buildroot, but we know it supports. We need to remove/delete two lines 
+of the script in order to successfully compile the files. They are two 
+"exit 1" codes at line number 360 and 367 as shown below. The 
+absolute position might be changed.</p>
+
+<PRE>
+#
+# Check that the Buildroot configuration of the ABI matches the
+# configuration of the external toolchain.
+#
+# $1: cross-gcc path
+# $2: cross-readelf path
+#
+check_arm_abi = \
+    __CROSS_CC=$(strip $1) ; \
+    __CROSS_READELF=$(strip $2) ; \
+    EXT_TOOLCHAIN_TARGET=`LANG=C $${__CROSS_CC} -v 2>&1 | grep ^Target | cut -f2 -d ' '` ; \
+    if ! echo $${EXT_TOOLCHAIN_TARGET} | grep -qE 'eabi(hf)?$$' ; then \
+        echo "External toolchain uses the unsuported OABI" ; \
+        exit 1 \
+    fi ; \
+    if ! echo 'int main(void) {}' | $${__CROSS_CC} -x c -o $(BUILD_DIR)/.br-toolchain-test.tmp - ; then \
+        rm -f $(BUILD_DIR)/.br-toolchain-test.tmp*; \
+        abistr_$(BR2_ARM_EABI)='EABI'; \
+        abistr_$(BR2_ARM_EABIHF)='EABIhf'; \
+        echo "Incorrect ABI setting: $${abistr_y} selected, but toolchain is incompatible"; \
+        exit 1 \
+    fi ; \
+    rm -f $(BUILD_DIR)/.br-toolchain-test.tmp*
+</PRE>
+
+<p>At the end, we need to strip out useless debugging information to reduce the size. 
+I choose to keep symbol table for back tracing and function tracing function of my 
+personal study. P.S. You can strip out all unnecessary things if you choose "strip" 
+instead of "none" here. It's the default action.</p>
+
+
+<PRE>
+~/$ arm-linux-gnueabihf-strip --strip-debug --strip-dwo ./rootfs/lib/*<br>
+~/$ arm-linux-gnueabihf-strip --strip-debug --strip-dwo ./rootfs/usr/lib/*
+</PRE>
+
+
+<p> </p>
+
+<h3>QEMU Arguments</h3>
+
+<p>QEMU has very complicated arguments. Here is an example to wrap up all the arguments 
+I used in this tutorial.</p>
+
+<ul>
+  <li>-M: Specify the machine type. Use "-M help" to list all the supported boards</li>
+  <li>-kernel: Specify the kernel image (bzimage)</li>
+  <li>-dtb: Specify the hardware description file (Device Tree Blob)</li>
+  <li>--nographic: Run QEMU without GUI. It's much more convenient.</li>
+  <li>-append: Specify Linux kernel arguments. Here we set default console to ttyAMA0 
+      which is one of QEMU's console when Guest OS/Applications wants to print something 
+      on host's terminal.</li>
+  <li>-drive: Specify a drive for the image. It can be SD card, flash, etc. It's the 
+      lowest level of drive API. We use if(interface) SD card with write back cache 
+      policy to save image access time.</li>
+  <li>-sd: It is a higher level API to specify a drive. It's equivalent to "-drive 
+      if=sd,file="</li>
+  <li>-net nic,macaddr=$macaddr: Specify the mac address</li>
+  <li>-net tap,vlan=0,ifname=tap0: Use tap device for internet access</li>
+  <li>-snapshot: Don't write back to the original disk image.</li>
+</ul>
+
+<p>The following example can run QEMU with internet access. Please refer to QEMU's 
+<a href="http://wiki.qemu.org/Documentation/Networking/NAT" target="_b">NAT</a> and 
+Arch's <a href="https://wiki.archlinux.org/index.php/QEMU#Creating_bridge_manually" 
+target="_b">QEMU networking</a> for further details.</p>
+
+<PRE>
+#!/bin/bash
+ 
+#export an environment variable with format print
+printf -v macaddr "52:54:%02x:%02x:%02x:%02x" $(( $RANDOM & 0xff)) $(( $RANDOM & 0xff )) $(( $RANDOM & 0xff)) $(( $RANDOM & 0xff ))
+ 
+sudo qemu-system-arm \
+    -M vexpress-a9 \
+    -kernel ./zImage_arch \
+    -dtb ./vexpress-v2p-ca9.dtb \
+    --nographic \
+    -append &quot;root=/dev/mmcblk0 rw roottype=ext4 console=ttyAMA0&quot; \
+    -drive if=sd,driver=raw,cache=writeback,file=./arch_rootfs.ext4 \
+    -net nic,macaddr=$macaddr \
+    -net tap,vlan=0,ifname=tap0 \
+    -snapshot
+</PRE>
+
+
+<p>You can now execute QEMU with the following command to run your kernel:</p>
+
+
+<PRE>
+~/$ qemu-system-arm \<br>
+-M vexpress-a9 \<br>
+-dtb ./vexpress-v2p-ca9.dtb \<br>
+-kernel ./zImage_arch \<br>
+-append "root=/dev/mmcblk0 rw roottype=ext4 console=ttyAMA0" \<br>
+-drive if=sd,driver=raw,cache=writeback,file=./arch_rootfs.ext4 \<br>
+--nographic \<br>
+-snapshot
+</PRE>
+
+
+<p>For Arch Linux user, to set up networking for QEMU, you need to set up 
+<a href="https://wiki.archlinux.org/index.php/Bridge_with_netctl">bridge with netctl</a> 
+for your computer, then do follows:</p>
+
+
+<PRE>
+# Switch to bridge. qemu_bridge is the netctl config file<br>
+~$ netctl switch-to qemu_bridge<br>
+# Assign gateway IP for bridge (This enables host to ssh guest)<br>
+~$ sudo ip addr add dev br0 192.168.0.254/24<br>
+# IPv4 forwarding (This enables guest to connect to global net. -o must be the name of  bridge you used)<br>
+~$ sudo iptables -t nat -A POSTROUTING -o br0 -j MASQUERADE<br>
+~$ sudo sysctl -w net.ipv4.ip_forward=1
+</PRE>
+
+
+<p>Create/edit the following two files for QEMU's hook.</p>
+
+<PRE>
+$ cat /etc/qemu-ifup
+#!/bin/sh
+ 
+echo "Executing /etc/qemu-ifup"
+echo "Bringing up $1 for bridged mode..."
+sudo /usr/bin/ip link set $1 up promisc on
+echo "Adding $1 to br0..."
+sudo /usr/bin/brctl addif br0 $1
+sleep 2
+
+$ cat /etc/qemu-ifdown
+#!/bin/sh
+ 
+echo "Executing /etc/qemu-ifdown"
+sudo /usr/bin/ip link set $1 down
+sudo /usr/bin/brctl delif br0 $1
+sudo /usr/bin/ip link delete dev $1
+</PRE>
+
+
+
+<p>Then, make them executable by:</p>
+
+
+<PRE>
+~$ sudo chmod +x /etc/qemu-ifup /etc/qemu-ifdown
+</PRE>
+
+
+<p>In Arch ARM, you can enable the network by setting proper IP and correct gateway of 
+br0.</p>
+
+
+<PRE>
+# Set IP<br>
+~$ ip addr add 192.168.0.2/24 dev eth0<br>
+# Set gateway to br0(host)<br>
+~$ ip route add default via 192.168.0.254 dev eth0<br>
+# Set DNS name server<br>
+~$ echo "nameserver 8.8.8.8" >> /etc/resolv.conf<br>
+# Use IPv4 mode of ping<br>
+~$ ping -4 8.8.8.8
+</PRE>
+
+<a name="ArmDeviceBootSequence"></a>
+<h3 class="entry-title">From PowerOn to Android - The Boot Sequence 
+<a href="https://javigon.com/2012/08/24/from-poweron-to-android-the-boot-sequence/" 
+target="_b">(Source Origin)</a></h3>
+
+
+<P>Posted on <time>August 24, 2012</time></a><span class="byline"> by javigon.napster
+
+<p>One of the main issues when dealing when embedded systems -specially as an amateur 
+developer- is understanding what happens since our board/tablet/phone/etc (we will refer 
+to is as a device from now on) is powered on, until the OS takes control of the device 
+and we are able to use it. Understanding this chain of events is crucial in order to 
+develop low-level routines for any given embedded platform, and equally necessary for 
+efficiently design high-level Apps.</p>
+
+<p><span id="more-330"></span>Before getting into the boot sequence itself, we are going 
+to say something about how the code is executed before reaching the root files system, 
+this is, how the low partition table is organize, and how it is different from "normal 
+partitions" recognized by the OS (and any other disk utility such as the one present
+ in Ubuntu or Mac OS).</p>
+
+<h4>Low Partition Table (raw) and Normal Partition Table</h4>
+
+<p>One of the main issues -at least it was for me- is how to understand <b>how</b>
+ code starts being executed once we press ON in our board/tablet/phone/etc. How does 
+the CPU know which code to execute first? Where is that code? How is it possible that 
+this code is found without even counting on a partition table as such, and even without 
+an MBR? This, I will try to explain here.</p>
+
+<p>Normally, in a boot device, the block 0 contains the <a target="_blank" 
+href="http://en.wikipedia.org/wiki/Master_boot_record">Master Boot Record (MBR)</a>.
+ This special sector (boot sector) contains information about how the device is 
+partitioned in a structure commonly referred as the <a target="_blank" 
+href="http://en.wikipedia.org/wiki/GUID_Partition_Table">partition table</a>. In this 
+way, anytime the SO needs anything knows where to start looking for it. However, when 
+starting up the system for the first time we do it, with a blank device without MBR or 
+partitions, even then, there are some things we can do.</p>
+
+<p>Once the a device is powered on it starts code from a know location (ROM) and looks 
+for the first stage bootloader in a specific block.  After doing some initializations, 
+this first bootloader <strong>points&nbsp;</strong>to a second stage bootloader, which 
+is placed in another well-known location. This process of "pointing" is sometimes 
+referred as Low Partition Table or <a target="_blank" 
+href="http://en.wikipedia.org/wiki/Raw_device">Raw Partition</a>.  This is, there is 
+no partition as such, but the code knows where to continue, since it is hard-coded 
+where it has to look for things. If the ROM expects to find a bootloader in sector 1 
+and it is not, it stops its operation, otherwise it executes the code present there 
+and continues. Normally in embedded systems (such as Android) the images of the 
+<a href="http://en.wikipedia.org/wiki/RAM_drive" target="_blank">RAMDisk</a> and the 
+Kernel are located in known positions outside the partition table, so that they can be 
+loaded into the DRAM when the system boots up. These images are generated when compiling 
+the kernel and Android itself.</p>
+
+<p>The main advantage of this is that only with a bootloader, in our booting device 
+-which we can copy ourselves there simply by using <a target="_blank" 
+href="http://en.wikipedia.org/wiki/Dd_%28Unix%29">dd</a>&nbsp;if dealing with a USB 
+stick or an SD card- we can access a basic terminal with very useful commands such as 
+fdisk or fastboot. (We will discuss how to deal with SD Cards (it is exactly the same 
+for USB sticks) when using them as boot devices). By using these commands we can create 
+the MBR and the partition table (fdisk) and upload the images of the kernel, the ramdisk 
+or the system (fastboot) in a more friendly and faster way than "manually" copying them 
+using dd.</p>
+
+<p>Here we have an example of the hardkernel's ODROID-A4 partitions, both raw and 
+normal (www.hardkernel.com):</p>
+
+<p><a href="https://javigongon.files.wordpress.com/2012/08/partitiontable.png"><img 
+src="https://javigongon.files.wordpress.com/2012/08/partitiontable.png?w=417&h=384" 
+height="384" width="417"></a></p>
+
+<h4>Power On - ROM</h4>
+
+<p>When a system is first booted, the processor -as explained before- executes code 
+place in a well-known location. In embedded systems, this location usually is an 
+internal ROM that initializes some of the components in the board and finds a device 
+to boot up from (in some platforms this small piece of code is referred as BL0)- it 
+varies from board to board and from CPU to CPU also. In the case of a PC, this task 
+is carried out by the BIOS, which is way more flexible in terms of choosing a device 
+to boot up from, component configuration, etc. In either case, the result is the same 
+and the system attempts to boot up.</p>
+
+<p>If a device is eligible for booting up - this means, a first stage bootloader is 
+found (referred as BL1, continuing with the convention started above)- the BL1 is 
+copied intro an internal RAM, being responsible for setting up clocks, SDRAM and 
+loading the remaining boot loader (BL2) into it.&nbsp;Once again this process varies 
+from board to board, but we can assume that they all do something very similar, being 
+the ultimate goal the same for all of them - placing the second stage bootloader (BL2) 
+in DRAM and running it.</p>
+
+<p>Here we have an example of the hardkernel's ODROID-A4 Bootloader Loading Process 
+(www.hardkernel.com):</p>
+
+<p><a href="https://javigongon.files.wordpress.com/2012/08/odroida4boot.png"><img 
+src="https://javigongon.files.wordpress.com/2012/08/odroida4boot.png"></a></p>
+
+<h4>The Kernel</h4>
+
+<p>The bootloader (now referring to it as a whole, BL0 + BL1 + BL2) once it has 
+initialized all the components in the board, loads into RAM -from a well-know 
+location- a more complex software, &nbsp;known as the kernel. The kernel, which has 
+been specifically cross-compiled for our board (CPU, Memory and Components), is 
+responsible for managing the system's resources, being the "bridge" between the 
+hardware and the software. When the kernel is decompressed, it loads and start 
+several processes, creating a low-level layer for supporting the root file system 
+(Android in our case). This task is carried out by what is known as the Init Sequence 
+(init.rc).</p>
+
+<p>One remarkable thing here is that since the kernel know the hardware, and has to 
+communicate with it, not only does it need to be cross-compile depending on the 
+platform itself, but it is specific for each board. This implies and added complexity, 
+given that not every kernel will be able to be loaded in every board - as it tends to 
+happen with PCs, where there is a set of standard drivers that are compatible with 
+most hardware, from CPUs to Graphic controllers. For example, if we want to change the 
+kernel in a Samsung Galaxy III, we need to know that it comes with a <a target="_blank" 
+href="http://www.samsung.com/global/business/semiconductor/minisite/Exynos/products4quad.html">Exynos 4412</a>&nbsp;, 
+which is an <a href="http://www.arm.com/products/processors/cortex-a/cortex-a9.php" 
+target="_blank">ARM Quad Cortex-9</a> processor. With this knowledge we know the 
+capabilities of our processor and the target platform to cross-compile, however, we 
+lack details concerning the board as such, this means the schematics of the Samsung 
+Galaxy III. Since our intention is merely development (not hacking), we can access what 
+is called development boards -such as the ones provided by hardkernel (<a target="_blank"
+ href="http://www.hardkernel.com/renewal_2011/main.php">ODROID</a>), which are very 
+close to Samsung's and open source. Counting on information concerning the used 
+components (FLASH and RAM chips, Etherner controller, etc), it is possible to create 
+configuration files for a kernel to match a specific target platform. Unfortunately 
+this changes in the kernel are very specific on the kernel version, being normally the 
+case that we are tied to a very few versions of the kernel when dealing with a given 
+board. It is common all these changes made in the kernel (version x) are group under 
+a patch, which can be apply to an official <a target="_blank" 
+href="http://www.kernel.org/">kernel</a> (version x) so that it is compatible with our 
+board. (A future post will comment on how to patch a kernel).</p>
+
+<h4>Dalvik VM and Zygote</h4>
+
+<p>Normally, one of the last steps of the init sequence is to load the root file system 
+and the OS, which is in itself the very last step before us -or our code- taking over 
+control of the board/device/machine.&nbsp;Nonetheless, Android does not run directly on
+ top of the kernel since it has been coded in Java and therefore needs to be run on top 
+of a Virtual Machine - <em>Java being marketed as "write once, run anywhere".</em></p>
+
+<p>The VM Android runs on top of is called <a target="_blank" 
+href="http://en.wikipedia.org/wiki/Dalvik_%28software%29">Dalvik</a>&nbsp;(Google
+ decided to abandon both JME and JVM), in a move from traditionally favored stack-based 
+VM architectures to register-based ones. One of the main reasons for this favoritism 
+was mostly due to simplicity of VM implementation, ease of writing a compiler back-end 
+(most VMs are originally designed to host a single language and code density (i.e., 
+executables for stack architectures are invariably smaller than executables for 
+register architectures) [1].</p>
+
+<p>Since every application counts on its own instance of the VM to run in, VM instances 
+are required to start quickly when a new application is launched. Also the memory foot 
+print of the VM is required to be minimal. In order to achieve this, Android introduced 
+a concept called Zygote, in order to enable both sharing of code across VM instances 
+and to provide fast startup time of new VM instances. The Zygote process initializes 
+one Dalvik VM, which preloads and preinitializes code library classes.&nbsp;Once the 
+Zygote has initialized, it will sit and wait for socket requests coming from the runtime 
+process indicating that it should fork newVM instances based on the ZygoteVM instance. 
+[2]</p>
+
+<p>As Zygotes has to be run before Android core processes can be executed, it is 
+launched by the kernel, as part of the init sequence, already in the user space.</p>
+
+<h4>Root File System - ANDROID</h4>
+
+<p>Finally, Android code starts being executed: volume demons, libraries, the activity 
+manager, core applications, etc., leading to the launching of the graphical 
+interface.</p>
+
+<p>Further explanation concerning processes running on the Dalvik VM and Android Apps. 
+is beyond the scope of this tutorial.</p>
+
+<p>Finally, and as a visual aid for understanding what we have discussed here, we have 
+a simplified flow diagram comparison of the different boot sequences of a device running 
+Linux (left), a device running Android (middle) and a PC running Linux.</p>
+
+<p><a href="https://javigongon.files.wordpress.com/2012/08/bootsequence.png"><img 
+src="https://javigongon.files.wordpress.com/2012/08/bootsequence.png"></a></p>
+
+<h4>REFERENCES</h4>
+
+<OL>
+  <li> Register vs. stack based VMs.&nbsp;<em>Derek Jones.&nbsp;</em>September, 2009. 
+(<a href="http://shape-of-code.coding-guidelines.com/2009/09/17/register-vs-stack-based-vms/" target="_blank">here</a>)</p>
+
+  <li> The Dalvik Virtual Machine Architecture,&nbsp;<em>David Ehringer.</em> March, 
+2010. (<a href="http://davidehringer.com/software/android/The_Dalvik_Virtual_Machine.pdf"
+ target="_blank">here</a>)</p>
+
+  <li> Android Zygote Startup. (<a href="http://elinux.org/Android_Zygote_Startup" 
+       target="_blank">here</a>)</p>
+
+  <li> Hardkernel - ODROID (<a title="Hardkernel" href="http://hardkernel.com/" 
+       target="_blank">here</a>)</p>
+
+  <li> Samsung Exynos 4 (<a href="http://www.samsung.com/global/business/semiconductor/minisite/Exynos/index.html" 
+       target="_blank">here</a>)</p>
+
+  <li> The Linux Kernel Archives (<a title="Kernel" href="http://www.kernel.org/" 
+       target="_blank">here</a>)</p>
+
+  <li> ARM - Cortex-A9 Processor (<a href="http://www.arm.com/products/processors/cortex-a/cortex-a9.php" 
+       target="_blank">here</a>)</p>
+</OL>
+
+<p>I hope the post has been helpful and clarifying <img width="20" hight="20" 
+src="https://s0.wp.com/wp-content/mu-plugins/wpcom-smileys/twemoji/2/svg/1f642.svg"></p>
