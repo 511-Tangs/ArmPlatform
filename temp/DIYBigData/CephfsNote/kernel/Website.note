@@ -1,7 +1,0 @@
-##HYP_MODE define
-http://lxr.free-electrons.com/source/arch/arm/include/uapi/asm/ptrace.h#L57
-##HYP_MODE_MISMATCHED
-http://lxr.free-electrons.com/ident?i=is_hyp_mode_mismatched
-##cHECK HYP_MODE
-http://lxr.free-electrons.com/source/arch/arm/include/asm/virt.h#L73
-
